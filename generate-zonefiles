@@ -385,18 +385,7 @@ sub enum_naptr_rr
 
     my (%enumdata, $e164base, $e164root);
 
-    my %staticmap = ('+468161225' => 'sip:ft@it.su.se',
-		     '+468164642' => 'sip:roland@it.su.se',
-		     '+468164648' => 'sip:lha@it.su.se',
-		     #'+468164541' => 'sip:leifj@it.su.se',
-		     '+468161060' => 'sip:swold@it.su.se',
-		     '+468164231' => 'sip:lfran@it.su.se',
-		     '+468164472' => 'sip:jj@it.su.se',
-		     '+468163357' => 'sip:jelun@it.su.se',
-		     '+468161223' => 'sip:wikm@it.su.se',
-		     '+468161597' => 'sip:rjons@it.su.se',
-		     '+4686747653' => 'sip:max@it.su.se',
-		     '+4686747505' => 'sip:andreaso@it.su.se'
+    my %staticmap = (
 		     );
 
     my $numbers_count = 0;
