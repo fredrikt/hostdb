@@ -788,7 +788,7 @@ sub html_links
 }
 
 
-=head unique_id
+=head2 unique_id
 
     Return a list of objects with unique id\'s. Should only be used on
     a list of the same type of objects, where id\'s are supposed to be

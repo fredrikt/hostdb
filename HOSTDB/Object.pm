@@ -349,7 +349,7 @@ sub _validate_datetime
 }
 
 
-=type2 _validate_list_of_usernames
+=head2 _validate_list_of_usernames
 
     Check that input is a list of syncatically valid usernames. Removes whitespace,
     splits on comma, checks each element using is_valid_username and then makes
