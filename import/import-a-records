@@ -76,14 +76,14 @@ foreach my $file (@files) {
 		next;
 	    }
 
-	    $imported++ if (add_host ($hostdb, 0, $name, $ttl, $ip));
+	    $imported++ if (add_host ($hostdb, 0, $name, $ttl, $ip, $debug, $db_dry_run));
 	}
     }
 
     foreach my $arrayref (@delayed) {
 	my ($name, $ttl, $ip) = @{ $arrayref };
 
-	$imported++ if (add_host ($hostdb, 1, $name, $ttl, $ip));
+	$imported++ if (add_host ($hostdb, 1, $name, $ttl, $ip, $debug, $db_dry_run));
     }
 
     print ("Imported $imported A RR's from file $file\n");
@@ -95,12 +95,29 @@ print ("done\n");
 
 sub add_host
 {
-    my ($hostdb, $lookuphost, $name, $ttl, $ip) = @_;
+    my ($hostdb, $findparent, $name, $ttl, $ip, $debug, $dry_run) = @_;
 
-    my $host = $hostdb->create_host();
+    my $host = $hostdb->findhostbyname ($name);
+
+    if (defined ($host)) {
+	warn ("$0: conflicting hostname '$name' (import IP $ip, hostdb IP " . $host->ip () . "), skipped\n");
+	return 0;
+    }
+
+    $host = undef;
+
+    if ($dry_run) {
+	print ("dry-run skipping host '$name $ttl $ip'\n");
+	return 0;
+    }
+
+    print ("add host '$name $ttl $ip'\n") if ($debug);
+
+    $host = $hostdb->create_host();
 
     die ("$0: Could not create host object: $hostdb->{error}\n") unless ($host);
-    if ($lookuphost) {
+
+    if ($findparent) {
 	my $super_host = $hostdb->findhostbyip ($ip);
 	$host->partof ($super_host->id ()) if (defined ($super_host) and $super_host->id ());
 	undef ($super_host);
