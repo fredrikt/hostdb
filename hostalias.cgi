@@ -9,49 +9,17 @@ use strict;
 use HOSTDB;
 use SUCGI2;
 
-my $table_blank_line = "<tr><td COLSPAN='4'>&nbsp;</td></tr>\n";
-my $table_hr_line = "<tr><td COLSPAN='4'><hr></td></tr>\n";
+my $table_cols = 4;
 
-my $debug = 0;
-if (defined($ARGV[0]) and $ARGV[0] eq '-d') {
-    shift (@ARGV);
-    $debug = 1;
-}
-
-my $hostdbini = Config::IniFiles->new (-file => HOSTDB::get_inifile ());
-my $sucgi_ini;
-if (-f $hostdbini->val ('sucgi', 'cfgfile')) {
-    $sucgi_ini = Config::IniFiles->new (-file => $hostdbini->val ('sucgi', 'cfgfile'));
-} else {
-    warn ("No SUCGI config-file ('" . $hostdbini->val ('sucgi', 'cfgfile') . "')");
-}
-my $q = SUCGI2->new ($sucgi_ini, 'hostdb');
-$q->begin (title => 'Modify/Add Host alias');
+## Generic Stockholm university HOSTDB CGI initialization
+my ($table_blank_line, $table_hr_line, $empty_td) = HOSTDB::StdCGI::get_table_variables ($table_cols);
+my $debug = HOSTDB::StdCGI::parse_debug_arg (@ARGV);
+my ($hostdbini, $hostdb, $q, $remote_user) = HOSTDB::StdCGI::get_hostdb_and_sucgi ('Modify/Add Host alias', $debug);
+my (%links, $is_admin, $is_helpdesk, $me);
+HOSTDB::StdCGI::get_cgi_common_variables ($q, $hostdb, $remote_user, \%links, \$is_admin, \$is_helpdesk, $me);
+## end generic initialization
 
 my @readwrite_attributes = ('aliasname', 'comment', 'dnsstatus', 'ttl');
-
-my $hostdb = eval {
-    HOSTDB::DB->new (ini => $hostdbini, debug => $debug);
-};
-
-if ($@) {
-    my $e = $@;
-    $q->print ("&nbsp;<p><ul><font COLOR='red' SIZE='3'><strong>Could not create HOSTDB object: $e</strong></font></ul>\n\n");
-    $q->end ();
-    die ("$0: Could not create HOSTDB object: '$e'");
-}
-
-my $me = $q->state_url ();
-my %links = $hostdb->html_links ($q);
-
-my $remote_user = $q->user();
-unless ($remote_user) {
-    $q->print ("&nbsp;<p><ul><font COLOR='red' SIZE='3'><strong>You are not logged in.</strong></font></ul>\n\n");
-    $q->end ();
-    die ("$0: Invalid REMOTE_USER environment variable '$ENV{REMOTE_USER}'");
-}
-my $is_admin = $hostdb->auth->is_admin ($remote_user);
-my $is_helpdesk = $hostdb->auth->is_helpdesk ($remote_user);
 
 my $host;
 # First try to find a host using the HTML form parameter 'hostid', if supplied.
@@ -89,29 +57,24 @@ if (! defined ($alias)) {
 }
 
 
-
-my (@links, @admin_links);
-push (@admin_links, "[<a HREF='$links{netplan}'>netplan</a>]") if ($links{netplan});
-push (@links, "[<a HREF='$links{home}'>home</a>]") if ($links{home});
-push (@links, "[<a HREF='$links{whois}'>whois</a>]") if ($links{whois});
-
-my $l = '';
-if (@links or @admin_links) {
-    $l = join(' ', @links, @admin_links);
-}
-
+## Generic Stockholm university HOSTDB CGI header
+my (@l);
+push (@l, "[<a HREF='$links{home}'>home</a>]") if ($links{home});
+push (@l, "[<a HREF='$links{whois}'>whois</a>]") if ($links{whois});
+HOSTDB::StdCGI::print_cgi_header ($q, 'Add/Modify host alias (CNAME)', $is_admin, $is_helpdesk, \%links, \@l);
+## end generic header
 
 $q->print (<<EOH);
 	<form ACTION='$me' METHOD='post'>
 	<table BORDER='0' CELLPADDING='0' CELLSPACING='3' WIDTH='100%'>
-		$table_blank_line
+		<!-- table width disposition tds -->
 		<tr>
-			<td COLSPAN='3' ALIGN='center'>
-				<h3>HOSTDB: Add/Modify host alias (CNAME)</h3>
-			</td>
-			<td ALIGN='right'>$l</td>
+			<td WIDTH='10%'>&nbsp;</td>
+			<td WIDTH='15%'>&nbsp;</td>
+			<td WIDTH='40%'>&nbsp;</td>
+			<td WIDTH='35%'>&nbsp;</td>
 		</tr>
-		$table_blank_line
+    
 EOH
 
 my $action = lc ($q->param('action'));
@@ -153,7 +116,8 @@ if (defined ($alias)) {
 
 END:
 $q->print (<<EOH);
-	</table></form>
+	</table>
+    </form>
 EOH
 
 $q->end();
@@ -456,7 +420,14 @@ sub alias_form
 		<tr>
 			<td><strong>DNS</strong></td>
 			<td>$dnsstatus</td>
-			<td>TTL&nbsp;&nbsp;$ttl</td>
+			$empty_td
+			$empty_td
+		</tr>
+
+		<tr>
+			$empty_td
+			<td>TTL</td>
+			<td>$ttl</td>
 			$empty_td
 		</tr>
 
