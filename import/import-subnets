@@ -34,7 +34,7 @@ my @delayed;
 while (my $rad = <FIL>) {
 	chomp ($rad);
 
-	if ($rad =~ /^O\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\/(\d{1,2})\s/) {
+	if ($rad =~ /^O[A-Z\s]*\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\/(\d{1,2})\s/) {
 		my $subnet = $1;
 		my $slash = $2;
 
