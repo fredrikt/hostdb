@@ -15,8 +15,7 @@ CREATE TABLE host (
 	user VARCHAR(255),
 	partof INT,
 	reverse ENUM('Y', 'N') DEFAULT 'N',
-	last_modified TIMESTAMP,
-	mac_address_ts TIMESTAMP,
+	mac_address_ts DATETIME,
 	client_id VARCHAR(255),
 	options MEDIUMBLOB,
 	PRIMARY KEY (id)
