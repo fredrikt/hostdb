@@ -74,7 +74,7 @@ my $subnet = $hostdb->findsubnet ($subnet_name);
 
 die ("Could not find subnet '$subnet_name' in database\n") if (! $subnet);
 
-test_color (\%colors, $opt_htmlcolor) if (defined ($opt_htmlcolor));
+test_color ($hostdb, \%colors, $opt_htmlcolor) if (defined ($opt_htmlcolor));
 
 $subnet->subnet ($opt_subnet)			or die ("$0: Invalid subnet - $subnet->{error}\n") if (defined ($opt_subnet));
 $subnet->ipver ($opt_ipver)			or die ("$0: Invalid ipver - $subnet->{error}\n") if (defined ($opt_ipver));
@@ -108,16 +108,9 @@ sub load_colors
 	return %res;
 }
 
-sub is_valid_color
-{
-	my $in = shift;
-	
-	return 1 if ($in =~ /^#[0-9a-f]{6,6}$/i);
-	return 0;
-}
-
 sub test_color
 {
+	my $hostdb = shift;
 	my $colors_ref = shift;
 	my $color_name = shift;
 
@@ -126,12 +119,12 @@ sub test_color
 	if (defined ($colors_ref->{$color_name})) {
 		$c = $colors_ref->{$color_name};
 
-		if (! is_valid_color ($c)) {
+		if (! $hostdb->is_valid_htmlcolor ($c)) {
 			die ("$0: Color '$color_name' resolved to '$c' which is an invalid HTML color.\n");
 		}
 	}
 
-	if (! is_valid_color ($c)) {
+	if (! $hostdb->is_valid_htmlcolor ($c)) {
 		warn ("$0: Color '$c' is an invalid HTML color.\n");
 	}
 }
