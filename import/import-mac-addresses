@@ -1,4 +1,4 @@
-#!/usr/local/bin/perl
+#!/usr/local/bin/perl -w
 #
 # $Id$
 #
@@ -14,7 +14,7 @@ use Config::IniFiles;
 #use lib 'blib/lib';
 use HOSTDB;
 use Getopt::Std;
-use NDBM_File;
+use DB_File;
 use Fcntl;
 use Socket;
 use vars qw ($opt_h $opt_d $opt_r $opt_w $opt_f $opt_D);
@@ -22,13 +22,17 @@ use vars qw ($opt_h $opt_d $opt_r $opt_w $opt_f $opt_D);
 getopts ('Dhdr:w:f:');
 
 my $debug = defined ($opt_d);
-my $read_mode = 0;
-my $write_mode = 0;
+my $dump_db = defined ($opt_D);
+my $read_db = defined ($opt_r);
+my $write_db = defined ($opt_w);
 my @files = @ARGV;
 my $default_ttl;
+my $filelistfile;
 
 if ($opt_f) {
-	open (FIL, "< $opt_f") or die("Could not open file '$opt_f' for reading: $!\n");
+	$filelistfile = $opt_f;
+
+	open (FIL, "< $opt_f") or die("Could not open file '$filelistfile' for reading: $!\n");
 
 	my $line;
 	while ($line = <FIL>) {
@@ -38,7 +42,7 @@ if ($opt_f) {
 	close (FIL);
 }
 
-if ($#files == -1 and ! $opt_r) {
+if ($#files == -1 and ! $read_db) {
 	die ("Syntax: $0 [options] [cisco-output-file ...]\n" .
 	     "	options :\n" .
 	     "		-f file		read list of cisco-output-files from file\n" .
@@ -48,11 +52,11 @@ if ($#files == -1 and ! $opt_r) {
 	    );
 }
 
-if ($opt_f and $opt_r) {
+if ($filelistfile and $read_db) {
 	die ("$0: options -f and -r cannot be used at the same time\n");
 }
 
-if ($opt_r and $opt_w) {
+if ($read_db and $write_db) {
 	die ("$0: options -r and -w cannot be used at the same time\n");
 }
 
@@ -69,30 +73,40 @@ my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
 
 my (%ip_to_mac, %ip_mac_to_ts, %ip_mac_to_count);
 
-if ($opt_r or $opt_w) {
-	my $hf = $opt_r || $opt_w;
+if ($read_db or $write_db) {
+	warn ("Tying hashes for reading\n") if ($debug and $read_db);
+	warn ("Tying hashes for writing\n") if ($debug and $write_db);
+
+	my $db_cache;
 	
-	tie (%ip_to_mac, "NDBM_File", "$hf-ip_to_mac", O_RDWR|O_CREAT, 0640) or
-		die ("$0: Can't open NDBM hash file '$hf-ip_to_mac': $!\n");
-	tie (%ip_mac_to_ts, "NDBM_File", "$hf-ip_mac_to_ts", O_RDWR|O_CREAT, 0640) or
-		die ("$0: Can't open NDBM hash file '$hf-ip_mac_to_ts': $!\n");
-	tie (%ip_mac_to_count, "NDBM_File", "$hf-ip_mac_to_count", O_RDWR|O_CREAT, 0640) or
-		die ("$0: Can't open NDBM hash file '$hf-ip_mac_to_count': $!\n");
+	if ($read_db) {
+		$db_cache = $opt_r;
+	} else {
+		$db_cache = $opt_w;
+	}
+
+	tie (%ip_to_mac, 'DB_File', "$db_cache-ip_to_mac") or
+		die ("$0: Can't open DB hash file '$db_cache-ip_to_mac': $!\n");
+	tie (%ip_mac_to_ts, 'DB_File', "$db_cache-ip_mac_to_ts") or
+		die ("$0: Can't open DB hash file '$db_cache-ip_mac_to_ts': $!\n");
+	tie (%ip_mac_to_count, 'DB_File', "$db_cache-ip_mac_to_count") or
+		die ("$0: Can't open DB hash file '$db_cache-ip_mac_to_count': $!\n");
 }
 
-if ($opt_f or $opt_r) {
-	if ($opt_D) {
+if ($filelistfile or $read_db) {
+	if ($dump_db) {
 		dump_db (\%ip_to_mac, \%ip_mac_to_ts, \%ip_mac_to_count, $debug);
 	} else {
 		parse_files ($hostdb, \%ip_to_mac, \%ip_mac_to_ts, \%ip_mac_to_count, $debug, @files);
 	}
-} elsif ($opt_w) {
+} elsif ($write_db) {
 	update_db ($hostdb, \%ip_to_mac, \%ip_mac_to_ts, \%ip_mac_to_count, $debug);	
 } else {
 	die ("$0: Nothing to do.\n");
 }
 
-if ($opt_r or $opt_w) {
+if ($read_db or $write_db) {
+	warn ("Untying hashes\n") if ($debug);
 	untie (%ip_to_mac);
 	untie (%ip_mac_to_ts);
 	untie (%ip_mac_to_count);
@@ -121,15 +135,17 @@ sub parse_files
 			if ($rad =~ /^Internet\s+([0-9\.]+)\s+(\d|\-)+\s+([0-9a-f\.]+)\s+/) {
 				my ($ip, $mac) = ($1, $3);
 	
-				warn ("Invalid MAC address '$3' on $file:$.\n"), next unless $hostdb->clean_mac_address ($mac);;
+				warn ("Invalid MAC address '$3' on $file:$.\n"), next unless $hostdb->clean_mac_address ($mac);
 
 				warn ("IP $ip MAC $mac TS $ts\n") if ($debug);
-				my @l = split (";", $ip_to_mac->{$ip});
+				my @l;
+				@l = split (";", $ip_to_mac->{$ip}) if (defined ($ip_to_mac->{$ip}));
 				if (! grep (/^$mac$/, @l)) {
 					push (@l, $mac);
 					$ip_to_mac->{$ip} = join (";", @l);
 				}
 				$ip_mac_to_count{"$ip;$mac"}++;
+				$ip_mac_to_ts{"$ip;$mac"} = 0 unless defined ($ip_mac_to_ts{"$ip;$mac"});
 				$ip_mac_to_ts{"$ip;$mac"} = $ts if ($ts > $ip_mac_to_ts{"$ip;$mac"});
 			}
 		}
@@ -220,12 +236,12 @@ sub update_db
 		}
 	}
 
-	print ("\n\nTotal statistics:\n",
+	print "\n\nTotal statistics:\n",
 		"	set:	$total_set_count\n",
 		"	failed:	$total_failed_count\n",
 		"	dup:	$total_duplicate_count\n",
 		"	ign:	$total_ignore_count\n",
-		"\n");
+		"\n";
 }
 
 sub ipsort {
@@ -241,6 +257,8 @@ sub dump_db
 	my $ip_mac_to_ts = shift;
 	my $ip_mac_to_count = shift;
 	my $debug = shift;
+
+	print ("Cache database dump :\n\n");
 	
 	foreach my $ip (sort ipsort keys %$ip_to_mac) {
 		my @mac_l = split (";", $ip_to_mac->{$ip});
@@ -249,7 +267,7 @@ sub dump_db
 		print ("$ip ($count MACs) :\n");
 	
 		foreach my $mac (sort { $ip_mac_to_ts->{"$ip;$b"} <=> $ip_mac_to_ts->{"$ip;$a"} } @mac_l) {
-			my $ts = $ip_mac_to_ts->{"$ip;$mac"};
+			my $ts = localtime ($ip_mac_to_ts->{"$ip;$mac"});
 			my $count = $ip_mac_to_count->{"$ip;$mac"};
 			
 			print ("	$mac	$ts	$count\n");
