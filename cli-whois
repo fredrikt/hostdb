@@ -71,6 +71,7 @@ while (@searchfor) {
 		    my $a_name = $alias->aliasname ();
 		    my $a_ttl = 'default';
 		    my $a_comment = '';
+		    my $a_status = '';
 
 		    if ($alias->ttl ()) {
 			$a_ttl = $alias->ttl () . ' seconds';
@@ -79,7 +80,12 @@ while (@searchfor) {
 		    if ($alias->comment ()) {
 			$a_comment = '(' . $alias->comment () . ')';
 		    }
-		    push (@a, sprintf ("\t  %-30s TTL %s %s", $a_name, $a_ttl, $a_comment));
+
+		    if ($alias->dnsstatus () eq 'DISABLED') {
+			$a_status = '(dns status DISABLED)';
+		    }
+
+		    push (@a, sprintf ("\t  %-30s TTL %s %s %s", $a_name, $a_ttl, $a_comment, $a_status));
 		}
 		$aliases_info = join ("\n", @a) . "\n";
 	    }
