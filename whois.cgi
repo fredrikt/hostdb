@@ -9,8 +9,9 @@ use strict;
 use HOSTDB;
 use SUCGI;
 
-my $table_blank_line = "<tr><td COLSPAN='2'>&nbsp;</td></tr>\n";
-my $table_hr_line = "<tr><td COLSPAN='2'><hr></td></tr>\n";
+my $table_blank_line = "<tr><td COLSPAN='4'>&nbsp;</td></tr>\n";
+my $table_hr_line = "<tr><td COLSPAN='4'><hr></td></tr>\n";
+my $empty_td = "<td>&nbsp;</td>\n";
 
 my $debug = 0;
 if (defined ($ARGV[0]) and ($ARGV[0] eq "-d")) {
@@ -43,6 +44,8 @@ $remote_user = 'andreaso';
 
 my $showsubnet_path = $q->state_url($hostdbini->val('subnet','showsubnet_uri'));
 my $modifyhost_path = $q->state_url($hostdbini->val('subnet','modifyhost_uri'));
+my $static_flag_days = $hostdbini->val ('subnet', 'static_flag_days');
+my $dynamic_flag_days = $hostdbini->val ('subnet', 'static_flag_days');
 
 $q->begin (title => "Whois");
 
@@ -50,8 +53,7 @@ $q->print (<<EOH);
 	<table BORDER='0' CELLPADDING='0' CELLSPACING='0' WIDTH='600'>
 		$table_blank_line
 		<tr>
-			<td COLSPAN='2' ALIGN='center'><h3>HOSTDB: Search</h3></td>
-			<td>&nbsp;</td>
+			<td COLSPAN='4' ALIGN='center'><h3>HOSTDB: Search</h3></td>
 		</tr>
 		$table_blank_line
 EOH
@@ -60,7 +62,7 @@ whois_form ($q);
 
 $q->print ($table_hr_line);
 
-perform_search ($hostdb, $q, $remote_user);
+perform_search ($hostdb, $q, $remote_user, $static_flag_days, $dynamic_flag_days);
 
 $q->print (<<EOH);
 	</table>
@@ -76,13 +78,13 @@ sub whois_form
 	# HTML 
         my $state_field = $q->state_field ();
 	my $me = $q->state_url ();
-        my $popup = $q->popup_menu (-name => 'whoisdatatype', -values => ['Guess', 'IP', 'FQDN', 'MAC', 'ID'], -default => 'Guess');
+        my $popup = $q->popup_menu (-name => 'whoisdatatype', -values => ['Guess', 'IP', 'FQDN', 'MAC', 'ID', 'ZONE'], -default => 'Guess');
 	my $datafield = $q->textfield ('whoisdata');
 	my $submit = $q->submit ('Search');
 
 	$q->print (<<EOH);
 		<tr>
-		   <td COLSPAN='2' ALIGN='center'>
+		   <td COLSPAN='4' ALIGN='center'>
 			<form ACTION='$me' METHOD='post'>
 				$state_field
 				Search for &nbsp;
@@ -91,7 +93,6 @@ sub whois_form
 				$submit
 			</form>
 		   </td>
-		   <td>&nbsp;</td>
 		</tr>
 		$table_blank_line
 EOH
@@ -102,12 +103,19 @@ sub perform_search
 	my $hostdb = shift;
 	my $q = shift;
 	my $remote_user = shift;
+	my $static_flag_days = shift;
+	my $dynamic_flag_days = shift;
 
 	if ($q->param ('whoisdata')) {
 		my $search_for = $q->param ('whoisdata');
 		my $whoisdatatype = $q->param ('whoisdatatype');
 
-		my @host_refs = $hostdb->findhost ($whoisdatatype, $search_for);
+		my @host_refs;
+		if (lc ($whoisdatatype) eq 'zone') {
+			@host_refs = $hostdb->findhostbyzone ($search_for);
+		} else {
+			@host_refs = $hostdb->findhost ($whoisdatatype, $search_for);
+		}
 		if ($hostdb->{error}) {
 			error_line ($q, $hostdb->{error});
 			return undef;
@@ -117,27 +125,65 @@ sub perform_search
 			if (1 == @host_refs) {
 				# only one host, show detailed information
 				foreach my $host (@host_refs) {
-					$q->print ("<tr><th COLSPAN='2' ALIGN='left'>Host :</th></tr>");
+					$q->print ("<tr><th COLSPAN='4' ALIGN='left'>Host :</th></tr>");
 		
 					print_host_info ($q, $hostdb, $remote_user, $host);
 				}
 			} else {
 				# more than one host record, show brief information
+
+				$q->print (<<EOH);
+					<tr>
+					   <th ALIGN='left'>IP</th>
+					   <th ALIGN='left'>Hostname</th>
+					   <th ALIGN='left'>Mac address</th>
+					   <th ALIGN='center'>Last used</th>
+					</tr>
+EOH
 				foreach my $host (@host_refs) {
+
 					# HTML
 					my $ip = $host->ip ();
 					my $id = $host->id ();
 					my $me = $q->state_url ();
+					my $hostname = $host->hostname () || '';
+					my $mac = $host->mac_address () || '';
+					my $mac_ts = $host->mac_address_ts () || '';
+
+					# split at space to only get date and not time
+					$mac_ts = (split (/\s/, $mac_ts))[0] || '';
 
 					$ip = "<a HREF='$me;whoisdatatype=ID;whoisdata=$id'>$ip</a>";
-					my $hostname = $host->hostname ();
-					my $mac = $host->mac_address ();
 						
+					# check when host was last seen active on the network
+					my $ts_font = '';
+					my $ts_font_end = '';
+						
+					my $ts_flag_color = '#dd0000'; # bright red
+					my $ts_flag_days = $static_flag_days;
+						
+					my $h_u_t = $host->unix_mac_address_ts ();
+
+					if ($host->dhcpmode () eq 'DYNAMIC') {
+						$ts_flag_days = $dynamic_flag_days;
+						$mac = 'dynamic';
+					}
+						
+					if (defined ($h_u_t) and
+					    (time () - $h_u_t) >= ($ts_flag_days * 86400)) {
+						# host has not been seen in active use
+						# for $ts_flag_days days
+						$ts_font = "<font COLOR='$ts_flag_color'>";
+						$ts_font_end = '</font>';
+					}
+
+
 					$q->print (<<EOH);
 						<tr>
-						   <td>$ip</td>
-						   <td>$hostname</td>
-						   <td>$mac</td>
+						   <td>$ip&nbsp;</td>
+						   <td>$hostname&nbsp;</td>
+						   <td>$mac&nbsp;</td>
+						   <td ALIGN='right' NOWRAP>${ts_font}${mac_ts}${ts_font_end}&nbsp;</td>
 						</tr>
 EOH
 				}
@@ -180,16 +226,11 @@ sub print_host_info
 	my $dnsstatus = $host->dnsstatus ();
 	my $dnsmode = $host->dnsmode ();
 	my $ttl = $host->ttl () || 'default';
-	#my $dhcpprofile = $host->dhcpprofile () || 'default';
+	my $profile = $host->profile () || 'default';
+	my $dnszone = $host->dnszone () || '';
+	my $manual_dnszone = $host->manual_dnszone ();
 
-	my $zone;
-	my $z = $hostdb->findzonebyhostname ($host->hostname ());
-
-	if (defined ($z)) {
-		$zone = $z->zonename ();
-	} else {
-		$zone = 'No zone found';
-	}
+	my @warning;
 	
 	if ($host->partof ()) {
 		my @host_refs  = $hostdb->findhost ('id', $host->partof ());
@@ -220,34 +261,70 @@ sub print_host_info
 		$authorized = 0 if (defined ($zone) and ! $hostdb->auth->is_allowed_write ($zone, $remote_user));
 	}
 
-	my $zone_link;
-	if (defined ($zone)) {
-		my $z = $zone->zonename ();
-		$zone_link = "<a HREF='http://not-implemented-yet.example.org?zone=$z'>$z</a>";
+	# check that DNS zone is what it (most probably) should be
+	if (defined ($zone) and ($zone->zonename () ne $dnszone)) {
+		my $db_z = $zone->zonename ();
+		push (@warning, "Host object says DNS zone '$dnszone' but a database check proposes zone '$db_z'. " .
+				"If this is not a glue-record something needs to be fixed.");	
+	}
+	
+	if ($manual_dnszone eq 'Y') {
+		$manual_dnszone = "<font COLOR='red'>(Manual control)</font>";
 	} else {
-		$zone_link = "<font COLOR='red'>No zone found for hostname</font>";
+		$manual_dnszone = '';
+	}
+	
+	my $zone_link;
+	if ($dnszone) {
+		$zone_link = "<a HREF='$me;whoisdatatype=zone;whoisdata=$dnszone'>$dnszone</a>&nbsp;$manual_dnszone";
+	} else {
+		$zone_link = "<font COLOR='red'>No zone set</font>&nbsp;$manual_dnszone";
 	}
 	
 	my $modify_link = $authorized?"[<a HREF='$modifyhost_path;id=$id'>modify</a>]":'<!-- not authorized to modify -->';
 
+	# format some things...
+	
 	if ($dhcpstatus ne 'ENABLED') {
-		$dhcpstatus = "<font COLOR='red'>$dhcpstatus</font>";
+		$dhcpstatus = "<font COLOR='red'><strong>$dhcpstatus</strong></font>";
+	} else {
+		$dhcpstatus = "Enabled";
 	}
 
 	if ($dnsstatus ne 'ENABLED') {
-		$dnsstatus = "<font COLOR='red'>$dnsstatus</font>";
+		$dnsstatus = "<font COLOR='red'><strong>$dnsstatus</strong></font>";
+	} else {
+		$dnsstatus = "Enabled";
+	}
+	
+	if ($dnsmode eq "A_AND_PTR") {
+		$dnsmode = "Both forward and reverse";
+	} elsif ($dnsmode eq "A") {
+		$dnsmode = "<font COLOR='red'>Only forward</font>";
 	}
 
+	if ($dhcpmode eq "STATIC") {
+		$dhcpmode = "Static";
+	} elsif ($dhcpmode eq "DYNAMIC") {
+		$dhcpmode = "Dynamic";
+	}
+	
 	$q->print (<<EOH);
 	   <tr>
-		<td>&nbsp;&nbsp;ID</td>
+		$empty_td
+		<td>ID</td>
 		<td>$id&nbsp;$modify_link</td>
 	   </tr>	
 	   <tr>
-		<td>&nbsp;&nbsp;Parent</td>
+		$empty_td
+		<td>Parent</td>
 		<td>$parent</td>
 	   </tr>
 EOH
+
+	foreach my $t_warn (@warning) {
+		error_line ($q, $t_warn);
+	}
 
 	my $t_host;
 	foreach $t_host ($hostdb->findhostbypartof ($id)) {
@@ -257,84 +334,88 @@ EOH
 		
 		$q->print (<<EOH);
 			<tr>
-				<td>&nbsp;&nbsp;Child</td>
+				$empty_td
+				<td>Child</td>
 				<td>$child</td>
 			</tr>
 EOH
 	}
 
 	$q->print (<<EOH);
-
-
+	   $table_blank_line
 	   <tr>
-		<td ALIGN='center'>---</td>
-		<td>&nbsp;</td>
+		<th ALIGN='left' COLSPAN='4'>DNS</th>
 	   </tr>
 	   <tr>
-		<th ALIGN='left'>DNS</th>
-		<td>&nbsp;</td>
-	   </tr>
-	   <tr>
-		<td>&nbsp;&nbsp;IP address</td>
+		$empty_td
+		<td>IP address</td>
 		<td><strong>$ip</strong></td>
 	   </tr>	
 	   <tr>
-		<td>&nbsp;&nbsp;Hostname</td>
+		$empty_td
+		<td>Hostname</td>
 		<td><strong>$hostname</strong></td>
 	   </tr>	
 	   <tr>
-		<td>&nbsp;&nbsp;Zone</td>
+		$empty_td
+		<td>Zone</td>
 		<td>$zone_link</td>
 	   </tr>	
 	   <tr>
-		<td>&nbsp;&nbsp;TTL</td>
+		$empty_td
+		<td>TTL</td>
 		<td>$ttl</td>
 	   </tr>
 	   <tr>
-	   	<td>&nbsp;&nbsp;Mode</td>
+		$empty_td
+	   	<td>Mode</td>
 	   	<td>$dnsmode</td>
 	   </tr>	
 	   <tr>
-	   	<td>&nbsp;&nbsp;Status</td>
+		$empty_td
+	   	<td>Status</td>
 	   	<td>$dnsstatus</td>
 	   </tr>	
 
 
+	   $table_blank_line
 	   <tr>
-		<td ALIGN='center'>---</td>
-		<td>&nbsp;</td>
+		<th ALIGN='left' COLSPAN='4'>DHCP</th>
 	   </tr>
 	   <tr>
-		<th ALIGN='left'>DHCP</th>
-		<td>&nbsp;</td>
-	   </tr>
-	   <tr>
-		<td>&nbsp;&nbsp;MAC Address</td>
+		$empty_td
+		<td>MAC Address</td>
 		<td>$mac</td>
 	   </tr>
 	   <tr>
-	   	<td>&nbsp;&nbsp;Mode</td>
+		$empty_td
+	   	<td>Mode</td>
 	   	<td>$dhcpmode</td>
 	   </tr>	
 	   <tr>
-	   	<td>&nbsp;&nbsp;Status</td>
+		$empty_td
+	   	<td>Status</td>
 	   	<td>$dhcpstatus</td>
 	   </tr>	
 	   	
+
+	   $table_blank_line
 	   <tr>
-		<td ALIGN='center'>---</td>
-		<td>&nbsp;</td>
+		<th ALIGN='left' COLSPAN='4'>General</th>
 	   </tr>
 	   <tr>
-		<th ALIGN='left'>General</th>
-		<td>&nbsp;</td>
-	   </tr>
+		$empty_td
+		<td>Profile</td>
+		<td>$profile</td>
+	   </tr>	
 	   <tr>
-		<td>&nbsp;&nbsp;User</td>
+		$empty_td
+		<td>User</td>
 		<td>$user</td>
 	   </tr>	
 	   <tr>
-		<td>&nbsp;&nbsp;Owner</td>
+		$empty_td
+		<td>Owner</td>
 		<td>$owner</td>
 	   </tr>	
 	   
@@ -354,13 +435,16 @@ EOH
 			<tr>
 			   <th ALIGN='left'>Subnet</th>
 			   <td>$s</td>
+			    $empty_td
 			</tr>
 			<tr>
-			   <td>&nbsp;&nbsp;Netmask</td>
-			   <td>&nbsp;&nbsp;$netmask</td>
+			   $empty_td
+			   <td>Netmask</td>
+			   <td>$netmask</td>
 			</tr>
 			<tr>
-			   <td>&nbsp;&nbsp;Description</td>
+			   $empty_td
+			   <td>Description</td>
 			   <td>$desc</td>
 			</tr>
 EOH
@@ -380,7 +464,7 @@ sub error_line
 	my $error = shift;
 	$q->print (<<EOH);
 	   <tr>
-		<td COLSPAN='2'>
+		<td COLSPAN='4'>
 		   <font COLOR='red'>
 			<strong>$error</strong>
 		   </font>
