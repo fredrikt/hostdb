@@ -5,6 +5,70 @@ use HOSTDB::Object;
 package HOSTDB::Object::Subnet;
 @HOSTDB::Object::Subnet::ISA = qw(HOSTDB::Object);
 
+=head1 NAME
+
+HOSTDB::Object::Subnet - Subnet objects.
+
+=head1 SYNOPSIS
+
+  use HOSTDB;
+
+  my $hostdb = HOSTDB::DB->new (dsn => $dsn, db => $db, user = $user,
+				password => $pw);
+
+  my $subnet;
+  if ($create_new) {
+	$subnet = $hostdb->create_subnet ();
+  } else {
+	$subnet = $hostdb->findsubnet ($searchfor);
+  }
+
+
+=head1 DESCRIPTION
+
+Subnet object routines. A subnet object has the following attributes :
+
+  id			- unique identifier (numeric, database assigned)
+  ipver			- IP version (NOTE: only '4' is supported for now!)
+  netaddr		- the network address of the subnet
+  slashnotation		- the size of the subnet in slash notation
+  netmask		- the size of the subnet as a netmask
+  broadcast		- the broadcast address for this subnet
+  addresses		- the size of the subnet in number of addresses
+  description		- well, description
+  short_description	- used where a long description might not fit (netplan)
+  n_netaddr		- the network address in network order numerical format
+  n_netmask		- the netmask in network order numerical format
+  n_broadcast		- the broadcast address in network order numerical format
+  htmlcolor		- this subnet's color in the graphic netplan
+  dhcpconfig		- a BLOB containing free-format DHCP config for this subnet
+
+
+Supposed FAQ :
+
+Q: Why ipver if only IPv4 is supported?
+A: To make it one step easier to add IPv6 support. Patches welcome.
+
+Q: Why store size/other attributes in so many formats?
+A: To Keep It Simple. It makes selecting and building frontends a whole lot easier,
+and all attributes are updated at once (from this code) - they can't end up
+unsynchronized.
+
+Q: My broadcast address is not the last address of my subnet!?!?
+A: Get real.
+
+
+=head1 EXPORT
+
+None.
+
+=head1 METHODS
+
+=cut
+
+
+
+
 sub init
 {
 	my $self = shift;
@@ -119,6 +183,13 @@ sub commit
 	return 1;
 }
 
+
+=head2 delete
+
+	Not yet documented, saving that for a rainy day.
+
+
+=cut
 sub delete
 {
 	my $self = shift;
@@ -142,6 +213,28 @@ sub delete
 	return 1;
 }
 
+
+=head2 subnet
+
+	Get or set this subnets address and size. This is the way to
+	update all the following attributes :
+
+		subnet
+		netaddr
+		slashnotation
+		n_netaddr
+		netmask
+		n_netmask
+		addresses
+		broadcast
+		n_broadcast
+
+	printf "Old subnet address: %s (netmask %s)\n",
+		$subnet->subnet (), $subnet->netmask ();
+	$subnet->subnet ($new_subnet) or warn ("Failed setting value\n");
+
+
+=cut
 sub subnet
 {
 	my $self = shift;
@@ -175,6 +268,13 @@ sub subnet
 	return ($self->netaddr () . "/" . $self->slashnotation ());
 }
 
+
+=head2 id
+
+	Read only function (database supplied object identifier).
+
+
+=cut
 sub id
 {
 	my $self = shift;
@@ -187,6 +287,13 @@ sub id
 	return ($self->{id});
 }
 
+
+=head2 ipver
+
+	Not yet documented, saving that for a rainy day.
+
+
+=cut
 sub ipver
 {
 	my $self = shift;
@@ -194,7 +301,7 @@ sub ipver
 	if (@_) {
 		my $newvalue = shift;
 	
-		if ($newvalue != 4 && $newvalue && 6) {
+		if ($newvalue != 4 && $newvalue != 6) {
 			$self->_set_error ("IP version " . $self->ipver () . " invalid (let's keep to 4 or 6 please)");
 			return 0;
 		}
@@ -207,6 +314,15 @@ sub ipver
 	return ($self->{ipver});
 }
 
+
+=head2 netaddr
+
+	Read only function, see 'subnet' above.
+	
+	printf "Network address: %s\n", $subnet->netaddr ();
+
+
+=cut
 sub netaddr
 {
 	my $self = shift;
@@ -219,6 +335,15 @@ sub netaddr
 	return ($self->{netaddr});
 }
 
+
+=head2 slashnotation
+
+	Read only function, see 'subnet' above.
+	
+	printf "Slash notation: %s\n", $subnet->slashnotation ();
+
+
+=cut
 sub slashnotation
 {
 	my $self = shift;
@@ -231,6 +356,15 @@ sub slashnotation
 	return ($self->{slashnotation});
 }
 
+
+=head2 netmask
+
+	Read only function, see 'subnet' above.
+	
+	printf "Netmask: %s\n", $subnet->netmask ();
+
+
+=cut
 sub netmask
 {
 	my $self = shift;
@@ -243,6 +377,15 @@ sub netmask
 	return ($self->{netmask});
 }
 
+
+=head2 broadcast
+
+	Read only function, see 'subnet' above.
+	
+	printf "Broadcast: %s\n", $subnet->broadcast ();
+
+
+=cut
 sub broadcast
 {
 	my $self = shift;
@@ -255,6 +398,15 @@ sub broadcast
 	return ($self->{broadcast});
 }
 
+
+=head2 addresses
+
+	Read only function, see 'subnet' above.
+	
+	printf "Number of addresses in subnet: %d\n", $subnet->addresses ();
+
+
+=cut
 sub addresses
 {
 	my $self = shift;
@@ -267,6 +419,16 @@ sub addresses
 	return ($self->{addresses});
 }
 
+
+=head2 description
+
+	Get or set subnet description.
+
+	printf "Old description: %s\n", $subnet->description ();
+	$subnet->description ($new_desc) or warn ("Failed setting value\n");
+
+
+=cut
 sub description
 {
 	my $self = shift;
@@ -282,6 +444,16 @@ sub description
 	return ($self->{description});
 }
 
+
+=head2 short_description
+
+	Get or set subnet short description.
+
+	printf "Old short description: %s\n", $subnet->description ();
+	$subnet->description ($new_short_desc) or warn ("Failed setting value\n");
+
+
+=cut
 sub short_description
 {
 	my $self = shift;
@@ -297,6 +469,17 @@ sub short_description
 	return ($self->{short_description});
 }
 
+
+=head2 n_netaddr
+
+	Read only function, see 'subnet' above.
+	
+	printf "Network address %s (numerically: %d)\n",
+		$hostdb->ntoa ($subnet->n_netaddr ()),
+		$subnet->n_netaddr ();
+
+
+=cut
 sub n_netaddr
 {
 	my $self = shift;
@@ -309,6 +492,17 @@ sub n_netaddr
 	return ($self->{n_netaddr});
 }
 
+
+=head2 n_netmask
+
+	Read only function, see 'subnet' above.
+	
+	printf "Netmask %s (numerically: %d)\n",
+		$hostdb->ntoa ($subnet->n_netmask ()),
+		$subnet->n_netmask ();
+
+
+=cut
 sub n_netmask
 {
 	my $self = shift;
@@ -321,6 +515,17 @@ sub n_netmask
 	return ($self->{n_netmask});
 }
 
+
+=head2 n_broadcast
+
+	Read only function, see 'subnet' above.
+	
+	printf "Broadcast %s (numerically: %d)\n",
+		$hostdb->ntoa ($subnet->n_broadcast ()),
+		$subnet->n_broadcast ();
+
+
+=cut
 sub n_broadcast
 {
 	my $self = shift;
@@ -333,6 +538,18 @@ sub n_broadcast
 	return ($self->{n_broadcast});
 }
 
+
+=head2 htmlcolor
+
+	Get or set htmlcolor. The database does not care what format you use. Use either
+	HTML format like #ff0000 for red, or put 'red' in the database and put mappings
+	of red -> #ff0000 in your hostdb.ini (section subnet_colors).
+
+	printf "Old htmlcolor: %s\n", $subnet->htmlcolor ();
+	$subnet->htmlcolor ($new_color) or warn ("Failed setting value\n");
+
+
+=cut
 sub htmlcolor
 {
 	my $self = shift;
@@ -348,6 +565,16 @@ sub htmlcolor
 	return ($self->{htmlcolor});
 }
 
+
+=head2 dhcpconfig
+
+	Get or set dhcpconfig.
+
+	printf "Old DHCP config: %s\n", $subnet->dhcpconfig ();
+	$subnet->dhcpconfig ($dhcpcfg) or warn ("Failed setting value\n");
+
+
+=cut
 sub dhcpconfig
 {
 	my $self = shift;
@@ -364,3 +591,19 @@ sub dhcpconfig
 }
 
 
+
+
+
+1;
+__END__
+
+=head1 AUTHOR
+
+Fredrik Thulin <ft@it.su.se>, Stockholm University
+
+=head1 SEE ALSO
+
+L<HOSTDB>
+
+
+=cut

@@ -5,6 +5,81 @@ use HOSTDB::Object;
 package HOSTDB::Object::Host;
 @HOSTDB::Object::Host::ISA = qw(HOSTDB::Object);
 
+
+=head1 NAME
+
+HOSTDB::Object::Host - Host objects.
+
+=head1 SYNOPSIS
+
+  use HOSTDB;
+
+  my $hostdb = HOSTDB::DB->new (dsn => $dsn, db => $db, user = $user,
+				password => $pw);
+
+  my $host;
+  if ($create_new) {
+	$host = $hostdb->create_host ();
+  } else {
+	$host = $hostdb->findhostbyname ($searchfor);
+  }
+
+
+=head1 DESCRIPTION
+
+Host object routines. A host object has the following attributes :
+
+  id			- unique identifier (numeric, database assigned)
+  dhcpmode		- static or dynamic DHCP
+  dhcpstatus		- generate DHCP config for this host or not
+  mac_address		- ethernet controller hardware address
+  dnsmode		- A and PTR record, or just A record and no PTR
+  dnsstatus		- generate DNS config for this host or not
+  hostname		- hostname
+  ip			- ip
+  n_ip			- ip in network order numerical format
+  owner			- a comment style field documenting the owner
+  ttl			- DNS TTL to use for this host
+  user			- a comment style field documenting the user
+  partof		- a reference to another host object's id
+  mac_address_ts	- a timestamp showing when this host was last seen on the network
+
+
+Supposed FAQ:
+
+Q: Why dhcpstatus and dnsstatus?
+A: The idea with having dhcpstatus and dnsstatus in addition to dhcpmode and dnsmode is
+to be able to temporarily disable DHCP/DNS config generation without losing the original
+settings.
+
+Q: Why n_ip?
+A: Yes, it is redundantly stored information, but it makes finding all hosts in a given
+subnet etcetera incredibly much easier (in MySQL).
+
+Q: Why owner and user?
+A: We have had loose ideas of granting 'owner' rights to modify the host object, and it
+is nice for the owner to be able to document the user. Might turn into a more generic
+'comment' attribute instead.
+
+Q: Why partof?
+A: Database modelling were very much simplified with this 'one host object per network
+interface' idea. Without that, MAC addresses and hostnames and IP addresses would have
+had to live in separate tables and selecting/updating/deleting would have been much
+harder to program and HOSTDB would have been much more complex.
+A frontend can still hide all 'sub-hosts' and show addresses and such in any way it
+whishes.
+
+
+=head1 EXPORT
+
+None.
+
+=head1 METHODS
+
+=cut
+
+
+
 sub init
 {
 	my $self = shift;
@@ -550,3 +625,17 @@ sub unixtime_to_datetime
 }
 
 
+
+1;
+__END__
+
+=head1 AUTHOR
+
+Fredrik Thulin <ft@it.su.se>, Stockholm University
+
+=head1 SEE ALSO
+
+L<HOSTDB>
+
+
+=cut

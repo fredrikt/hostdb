@@ -42,6 +42,8 @@ HOSTDB - Perl extension to access host database.
 
   use HOSTDB;
 
+  my $hostdb = HOSTDB::DB->new (dsn => $dsn, db => $db, user = $user,
+				password => $pw);
 
 =head1 DESCRIPTION
 
@@ -606,12 +608,12 @@ sub dump
 
 
 
-####################################
-# package HOSTDB private functions #
-####################################
+############################
+# HOSTDB private functions #
+############################
 
 
-=head1 PACKAGE HOSTDB PRIVATE FUNCTIONS
+=head1 PRIVATE FUNCTIONS
 
 	These functions should NEVER be called by a program using this class,
 	but are documented here as well just for the sake of documentation.
@@ -670,7 +672,9 @@ __END__
 Fredrik Thulin <ft@it.su.se>, Stockholm University
 
 =head1 SEE ALSO
-~
-L<perl>.
+
+L<HOSTDB::Db>,
+L<HOSTDB::Host>, L<HOSTDB::Zone>, L<HOSTDB::Subnet>
+
 
 =cut

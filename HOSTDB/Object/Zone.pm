@@ -5,6 +5,55 @@ use HOSTDB::Object;
 package HOSTDB::Object::Zone;
 @HOSTDB::Object::Zone::ISA = qw(HOSTDB::Object);
 
+
+=head1 NAME
+
+HOSTDB::Object::Zone - Zone objects.
+
+=head1 SYNOPSIS
+
+  use HOSTDB;
+
+  my $hostdb = HOSTDB::DB->new (dsn => $dsn, db => $db, user = $user,
+				password => $pw);
+
+  my $zone;
+  if ($create_new) {
+	$zone = $hostdb->create_zone ();
+  } else {
+	$zone = $hostdb->findzonebyname ($searchfor);
+  }
+
+
+=head1 DESCRIPTION
+
+Zone object routines. A host object has the following attributes :
+
+  id			- unique identifier (numeric, database assigned)
+  zonename		- the name of the zone, without trailing dot
+  delegated		- is this a subzone to one of ours or not?
+  default_ttl		- the $TTL printed at the top of the zone file
+  ttl			- SOA ttl
+  mname			- SOA mname (primary nameserver name)
+  rname			- SOA rname (contact mail address)
+  serial		- SOA serial number (yyyymmddNN)
+  refresh		- SOA refresh value
+  retry			- SOA retry value
+  expiry		- SOA expiry value
+  minimum		- SOA minimum value
+  owner			- comment-style owner
+
+
+=head1 EXPORT
+
+None.
+
+=head1 METHODS
+
+=cut
+
+
+
 sub init
 {
 	my $self = shift;
@@ -74,6 +123,14 @@ sub commit
 	return 1;
 }
 
+
+=head2 id
+
+	Read-only.
+	Not yet documented, saving that for a rainy day.
+
+
+=cut
 sub id
 {
 	my $self = shift;
@@ -86,6 +143,13 @@ sub id
 	return ($self->{id});
 }
 
+
+=head2 zonename
+
+	Not yet documented, saving that for a rainy day.
+
+
+=cut
 sub zonename
 {
 	my $self = shift;
@@ -143,6 +207,13 @@ sub delegated
 	return ($self->{delegated});
 }
 
+
+=head2 default_ttl
+
+	Not yet documented, saving that for a rainy day.
+
+
+=cut
 # this is the zone default ttl ($TTL)
 sub default_ttl
 {
@@ -163,6 +234,13 @@ sub default_ttl
 	return ($self->{default_ttl});
 }
 
+
+=head2 serial
+
+	Not yet documented, saving that for a rainy day.
+
+
+=cut
 sub serial
 {
 	my $self = shift;
@@ -187,6 +265,13 @@ sub serial
 	return ($self->{serial});
 }
 
+
+=head2 mname
+
+	Not yet documented, saving that for a rainy day.
+
+
+=cut
 sub mname
 {
 	my $self = shift;
@@ -213,6 +298,13 @@ sub mname
 	return ($self->{mname});
 }
 
+
+=head2 rname
+
+	Not yet documented, saving that for a rainy day.
+
+
+=cut
 sub rname
 {
 	my $self = shift;
@@ -244,6 +336,13 @@ sub rname
 	return ($self->{mname});
 }
 
+
+=head2 refresh
+
+	Not yet documented, saving that for a rainy day.
+
+
+=cut
 sub refresh
 {
 	my $self = shift;
@@ -263,6 +362,13 @@ sub refresh
 	return ($self->{refresh});
 }
 
+
+=head2 ttl
+
+	Not yet documented, saving that for a rainy day.
+
+
+=cut
 # this is the SOA record itselfs TTL
 sub ttl
 {
@@ -283,6 +389,13 @@ sub ttl
 	return ($self->{ttl});
 }
 
+
+=head2 retry
+
+	Not yet documented, saving that for a rainy day.
+
+
+=cut
 sub retry
 {
 	my $self = shift;
@@ -302,6 +415,13 @@ sub retry
 	return ($self->{retry});
 }
 
+
+=head2 expiry
+
+	Not yet documented, saving that for a rainy day.
+
+
+=cut
 sub expiry
 {
 	my $self = shift;
@@ -321,6 +441,13 @@ sub expiry
 	return ($self->{expiry});
 }
 
+
+=head2 minimum
+
+	Not yet documented, saving that for a rainy day.
+
+
+=cut
 sub minimum
 {
 	my $self = shift;
@@ -340,6 +467,13 @@ sub minimum
 	return ($self->{minimum});
 }
 
+
+=head2 owner
+
+	Not yet documented, saving that for a rainy day.
+
+
+=cut
 sub owner
 {
 	my $self = shift;
@@ -355,3 +489,19 @@ sub owner
 	return ($self->{owner});
 }
 
+
+
+
+1;
+__END__
+
+=head1 AUTHOR
+
+Fredrik Thulin <ft@it.su.se>, Stockholm University
+
+=head1 SEE ALSO
+
+L<HOSTDB>
+
+
+=cut
