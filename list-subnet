@@ -35,6 +35,8 @@ while ($ARGV[0]) {
 	my $subnet = shift;
 
 	if ($hostdb->check_valid_subnet ($subnet)) {
+		my @hosts = $hostdb->findhostbyiprange ($hostdb->get_netaddr ($subnet),
+				$hostdb->get_broadcast ($subnet));
 		my @subnets;
 		
 		@subnets = $hostdb->findsubnetlongerprefix ($subnet);
@@ -44,14 +46,12 @@ while ($ARGV[0]) {
 			
 			foreach $subnet (@subnets) {
 				printf ("%-23s (%s) :\n", $subnet->subnet(),
-					$subnet->description ());
+					($subnet->description ()?$subnet->description ():"no description"));
 
-				my @hosts = $hostdb->findhostbyiprange(
-						$subnet->netaddr (),
-						$subnet->broadcast ());
-				if (@hosts) {
+				my @subnet_hosts = get_hosts_in_subnet ($subnet->subnet(), @hosts);
+				if (@subnet_hosts) {
 					my $host;
-					foreach $host (@hosts) {
+					foreach $host (@subnet_hosts) {
 						printf ("	%-20s %s\n",
 							$host->ip (),
 							$host->hostname ()
@@ -65,4 +65,22 @@ while ($ARGV[0]) {
 	} else {
 		warn ("Ignoring invalid subnet '$subnet'\n");
 	}
+}
+
+sub get_hosts_in_subnet
+{
+	my $subnet = shift;
+	my @hosts = @_;
+	my @result;
+
+	my $low = $hostdb->aton ($hostdb->get_netaddr ($subnet));
+	my $high = $hostdb->aton ($hostdb->get_broadcast ($subnet));
+
+	my $host;
+	foreach $host (@hosts) {
+		my $ip = $hostdb->aton ($host->ip ());
+		push (@result, $host) if ($ip >= $low and $ip <= $high);
+	}
+
+	return @result;
 }
