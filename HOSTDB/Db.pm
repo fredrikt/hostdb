@@ -86,12 +86,14 @@ sub init
 
 		my $SELECT_zone = "SELECT * FROM $self->{db}.zone";
 		$self->{_zonebyname} =		$self->{_dbh}->prepare ("$SELECT_zone WHERE zonename = ? ORDER BY zonename")		or die "$DBI::errstr";
+		$self->{_zonebyid} =		$self->{_dbh}->prepare ("$SELECT_zone WHERE id = ? ORDER BY zonename")				or die "$DBI::errstr";
 		$self->{_allzones} =		$self->{_dbh}->prepare ("$SELECT_zone ORDER BY zonename")				or die "$DBI::errstr";
 
 		my $SELECT_subnet = "SELECT * FROM $self->{db}.subnet";
 		$self->{_subnet} =			$self->{_dbh}->prepare ("$SELECT_subnet WHERE netaddr = ? AND slashnotation = ? ORDER BY n_netaddr")	or die "$DBI::errstr";
 		$self->{_subnet_longer_prefix} =	$self->{_dbh}->prepare ("$SELECT_subnet WHERE n_netaddr >= ? AND n_netaddr <= ? ORDER BY n_netaddr")	or die "$DBI::errstr";
 		$self->{_subnetbyip} =	$self->{_dbh}->prepare ("$SELECT_subnet WHERE n_netaddr <= ? AND n_broadcast >= ? ORDER BY n_netaddr DESC LIMIT 1")		or die "$DBI::errstr";
+		$self->{_subnetbyid} =			$self->{_dbh}->prepare ("$SELECT_subnet WHERE id = ? ORDER BY n_netaddr")			or die "$DBI::errstr";
 		$self->{_allsubnets} =			$self->{_dbh}->prepare ("$SELECT_subnet ORDER BY n_netaddr")			or die "$DBI::errstr";
 	} else {
 		$self->_debug_print ("DSN not provided, not connecting to database.");
@@ -696,6 +698,24 @@ sub findzonenamebyhostname
 }
 
 
+=head2 findzonebyid
+
+	Finds the zone with the ID you supplied
+
+	$zone = $hostdb->findzonebyid ($id);
+
+
+=cut
+sub findzonebyid
+{
+	my $self = shift;
+
+	$self->_debug_print ("Find zone with ID '$_[0]'");
+
+	$self->_find(_zonebyid => 'HOSTDB::Object::Zone', $_[0]);
+}
+
+
 =head2 findsubnet
 
 	$subnet = $hostdb->findsubnet("192.168.1.1/24");
@@ -718,9 +738,9 @@ sub findsubnet
 
 =head2 findsubnetbyip
 
-	$subnet = $hostdb->findsubnetbyip("192.168.1.1");
-
 	Finds the most specific subnet for the IP you supplied
+
+	$subnet = $hostdb->findsubnetbyip ("192.168.1.1");
 
 
 =cut
@@ -732,6 +752,24 @@ sub findsubnetbyip
 
 	$self->_find(_subnetbyip => 'HOSTDB::Object::Subnet',
 		     $self->aton ($_[0]), $self->aton ($_[0]));
+}
+
+
+=head2 findsubnetbyid
+
+	Finds the subnet with the ID you supplied
+
+	$subnet = $hostdb->findsubnetbyip ($id);
+
+
+=cut
+sub findsubnetbyid
+{
+	my $self = shift;
+
+	$self->_debug_print ("Find subnet with ID '$_[0]'");
+
+	$self->_find(_subnetbyid => 'HOSTDB::Object::Subnet', $_[0]);
 }
 
 
