@@ -243,9 +243,6 @@ EOH
 	my @subnet_list = $hostdb->findallsubnets ();
 	
 	foreach $subnet (@subnet_list) {
-		#if (! $is_admin) {
-		#	next if (! defined ($subnet) or ! $hostdb->auth->is_allowed_write ($subnet, $remote_user));
-		#}
 		next if (! defined ($subnet) or ! $hostdb->auth->is_owner ($subnet, $remote_user));
 
 		# interpolation
@@ -310,6 +307,7 @@ sub request_reload
 	my $remote_user = shift;
 	
 	my $sam;
+	my $i = localtime () . " home.cgi[$$]";
 
 	if (! $dhcp_signal_directory) {
 		error_line ($q, "Can't request reconfiguration, DHCP message spool directory not set");
@@ -334,6 +332,8 @@ sub request_reload
 		error_line ($q, 'Could not create SAM object (directory $dhcp_signal_directory)');
 		return 0;
 	}
+
+	warn ("$i: user '$remote_user' requests reload of the following subnets : " . join (', ', @$subnets_ref) . "\n");
 	
 	$sam->send ({msg => join (',', @$subnets_ref)}, 'configure');
 	# or error_line ($q, "WARNING: Message might not have been sent (directory $dhcp_signal_directory)");
@@ -344,8 +344,25 @@ sub request_reload
 		error_line ($q, "Could not create SAM object (directory $dns_signal_directory)");
 		return 0;
 	}
+
+	# build list of all requested zonenames plus the
+	# ones for IPv4 reverse of the subnets from above
+	my ($t, %zonenames);
+	foreach $t (@$zones_ref) {
+		$zonenames{$t} = 1;	
+	}
+	foreach $t (@$subnets_ref) {
+		if ($t =~ /^(\d+?)\.(\d+?)\.(\d+?)\.(\d+?)\/\d+$/) {
+			my $zn = "$3.$2.$1.in-addr.arpa";
+			my $z = $hostdb->findzonebyname ($zn);
+			
+			$zonenames{$zn} = 1 if (defined ($z));
+		}
+	}
 	
-	$sam->send ({msg => join (',', @$zones_ref)}, 'configure');
+	warn ("$i: user '$remote_user' requests reload of the following zones : " . join (', ', sort keys %zonenames) . "\n");
+	
+	$sam->send ({msg => join (',', sort keys %zonenames)}, 'configure');
 	# or error_line ($q, "WARNING: Message might not have been sent (directory $dns_signal_directory)");
 	$sam = undef;
 	
