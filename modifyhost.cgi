@@ -28,6 +28,10 @@ if (-f $hostdbini->val ('sucgi', 'cfgfile')) {
 my $q = SUCGI2->new ($sucgi_ini, 'hostdb');
 $q->begin (title => 'Modify/Add Host');
 
+my $t = $hostdbini->val ('modifyhost', 'readwrite_attributes') || 'ALL';
+$t =~ s/\s+//og;
+my @readwrite_attributes = split (',', $t);
+
 my $hostdb = eval {
 	HOSTDB::DB->new (ini => $hostdbini, debug => $debug);
 };
@@ -102,7 +106,7 @@ my $action = lc ($q->param('action'));
 $action = 'search' unless $action;
 
 if ($action eq 'commit') {
-	if (modify_host ($hostdb, $host, $q, $remote_user, $is_admin, $is_helpdesk)) {
+	if (modify_host ($hostdb, $host, $q, $remote_user, $is_admin, $is_helpdesk, \@readwrite_attributes)) {
 		my $i = localtime () . " modifyhost.cgi[$$]";
 		eval
 		{
@@ -123,7 +127,7 @@ if ($action eq 'commit') {
 	# call modify_host but don't commit () afterwards to get
 	# ip and other stuff supplied to us as CGI parameters
 	# set on the host before we call host_form () below.
-	modify_host ($hostdb, $host, $q, $remote_user, $is_admin, $is_helpdesk);
+	modify_host ($hostdb, $host, $q, $remote_user, $is_admin, $is_helpdesk, \@readwrite_attributes);
 } else {
 	error_line ($q, 'Unknown action');
 	$host = undef;
@@ -131,7 +135,7 @@ if ($action eq 'commit') {
 
 
 if (defined ($host)) {
-	host_form ($q, $host, $remote_user);
+	host_form ($q, $host, $remote_user, $is_admin, $is_helpdesk, \@readwrite_attributes);
 }
 
 END:
@@ -150,6 +154,7 @@ sub modify_host
 	my $remote_user = shift;
 	my $is_admin = shift;
 	my $is_helpdesk = shift;
+	my $readwrite_attributes = shift;
 	
 	my (@changelog, @warning);
 	
@@ -193,11 +198,17 @@ sub modify_host
 			       'ip' =>		'ip',
 			       'profile' =>	'profile'
 			      );
+
+		# check which fields we should allow changes to
+		foreach my $t (keys %changer) {
+			delete($changer{$t}) if (! check_readwrite ($t, $readwrite_attributes, $remote_user, $is_admin, $is_helpdesk));
+		}
 			      
 		foreach my $name (keys %changer) {
 			my $new_val = $q->param ($name);
 			if (defined ($new_val)) {
 				my $func = $changer{$name};
+				next unless ($func);
 				my $old_val = $host->$func () || '';
 
 				if ($new_val ne $old_val) {
@@ -319,20 +330,30 @@ sub modify_host
 							$new_val = 'NULL';
 						}
 					} elsif ($name eq 'ttl') {
-						if (! $hostdb->is_valid_nameserver_time ($new_val)) {
-							die ("Invalid DNS TTL '$new_val'\n");
+						if ($new_val and $new_val ne 'NULL') {
+							if (! $hostdb->is_valid_nameserver_time ($new_val)) {
+								die ("Invalid DNS TTL '$new_val'\n");
+							}
+							if (! $hostdb->is_valid_nameserver_time ($new_val, 10, 604800)) {
+								die ("DNS TTL out of range (minimum 10 seconds, maximum 7 days)\n");
+							}
+						} else {
+							$new_val = 'NULL';
 						}
-						if (! $hostdb->is_valid_nameserver_time ($new_val, 10, 604800)) {
-							die ("DNS TTL out of range (minimum 10 seconds, maximum 7 days)\n");
-						}
-					}
+	 				}
 			
-					if ($old_val) {
-						push (@changelog, "Changed '$name' from '$old_val' to '$new_val'");
-					} else {
-						push (@changelog, "Set '$name' to '$new_val'");
-					}
 					$host->$func ($new_val) or die ("Failed to set host attribute: '$name' - error was '$host->{error}'\n");
+					my $readback = $host->$func ();
+					if (defined ($readback)) {
+						$readback = "'$readback'";
+					} else {
+						$readback = 'undef';
+					}
+					if (defined ($old_val) and $old_val) {
+						push (@changelog, "Changed '$name' from '$old_val' to '$new_val' (read-back: $readback)");
+					} else {
+						push (@changelog, "Set '$name' to '$new_val' (read-back: $readback)");
+					}
 				}
 			}
 		}
@@ -386,12 +407,41 @@ sub get_host
 }
 
 
+sub create_datafield
+{
+	my $host = shift;
+	my $attribute = shift;
+	my $q = shift;
+	my $func = shift;
+	my $readwrite_attributes = shift;
+	my $remote_user = shift;
+	my $is_admin = shift;
+	my $is_helpdesk = shift;
+	my %paramhash = @_;
+	
+	my $curr = $host->$attribute () || '';
+	
+	if (check_readwrite ($attribute, $readwrite_attributes, $remote_user, $is_admin, $is_helpdesk)) {
+		if (defined (%paramhash)) {
+			return ($q->$func (-name => $attribute, -default => $curr, %paramhash));
+		} else {
+			return ($q->$func (-name => $attribute, -default => $curr));
+		}
+	} else {
+		return ($curr);
+	}
+}
+
 sub host_form
 {
 	my $q = shift;
 	my $host = shift;
 	my $remote_user = shift;
-	my ($id, $partof, $ip, $mac, $hostname, $comment, $owner, 
+	my $is_admin = shift;
+	my $is_helpdesk = shift;
+	my $readwrite_attributes = shift;
+	
+	my ($id, $partof, $ip, $mac_address, $hostname, $comment, $owner, 
 	    $dnsmode, $dnsstatus, $dhcpmode, $dhcpstatus, $subnet,
 	    $profile, $dnszone, $ttl);
 	
@@ -424,35 +474,30 @@ sub host_form
 		
 	$id = $host->id ();
 	$dnszone = $host->dnszone () || '';
-	$partof = $q->textfield ('partof', $host->partof () || '');
-	$ip = $q->textfield ('ip', $host->ip ());
-	$mac = $q->textfield ('mac_address', $host->mac_address () || '');
-	$hostname = $q->textfield ('hostname', $host->hostname () || '');
-	$ttl = $q->textfield ('ttl', $host->ttl () || '');
-	$comment = $q->textfield (-name => 'comment',
-				  -default => $host->comment () || '',
-				  -size => 45,
-				  -maxlength => 255);
-	$owner = $q->textfield ('owner', $host->owner () || $remote_user);
-	$dnsmode = $q->popup_menu (-name => 'dnsmode',
-				   -values => ['A_AND_PTR', 'A'],
-				   -labels => \%dnsmode_labels,
-				   -default => $host->dnsmode ());
-	$dnsstatus = $q->popup_menu (-name => 'dnsstatus',
-				     -values => ['ENABLED', 'DISABLED'],
-				     -labels => \%enabled_labels,
-				     -default => $host->dnsstatus ());
-	$dhcpmode = $q->popup_menu (-name => 'dhcpmode',
-				    -values => ['STATIC', 'DYNAMIC'],
-				    -labels => \%dhcpmode_labels,
-				    -default => $host->dhcpmode ());
-	$dhcpstatus = $q->popup_menu (-name => 'dhcpstatus',
-				      -values => ['ENABLED', 'DISABLED'],
-				      -labels => \%enabled_labels,
-				      -default => $host->dhcpstatus ());
-	$profile = $q->popup_menu (-name => 'profile',
-				   -values => \@profiles,
-				   -default => $host->profile () || 'default');
+
+	my @fielddata = ($readwrite_attributes, $remote_user, $is_admin, $is_helpdesk);
+	$partof =	create_datafield ($host, 'partof',	$q, 'textfield', @fielddata);
+	$ip =		create_datafield ($host, 'ip',		$q, 'textfield', @fielddata);
+	$mac_address =	create_datafield ($host, 'mac_address',	$q, 'textfield', @fielddata);
+	$hostname =	create_datafield ($host, 'hostname',	$q, 'textfield', @fielddata);
+	$ttl =		create_datafield ($host, 'ttl',		$q, 'textfield', @fielddata);
+	$comment =	create_datafield ($host, 'comment',	$q, 'textfield', @fielddata,
+					  -size => 45, -maxlength => 255);
+	$owner =	create_datafield ($host, 'owner',	$q, 'textfield', @fielddata);
+	$dnsmode =	create_datafield ($host, 'dnsmode', 	$q, 'popup_menu', @fielddata,
+					   -values => ['A_AND_PTR', 'A'],
+					   -labels => \%dnsmode_labels);
+	$dnsstatus =	create_datafield ($host, 'dnsstatus', 	$q, 'popup_menu', @fielddata,
+					     -values => ['ENABLED', 'DISABLED'],
+					     -labels => \%enabled_labels);
+	$dhcpmode =	create_datafield ($host, 'dhcpmode', 	$q, 'popup_menu', @fielddata,
+					    -values => ['STATIC', 'DYNAMIC'],
+					    -labels => \%dhcpmode_labels);
+	$dhcpstatus =	create_datafield ($host, 'dhcpstatus', 	$q, 'popup_menu', @fielddata,
+					      -values => ['ENABLED', 'DISABLED'],
+					      -labels => \%enabled_labels);
+	$profile =	create_datafield ($host, 'profile', 	$q, 'popup_menu', @fielddata,
+					   -values => \@profiles);
 
 	my $empty_td = '<td>&nbsp;</td>';
 	
@@ -552,7 +597,7 @@ sub host_form
 		</tr>
 		<tr>
 			<td>MAC Address</td>
-			<td>$mac</td>
+			<td>$mac_address</td>
 			$empty_td
 			$empty_td
 		</tr>
@@ -571,6 +616,33 @@ sub host_form
 EOH
 
 	return 1;
+}
+
+sub check_readwrite
+{
+	my $attribute = shift;
+	my $list_ref = shift;
+	my $remote_user = shift;
+	my $is_admin = shift;
+	my $is_helpdesk = shift;
+	
+	my @l = @$list_ref;
+	
+	if ($attribute eq 'dnsstatus') {
+		return 0 if (! $is_admin and ! $is_helpdesk);
+	}
+	
+	if ($attribute eq 'dnsmode') {
+		return 0 if (! $is_admin and ! $is_helpdesk);
+	}
+	
+	return 1 if (defined ($l[0]) and $l[0] eq 'ALL');
+	
+	if (! grep (/^$attribute$/, @l)) {
+		return 1;
+	}
+
+	return 0;
 }
 
 sub error_line
