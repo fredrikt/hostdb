@@ -28,6 +28,11 @@ my $first = 1;
 my $match_count = 0;
 
 foreach my $t_search (sort @searchfor) {
+    if (! $hostdb->clean_hostname ($t_search)) {
+	warn ("'$t_search' is not a valid hostname\n");
+	next;
+    }
+
     my @hostlist = $hostdb->findhostbyname ($t_search);
     if ($#hostlist == -1) {
 	warn ("No entrys matching '$t_search'\n");
