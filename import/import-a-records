@@ -83,18 +83,27 @@ sub add_host
 	
 	my $host = $hostdb->create_host();
 
+	die ("$0: Could not create host object: $hostdb->{error}\n") unless ($host);
 	if ($lookuphost) {
 		my $super_host = $hostdb->findhostbyip ($ip);
-		$host->set_partof ($super_host->id ()) if ($super_host->id ());
+		$host->partof ($super_host->id ()) if (defined ($super_host) and $super_host->id ());
 		undef ($super_host);
 	}
 			
 	my $valid = 1;
 	$host->hostname ("$name") or warn ($host->{error}), $valid = 0;
 	$host->ip ("$ip") or warn ($host->{error}), $valid = 0;
-	$host->ttl ("$ttl") if ($ttl != $default_ttl) or warn ($host->{error}), $valid = 0;
+	if ($ttl ne $default_ttl) {
+		$host->ttl ("$ttl") or warn ($host->{error}), $valid = 0;
+	}
 	$host->user ("dns-import") or warn ($host->{error}), $valid = 0;
 	$host->reverse ("Y") or warn ($host->{error}), $valid = 0;
+	$host->dnsmode ("ENABLED") or warn ($host->{error}), $valid = 0;
+	if ($name =~ /^dhcp/) {
+		$host->dhcpmode ("DYNAMIC") or warn ($host->{error}), $valid = 0;
+	} else {
+		$host->dhcpmode ("STATIC") or warn ($host->{error}), $valid = 0;
+	}
 			
 	$host->commit() if ($valid);
 
