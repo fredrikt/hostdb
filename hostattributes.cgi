@@ -152,7 +152,7 @@ EOH
 	my $lastsection = '';
 	my $showsection = 0;
 
-	foreach my $attr (@attrs) {
+	foreach my $attr (sort attributesort @attrs) {
 		my $section = $attr->section ();
 					
 		if ($section ne $lastsection) {
@@ -204,6 +204,38 @@ EOH
 	$q->print ($table_blank_line);	
 
 	return 1;
+}
+
+sub attributesort
+{
+	my $a_section = $a->section ();
+	my $b_section = $b->section ();
+	
+	if ($a_section eq $b_section) {
+		my $a_key = $a->key ();
+		my $b_key = $b->key ();
+		
+		if ($a_key =~ /^(.*?)(\d+)$/) {
+			my $a_prefix = $1;
+			my $a_num = int ($2);
+			
+			if ($b_key =~ /^(.*?)(\d+)$/) {
+				my $b_prefix = $1;
+				my $b_num = int ($2);
+
+				if ($a_prefix eq $b_prefix) {
+					# both keys begin with the same text and ends in digits,
+					# do numeric comparision
+					
+					return $a_num <=> $b_num;
+				}
+			}
+		}
+		
+		return $a_key cmp $b_key;
+	}
+
+	return $a_section cmp $b_section;	
 }
 
 sub error_line

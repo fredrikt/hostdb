@@ -92,7 +92,7 @@ EOH
 
 				my $lastsection = '';
 				
-				foreach my $attr (@attrs) {
+				foreach my $attr (sort attributesort @attrs) {
 					my $key = $attr->key ();
 					my $section = $attr->section ();
 					my $value = $attr->get ();
@@ -102,7 +102,7 @@ EOH
 						$lastsection = $section;
 					}
 					
-					printf ("	    %-17s = %s\n", $key, $value);
+					printf ("	    %-25s = %s\n", $key, $value);
 				}
 				
 				print ("\n");
@@ -126,4 +126,36 @@ EOH
 	} else {
 		warn ("$0: No match on '$search_for'\n");
 	}
+}
+
+sub attributesort
+{
+	my $a_section = $a->section ();
+	my $b_section = $b->section ();
+	
+	if ($a_section eq $b_section) {
+		my $a_key = $a->key ();
+		my $b_key = $b->key ();
+		
+		if ($a_key =~ /^(.*?)(\d+)$/) {
+			my $a_prefix = $1;
+			my $a_num = int ($2);
+			
+			if ($b_key =~ /^(.*?)(\d+)$/) {
+				my $b_prefix = $1;
+				my $b_num = int ($2);
+
+				if ($a_prefix eq $b_prefix) {
+					# both keys begin with the same text and ends in digits,
+					# do numeric comparision
+					
+					return $a_num <=> $b_num;
+				}
+			}
+		}
+		
+		return $a_key cmp $b_key;
+	}
+
+	return $a_section cmp $b_section;	
 }
