@@ -1838,7 +1838,25 @@ sub commit
 
 		$sth->finish();
 	} else {
-		# this is a new entry
+		# this is a new entry, first check that it does not overlap
+		# with something already in the database
+
+		my $hostdb = $self->{hostdb};
+		my @subnets = $hostdb->findsubnetlongerprefix ($self->subnet ());
+		
+		if ($#subnets != -1) {
+			my ($t, @names);
+			
+			foreach $t (@subnets) {
+				push (@names, $t->subnet ());
+			}
+			
+			$self->_set_error ($self->subnet () . " overlaps with subnet(s) " .
+					   join (", ", @names));
+					   
+			return 0;
+		}
+
 		$sth = $self->{_new_subnet};
 		$sth->execute ($self->ipver (), $self->netaddr (), $self->slashnotation (),
 			       $self->netmask (), $self->broadcast (), $self->addresses(),
