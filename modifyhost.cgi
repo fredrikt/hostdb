@@ -294,6 +294,13 @@ sub modify_host
 						} else {
 							$new_val = 'NULL';
 						}	
+					} elsif ($name eq 'ttl') {
+						if (! $hostdb->is_valid_nameserver_time ($new_val)) {
+							die ("Invalid DNS TTL '$new_val'\n");
+						}
+						if (! $hostdb->is_valid_nameserver_time ($new_val, 10, 604800)) {
+							die ("DNS TTL out of range (minimum 10 seconds, maximum 7 days)\n");
+						}
 					}
 			
 					if ($old_val) {
@@ -358,7 +365,7 @@ sub host_form
 	my $remote_user = shift;
 	my ($id, $partof, $ip, $mac, $hostname, $comment, $owner, 
 	    $dnsmode, $dnsstatus, $dhcpmode, $dhcpstatus, $subnet,
-	    $profile, $dnszone);
+	    $profile, $dnszone, $ttl);
 	
 	my $h_subnet = $hostdb->findsubnetbyip ($host->ip ());
 
@@ -393,6 +400,7 @@ sub host_form
 	$ip = $q->textfield ('ip', $host->ip ());
 	$mac = $q->textfield ('mac_address', $host->mac_address () || '');
 	$hostname = $q->textfield ('hostname', $host->hostname () || '');
+	$ttl = $q->textfield ('ttl', $host->ttl () || '');
 	$comment = $q->textfield (-name => 'comment',
 				  -default => $host->comment () || '',
 				  -size => 45,
@@ -468,36 +476,6 @@ sub host_form
 			$empty_td
 		</tr>
 		<tr>
-			<td>IP address $required</td>
-			<td><strong>$ip</strong></td>
-			<td>&nbsp;&nbsp;DNS</td>
-			<td>$dnsstatus</td>
-		</tr>
-		<tr>
-			<td>MAC Address</td>
-			<td>$mac</td>
-			<td>&nbsp;&nbsp;DHCP</td>
-			<td>$dhcpstatus</td>
-		</tr>	
-		<tr>
-			<td>Hostname $required</td>
-			<td><strong>$hostname</strong></td>
-			$empty_td
-			$empty_td
-		</tr>	
-		<tr>
-			<td>DNS mode</td>
-			<td>$dnsmode</td>
-			<td>&nbsp;&nbsp;DHCP mode</td>
-			<td>$dhcpmode</td>
-		</tr>
-		<tr>
-			$empty_td
-			$empty_td
-			<td>&nbsp;&nbsp;Profile</td>
-			<td>$profile</td>
-		</tr>
-		<tr>
 			<td>Comment</td>
 			<td COLSPAN='3'>$comment</td>
 		</tr>	
@@ -507,6 +485,54 @@ sub host_form
 			$empty_td
 			$empty_td
 		</tr>	
+
+		$table_blank_line
+
+		<tr>
+			<td><strong>DNS</strong></td>
+			<td>$dnsstatus</td>
+			$empty_td
+			$empty_td
+		</tr>
+		<tr>
+			<td>IP address $required</td>
+			<td><strong>$ip</strong></td>
+			$empty_td
+			$empty_td
+		</tr>
+		<tr>
+			<td>Hostname $required</td>
+			<td><strong>$hostname</strong></td>
+			$empty_td
+			$empty_td
+		</tr>	
+
+		<tr>
+			<td>DNS mode</td>
+			<td>$dnsmode</td>
+			<td>&nbsp;&nbsp;TTL</td>
+			<td>$ttl</td>
+		</tr>
+
+		$table_blank_line
+
+		<tr>
+			<td><strong>DHCP</strong></td>
+			<td>$dhcpstatus</td>
+			$empty_td
+			$empty_td
+		</tr>
+		<tr>
+			<td>MAC Address</td>
+			<td>$mac</td>
+			$empty_td
+			$empty_td
+		</tr>
+			<td>DHCP mode</td>
+			<td>$dhcpmode</td>
+			<td>&nbsp;&nbsp;Profile</td>
+			<td>$profile</td>
+		</tr>
 		<tr>
 			<td COLSPAN='2' ALIGN='left'>$commit</td>
 			<td COLSPAN='2' ALIGN='right'>$delete</td>
