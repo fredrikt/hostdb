@@ -145,12 +145,10 @@ sub list_subnet
 	my $me = $q->state_url ();
 	my $id = $subnet->id ();
 
-	my @links;
+	my $edit_link;
 	if ($is_admin and $links{modifysubnet}) {
-		push (@links, "[<a HREF='$links{modifysubnet};id=$id'>edit</a>]");
+		$edit_link =  "[<a HREF='$links{modifysubnet};id=$id'>edit</a>]";
 	}
-
-	push (@links, "[<a HREF='$links{netplan}'>netplan</a>]") if ($is_admin and $links{netplan});
 
 	my $h_desc = $q->escapeHTML ($subnet->description ()?$subnet->description ():'no description');
 	$q->print (<<EOH);
@@ -163,12 +161,11 @@ sub list_subnet
 		   </td>
 		</tr>
 EOH
-	if (@links) {
-		my $l = join (' ', @links);
+	if ($edit_link) {
 		$q->print (<<EOH);
 		<tr>
 		  <td COLSPAN='4'>
-		    $l
+		    $edit_link
 		  </td>
 		</tr>
 EOH
