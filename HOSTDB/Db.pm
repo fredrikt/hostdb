@@ -78,6 +78,7 @@ sub init
 		$self->{_hostbypartof} =	$self->{_dbh}->prepare ("$SELECT_host WHERE partof = ? ORDER BY id")			or die "$DBI::errstr";
 		$self->{_hostbymac} =		$self->{_dbh}->prepare ("$SELECT_host WHERE mac = ? ORDER BY mac")			or die "$DBI::errstr";
 		$self->{_hostbyname} =		$self->{_dbh}->prepare ("$SELECT_host WHERE hostname = ? ORDER BY hostname")		or die "$DBI::errstr";
+		$self->{_hostbyzone} =		$self->{_dbh}->prepare ("$SELECT_host WHERE dnszone = ? ORDER BY hostname")		or die "$DBI::errstr";
 		$self->{_hostbywildcardname} =	$self->{_dbh}->prepare ("$SELECT_host WHERE hostname LIKE ? ORDER BY hostname")		or die "$DBI::errstr";
 		$self->{_hostbyip} =		$self->{_dbh}->prepare ("$SELECT_host WHERE ip = ? ORDER BY n_ip")			or die "$DBI::errstr";
 		$self->{_hostbyiprange} =	$self->{_dbh}->prepare ("$SELECT_host WHERE n_ip >= ? AND n_ip <= ? ORDER BY n_ip")	or die "$DBI::errstr";
@@ -317,6 +318,30 @@ sub findhostbyname
 }
 
 
+=head2 findhostbyzone
+
+	foreach my $host ($hostdb->findhostbyzone ($zone)) {
+		printf ("%-5s %-20s %s\n", $host->id (), $host->hostname (), $host->zone);
+	}
+
+
+=cut
+sub findhostbyzone
+{
+	my $self = shift;
+	my @res;
+
+	$self->_debug_print ("Find host with zone '$_[0]'");
+	
+	if (! $self->is_valid_domainname ($_[0])) {
+		$self->_set_error ("findhostbyname: '$_[0]' is not a valid domain name");
+		return undef;
+	}
+	
+	$self->_find(_hostbyzone => 'HOSTDB::Object::Host', $_[0]);
+}
+
+
 =head2 findhostbyip
 
 	foreach my $host ($hostdb->findhostbyip ($searchhost)) {
@@ -475,6 +500,14 @@ sub findallhosts
 
 	@hosts = $hostdb->findhost ("IP", $ip);
 
+	Valid datatypes (not case sensitive) are :
+		Guess
+		IP
+		FQDN
+		MAC
+		ZONE
+
+	Note that 'Guess' can't recognize a zone (it looks for FQDN).
 
 =cut
 sub findhost
