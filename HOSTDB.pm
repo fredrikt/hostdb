@@ -1171,9 +1171,9 @@ sub init
 	$self->_debug_print ("creating object");
 
 	if ($hostdb->{_dbh}) {
-		$self->{_new_host} = $hostdb->{_dbh}->prepare ("INSERT INTO $hostdb->{db}.host (dynamic, mac, hostname, ip, n_ip, owner, ttl, user, partof, reverse, last_modified_ts, mac_address_ts) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)")
+		$self->{_new_host} = $hostdb->{_dbh}->prepare ("INSERT INTO $hostdb->{db}.host (dhcpmode, mac, dnsmode, hostname, ip, n_ip, owner, ttl, user, partof, reverse, mac_address_ts) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
 			or die "$DBI::errstr";
-		$self->{_update_host} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.host SET dynamic = ?, mac = ?, hostname = ?, ip = ?, n_ip = ?, owner = ?, ttl = ?, user = ?, partof = ?, reverse = ?, last_modified_ts = NOW(), mac_address_ts = ?, WHERE id = ?")
+		$self->{_update_host} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.host SET dhcpmode = ?, mac = ?, dnsmode = ?, hostname = ?, ip = ?, n_ip = ?, owner = ?, ttl = ?, user = ?, partof = ?, reverse = ?, mac_address_ts = ?, WHERE id = ?")
 			or die "$DBI::errstr";
 
 		$self->{_get_last_id} = $hostdb->{_dbh}->prepare ("SELECT LAST_INSERT_ID()")
@@ -1210,7 +1210,9 @@ sub commit
 
 	# fields in database order
 	my @db_values = ($self->mac_address (),
+			 $self->dhcpmode (),
 			 $self->hostname (),
+			 $self->dnsmode (),
 			 $self->ip (),
 			 $self->n_ip (),
 			 $self->owner (),
@@ -1249,42 +1251,38 @@ sub commit
 }
 
 
-=head2 dynamic
+=head2 dhcpmode
 
-	Toggle if this host is dynamic (meaning don't generate a static
-	DHCP host statement for it, but rather calculate a range) or not.
+	Set DHCP mode for this host. This can be either DYNAMIC, STATIC or
+	DISABLED.
 
 
 	# set property
-	$host->dynamic ("Y");	# valid values are "Y" (or 1), "N" (or 0)
+	$host->dhcpmode ("STATIC");
 
-	# when used to get the value, always returns "Y" or "N" so you
-	# can't just do 'if ($host->dynamic ()) ...'
-	#
-	print ("This is a dynamic entry\n") if ($host->dynamic () eq "Y");
+	print ("This is a dynamic entry\n") if ($host->dhcpmode () eq "DYNAMIC");
 
 
 = cut
-sub dynamic
+sub dhcpmode
 {
 	my $self = shift;
 
 	if (@_) {
 		my $newvalue = shift;
 	
-		if ($newvalue =~ /^y/i or $newvalue == 1) {
-			$self->{dynamic} = "Y";
-		} elsif ($newvalue =~ /^n/i or $newvalue == 0) {
-			$self->{dynamic} = "N";
+		if ($newvalue eq "DYNAMIC" or $newvalue eq "STATIC" or
+		    $newvalue eq "DISABLED") {
+			$self->{dhcpmode} = $newvalue;
 		} else {
-			$self->set_error ("Invalid dynamic format");
+			$self->set_error ("Invalid dhcpmode");
 			return 0;
 		}
 
 		return 1;
 	}
 
-	return ($self->{dynamic});
+	return ($self->{dhcpmode});
 }
 
 
@@ -1312,6 +1310,39 @@ sub mac_address
 	}
 
 	return ($self->{mac});
+}
+
+
+=head2 dnsmode
+
+	Set DHCP mode for this host. This can be either ENABLED or DISABLED.
+
+
+	# set property
+	$host->dnsmode ("DISABLED");
+
+	print ("This entry does not generate DNS config\n") if ($host->dnsmode () eq "DISABLED");
+
+
+= cut
+sub dnsmode
+{
+	my $self = shift;
+
+	if (@_) {
+		my $newvalue = shift;
+	
+		if ($newvalue eq "ENABLED" or $newvalue eq "DISABLED") {
+			$self->{dnsmode} = $newvalue;
+		} else {
+			$self->set_error ("Invalid dnsmode");
+			return 0;
+		}
+
+		return 1;
+	}
+
+	return ($self->{dnsmode});
 }
 
 
