@@ -134,7 +134,8 @@ sub DESTROY
 	
 	Fetch the Config::IniFiles object that was supplied to the new ()
 	function (this is a read only function).
-	
+
+
 =cut
 sub inifile
 {
@@ -459,6 +460,11 @@ sub findhostbyiprange
 {
 	my $self = shift;
 
+	if (! defined ($_[0]) or ! defined ($_[1])) {
+		$self->_set_error ("findhostbyiprange: bad arguments\n");
+		return undef;
+	}
+
 	$self->_debug_print ("Find host by IP range '$_[0]' -> '$_[1]'");
 	
 	if (! $self->is_valid_ip ($_[0])) {
@@ -597,6 +603,11 @@ sub findzonebyname
 
 	$self->_debug_print ("Find zone with name '$_[0]'");
 	
+	if (! $self->is_valid_domainname ($_[0])) {
+		$self->_set_error ("findzonebyname: '$_[0]' is not a valid domain name");
+		return undef;
+	}
+
 	$self->_find(_zonebyname => 'HOSTDB::Object::Zone', $_[0]);
 }
 
@@ -632,7 +643,10 @@ sub findzonebyhostname
 
 	my $checkzone = $hostname;
 
-	return undef if (! $self->clean_hostname ($hostname));
+	if (! $self->clean_hostname ($hostname)) {
+		$self->_set_error ("findzonebyhostname: '$hostname' is not a valid hostname");
+		return undef;
+	}
 
 	while ($checkzone) {
 		my $zone = $self->findzonebyname ($checkzone);
@@ -678,7 +692,10 @@ sub findzonenamebyhostname
 
 	my $checkzone = $hostname;
 
-	return undef if (! $self->clean_hostname ($hostname));
+	if (! $self->clean_hostname ($hostname)) {
+		$self->_set_error ("findzonenamebyhostname: '$hostname' is not a valid hostname");
+		return undef;
+	}
 
 	while ($checkzone) {
 		if (grep (/^$checkzone$/, @all_zones)) {
@@ -712,6 +729,11 @@ sub findzonebyid
 
 	$self->_debug_print ("Find zone with ID '$_[0]'");
 
+	if ($_[0] !~ /^\d+$/) {
+		$self->_set_error ("findzonebyid: '$_[0]' is not a valid ID");
+		return undef;
+	}
+	
 	$self->_find(_zonebyid => 'HOSTDB::Object::Zone', $_[0]);
 }
 
@@ -729,6 +751,11 @@ sub findsubnet
 	my $self = shift;
 
 	$self->_debug_print ("Find subnet '$_[0]'");
+
+	if (! $self->is_valid_subnet ($_[0])) {
+		$self->_set_error ("findsubnet: '$_[0]' is not a valid subnet");
+		return undef;
+	}
 
 	my ($netaddr, $slash) = split('/', $_[0]);
 
@@ -750,6 +777,11 @@ sub findsubnetbyip
 
 	$self->_debug_print ("Find subnet for IP '$_[0]'");
 
+	if (! $self->is_valid_ip ($_[0])) {
+		$self->_set_error ("findsubnetbyip: '$_[0]' is not a valid IP adress");
+		return undef;
+	}
+	
 	$self->_find(_subnetbyip => 'HOSTDB::Object::Subnet',
 		     $self->aton ($_[0]), $self->aton ($_[0]));
 }
@@ -769,6 +801,11 @@ sub findsubnetbyid
 
 	$self->_debug_print ("Find subnet with ID '$_[0]'");
 
+	if ($_[0] !~ /^\d+$/) {
+		$self->_set_error ("findsubnetbyid: '$_[0]' is not a valid ID");
+		return undef;
+	}
+	
 	$self->_find(_subnetbyid => 'HOSTDB::Object::Subnet', $_[0]);
 }
 
@@ -787,6 +824,11 @@ sub findsubnetlongerprefix
 	my $supernet = shift;
 
 	$self->_debug_print ("Find all subnets inside '$supernet'");
+
+	if (! $self->is_valid_subnet ($supernet)) {
+		$self->_set_error ("findsubnet: '$supernet' is not a valid subnet");
+		return undef;
+	}
 
 	my ($netaddr, $slash) = split('/', $supernet);
 	my $broadcast = $self->get_broadcast ($supernet);
