@@ -102,11 +102,7 @@ if ($action eq 'commit') {
 		} 
 	}
 	$id = $host->id () unless ($id);
-	$host = get_host ($hostdb, 'ID', $id); # read-back
-
-	if (! defined ($host)) {
-		error_line ($q, "Host mysteriously vanished (id '$id')");
-	}
+	$host = get_host ($hostdb, 'ID', $id) if ($id);	# read-back
 } elsif	($action eq 'search') {
 	# call modify_host but don't commit () afterwards to get
 	# ip and other stuff supplied to us as CGI parameters
@@ -256,6 +252,41 @@ sub modify_host
 						} else {
 							$new_val = 0;
 						}
+					} elsif ($name eq 'mac_address') {
+						# check if a host with the same mac address exists in the
+						# very same subnet (a mobile host for example may exist
+						# in multiple subnets, but only once per subnet)
+						
+						my $mac = $q->param ('mac_address');
+						if ($mac) {
+							my @host_refs = $hostdb->findhostbymac ($mac);
+
+							foreach my $t_host (@host_refs) {
+								# skip if it is the same host object as we
+								# are currently modifying. should not happen
+								# since we only get here if $new_val not
+								# equals $old_val...
+								next if ($t_host->id () eq $host->id ());
+								
+								# ok, go find t_host's subnet and check if
+								# it is the same as the host we're modifyings...
+								my $t_subnet = $hostdb->findsubnetbyip ($t_host->ip ());
+								my $t_id = $t_host->id ();
+								my $t_subnetname;
+								$t_subnetname = $t_subnet->subnet () if (defined ($t_subnet));
+								
+								if ($t_subnetname and $t_subnet->subnet () eq $subnet->subnet ()) {
+									die ("Another host object (ID $t_id) on the same subnet ($t_subnetname) has the same MAC address\n");
+								} else {
+									my $t;
+									$t = " (on subnet $t_subnetname)" if ($t_subnetname);
+									
+									push (@warning, "Another host${t} object (ID $t_id) has that MAC address\n");
+								}
+							}
+						} else {
+							$new_val = 'NULL';
+						}	
 					}
 			
 					if ($old_val) {
@@ -263,7 +294,7 @@ sub modify_host
 					} else {
 						push (@changelog, "Set '$name' to '$new_val'");
 					}
-					$host->$func ($new_val) or die ("Failed to set host attribute: '$name' - error was '$host->{error}'");
+					$host->$func ($new_val) or die ("Failed to set host attribute: '$name' - error was '$host->{error}'\n");
 				}
 			}
 		}
@@ -320,7 +351,7 @@ sub host_form
 	my $remote_user = shift;
 	my ($id, $partof, $ip, $mac, $hostname, $comment, $owner, 
 	    $dnsmode, $dnsstatus, $dhcpmode, $dhcpstatus, $subnet,
-	    $profile);
+	    $profile, $dnszone);
 	
 	my $h_subnet = $hostdb->findsubnetbyip ($host->ip ());
 
@@ -350,6 +381,7 @@ sub host_form
 	my @profiles = split (',', $h_subnet->profilelist ());
 		
 	$id = $host->id ();
+	$dnszone = $host->dnszone () || '';
 	$partof = $q->textfield ('partof', $host->partof () || '');
 	$ip = $q->textfield ('ip', $host->ip ());
 	$mac = $q->textfield ('mac_address', $host->mac_address () || '');
@@ -409,6 +441,12 @@ sub host_form
 		<tr>
 			<td>Subnet</td>
 			<td>$subnet</td>
+			$empty_td
+			$empty_td
+		</tr>	
+		<tr>
+			<td>DNS zone</td>
+			<td>$dnszone</td>
 			$empty_td
 			$empty_td
 		</tr>	
