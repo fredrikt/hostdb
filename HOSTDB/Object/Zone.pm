@@ -563,7 +563,6 @@ sub owner
 				$newlist{$newvalue} = 1;
 			}
 		}
-		$newlist{default} = 1;
 
 		my $newvalue = join (',', sort keys %newlist);
 
