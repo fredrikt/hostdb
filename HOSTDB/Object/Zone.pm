@@ -66,8 +66,11 @@ sub init
 			or die "$DBI::errstr";
 		$self->{_update_zone} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.zone SET zonename = ?, delegated = ?, default_ttl = ?, ttl = ?, mname = ?, rname = ?, serial = ?, refresh = ?, retry = ?, expiry = ?, minimum = ?, owner = ? WHERE id = ?")
 			or die "$DBI::errstr";
+		$self->{_delete_zone} = $hostdb->{_dbh}->prepare ("DELETE FROM $hostdb->{db}.zone WHERE id = ?")
+			or die "$DBI::errstr";
 	}
 
+ 
 	return 1;
 }
 
@@ -119,6 +122,36 @@ sub commit
 
 		$sth->finish ();
 	}	
+
+	return 1;
+}
+
+
+=head2 delete
+
+	Not yet documented, saving that for a rainy day.
+
+
+=cut
+sub delete
+{
+	my $self = shift;
+	my $check = shift;
+
+	return 0 if ($check ne "YES");
+
+	my $sth;
+	if (defined ($self->{id})) {
+		$sth = $self->{_delete_zone};
+		$sth->execute ($self->id ()) or die "$DBI::errstr";
+		
+		# XXX check number of rows affected?
+
+		$sth->finish();
+	} else {
+		$self->_set_error ("Zone not in database");
+		return 0;
+	}
 
 	return 1;
 }
