@@ -324,7 +324,7 @@ sub enum_naptr_rr
 	my $fn = shift;
 	my $ldap_enumuri = shift;
 
-	my (%enumdata, $e164base);
+	my (%enumdata, $e164base, $e164root);
 	
 	my %staticmap = ('+468161225' => 'sip:ft@it.su.se',
 			 '+468164642' => 'sip:roland@it.su.se',
@@ -341,7 +341,8 @@ sub enum_naptr_rr
 	my $numbers_count = 0;
 	my $rrf = Net::ENUM::NAPTRFactory->new();
 	
-	if ($zonename =~ /^([\d\.]+)\.e164\.(arpa|sunet\.se)$/) {
+	if ($zonename =~ /^([\d\.]+)(\.e164\.arpa|\.e164\.sunet\.se)$/) {
+		$e164root = $2;
 		my @d = split (/\./, "$1");
 		$e164base = "+" . join ('', reverse (@d));
 	} else {
@@ -362,9 +363,9 @@ sub enum_naptr_rr
 			$uri = $staticmap{$e164};
 		}
 
-		print ($FH $rrf->create (e164 => $e164, uri => "$uri")->string . "\n") or
+		print ($FH $rrf->create (e164 => $e164, uri => "$uri", e164root => $e164root)->string . "\n") or
 			warn ("$0: Couldn't write data to '$fn': $!\n"), return 0;
-		print ($FH $rrf->create (e164 => $e164, uri => "$uri", rfc2916bis => 1)->string . "\n") or
+		print ($FH $rrf->create (e164 => $e164, uri => "$uri", e164root => $e164root, rfc2916bis => 1)->string . "\n") or
 			warn ("$0: Couldn't write data to '$fn': $!\n"), return 0;
 
 		$numbers_count++;
