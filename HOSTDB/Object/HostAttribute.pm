@@ -282,9 +282,7 @@ sub set
 	    return 0;
 	}
     } else {
-	my $t = $type || 'undef';
-	my $v = $type || 'undef';
-	die ("$0: HOSTDB::Object::HostAttribute::set() called with illegal arguments (type = '$t', value = '$v')\n");
+	die ("$0: HOSTDB::Object::HostAttribute::set() called without arguments\n");
     }
 
     return 0;
