@@ -193,7 +193,7 @@ sub delete
 	my @attributes = $self->init_attributes ();
 	foreach my $attr (@attributes) {
 		my $fail = 0;
-		$attr->delete () or $fail = 1;
+		$attr->delete ($check) or $fail = 1;
 		if ($fail) {
 			my $attrid = $attr->id ();
 			my $attrerror = $attr->{error};
