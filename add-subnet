@@ -1,0 +1,37 @@
+#!/usr/bin/perl
+#
+# $Id$
+#
+# script to manually add a subnet to our database
+#
+
+use strict;
+use Config::IniFiles;
+#use lib 'blib/lib';
+use HOSTDB;
+
+my $debug = 0;
+
+if ($#ARGV != 2) {
+	die("Syntax: $0 subnet short-desc long-desc\n");
+}
+
+my $hostdbini = Config::IniFiles->new (-file => '/usr/local/etc/hostdb.ini');
+
+my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
+			  db => $hostdbini->val ('db', 'database'),
+			  user => $hostdbini->val ('db', 'user'),
+			  password => $hostdbini->val ('db', 'password'),
+			  debug => $debug
+			 );
+
+my $subnet = $hostdb->create_subnet (4, $ARGV[0]);
+
+die ("Could not create subnet object: " . $hostdb->{error} . "\n") if (! $subnet);
+
+$subnet->short_description ($ARGV[1]);
+$subnet->description ($ARGV[2]);
+
+$subnet->commit() or die ("Could not commit subnet object: " . $hostdb->{error} . "\n");
+
+exit (0);
