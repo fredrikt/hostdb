@@ -17,7 +17,7 @@ my $file = shift @ARGV;
 my $default_ttl;
 
 if (! $file or $#ARGV != -1) {
-	die ("Syntax: $0 path/to/named.conf\n");
+	warn ("No named.conf filename given as argument, expecting zone names on stdin.\n");
 }
 
 my $hostdbini = Config::IniFiles->new (-file => HOSTDB::get_inifile ());
@@ -29,40 +29,69 @@ my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
 			  debug => $debug
 			 );
 
-open (FIL, "< $file") or die ("Could not open $file for reading: $!\n");
+my %counters;
+$counters{imported} = 0;
+$counters{ignored} = 0;
+$counters{failed} = 0;
 
-my $imported = 0;
-my $failed = 0;
-my @delayed;
-while (my $rad = <FIL>) {
-	chomp ($rad);
+if ($file) {
+	open (FIL, "< $file") or die ("Could not open $file for reading: $!\n");
 
-	if ($rad =~ /^zone\s+\"(.+?)\"\s+{\s*type master/) {
-		my $name = $1;
+	while (my $rad = <FIL>) {
+		chomp ($rad);
 
-		next if ($name eq "0.0.127.in-addr.arpa." or $name eq "0.0.127.in-addr.arpa");
-		next if ($name eq "255.in-addr.arpa." or $name eq "255.in-addr.arpa");
-		next if ($name eq "0.in-addr.arpa." or $name eq "0.in-addr.arpa");
-		next if ($name eq "localhost." or $name eq "localhost");
-
-		my $serial = get_soa_serial ($name);
-
-		if ($serial) {
-			warn("zone $name, $serial\n");
-
-			$imported++ if (add_zone ($hostdb, $name, $serial));
-		} else {
-			$failed++;
+		if ($rad =~ /^zone\s+\"(.+?)\"\s+{\s*type master/) {
+			my $name = $1;
+			do_zone ($hostdb, $name, \%counters);
 		}
 	}
+	close (FIL);
+} else {
+	while (my $rad = <>) {
+		chomp ($rad);
+		do_zone ($hostdb, $rad, \%counters);
+	}
 }
-close (FIL);
 
-print ("Imported $imported zones, failed $failed from file $file\n");
+print ("Imported $counters{imported} zones, failed $counters{failed}, ignored $counters{ignored}");
+if ($file) {
+	print (" from file $file\n");
+} else {
+	print (" from STDIN\n");
+}
 
 print ("done\n");
 
-sub add_zone
+
+sub do_zone
+{
+	my $hostdb = shift;
+	my $name = shift;
+	my $count_ref = shift;
+
+	if ($name eq "0.0.127.in-addr.arpa." or $name eq "0.0.127.in-addr.arpa" or
+	    $name eq "255.in-addr.arpa." or $name eq "255.in-addr.arpa" or
+	    $name eq "0.in-addr.arpa." or $name eq "0.in-addr.arpa" or
+	    $name eq "localhost." or $name eq "localhost") {
+		$count_ref->{ignored}++;
+		return undef;
+	}
+
+	my $serial = get_soa_serial ($name);
+
+	if ($serial) {
+		warn("zone $name, $serial\n");
+
+		$count_ref->{imported}++ if (db_add_zone ($hostdb, $name, $serial));
+	} else {
+		$count_ref->{failed}++;
+		return 0;
+	}
+
+	return 1;
+}
+
+sub db_add_zone
 {
 	my $hostdb = shift;
 	my $zonename = shift;
@@ -78,7 +107,8 @@ sub add_zone
 
 		my $valid = 1;
 		$zone->zonename ("$zonename") or warn ($zone->{error}), $valid = 0;
-		$zone->serial ($serial) or warn ($zone->{error}), $valid = 0; # XXX FIX ME
+		warn ("ZONENAME: " . $zone->zonename () . "\n");
+		$zone->serial ($serial) or warn ($zone->{error}), $valid = 0;
 		$zone->owner ("import") or warn ($zone->{error}), $valid = 0;
 		$zone->delegated ("N") or warn ($zone->{error}), $valid = 0;
 
