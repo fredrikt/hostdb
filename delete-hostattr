@@ -1,0 +1,88 @@
+#!/usr/local/bin/perl -w
+#
+# $Id$
+#
+# script to set host attributes
+#
+
+use strict;
+use HOSTDB;
+use Getopt::Long;
+use vars qw ($opt_debug $opt_help $opt_force);
+
+my $res = GetOptions (
+	    "debug",
+	    "help",
+	    "force"
+	   );
+
+my $force = defined ($opt_force);
+my $debug = defined ($opt_debug);
+
+if ($#ARGV != 2 || $opt_help) {
+	die (<<EOH);
+Syntax: $0 [options] <ID/IP/FQDN/MAC> attribute section
+
+	Options :
+	  --debug  debug
+	  --force  force, really do what you want
+
+EOH
+}
+
+my $searchfor = shift;
+my $attribute = shift;
+my $section = shift;
+
+my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
+			      debug => $debug
+			     );
+
+my @host_refs = $hostdb->findhost ('guess', $searchfor);
+if ($hostdb->{error}) {
+	die ("$0: $hostdb->{error}\n");
+}
+
+if (@host_refs) {
+	if (scalar @host_refs != 1) {
+		my @hl;
+
+		foreach my $host (@host_refs) {
+			my $id = $host->id ();
+			my $ip = $host->ip () || 'no ip';
+			my $hn = $host->hostname () || 'no hostname';
+			my $mac = $host->mac_address () || 'no mac address';
+			push (@hl, "id $id, $ip, $hn, $mac");
+		}
+
+		die ("$0: Host match pattern '$searchfor' is ambigous. Hosts matching :\n	" . join ("\n	", @hl) . "\n");
+	}
+
+	my $host = shift @host_refs;
+
+	$host->init_attributes ();
+
+	my $attr = $host->get_attribute ($attribute, $section);
+
+	my $old_value = 'none';
+	$old_value = $attr->get () if (defined ($attr));
+	
+	print ("Found attribute $attr (value '$old_value')\n") if ($debug);
+	
+	if (defined ($attr)) {
+		if (! $opt_force) {
+			die ("$0: Dying, you have to delete with --force\n");
+		}
+
+		$attr->delete ($opt_force?"YES":"WELL, UHH") or die ("$0: Could not delete host attribute object - $attr->{error}\n");
+	} else {
+		my $id = $host->id ();
+		my $ip = $host->ip () || 'no ip';
+		my $hn = $host->hostname () || 'no hostname';
+		die ("$0: Host with ID $id (name $hn, IP $ip) has no such attribute\n");
+	}
+
+	exit (0);
+} else {
+	die ("$0: No host matches '$searchfor'\n");
+}
