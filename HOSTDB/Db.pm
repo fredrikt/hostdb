@@ -404,10 +404,13 @@ sub findhostbyip
 sub findhostbywildcardname
 {
 	my $self = shift;
+	my $searchfor = shift;
 
-	$self->_debug_print ("Find host with hostname LIKE '$_[0]'");
+	$searchfor =~ s/\*/%/g;
 	
-	$self->_find(_hostbywildcardname => 'HOSTDB::Object::Host', $_[0]);
+	$self->_debug_print ("Find host with hostname LIKE '$searchfor'");
+	
+	$self->_find(_hostbywildcardname => 'HOSTDB::Object::Host', $searchfor);
 }
 
 
