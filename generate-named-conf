@@ -1,0 +1,65 @@
+#!/usr/local/bin/perl
+#
+# $Id
+#
+# script to generate named.conf files
+#
+
+use strict;
+use Config::IniFiles;
+#use lib 'blib/lib';
+use HOSTDB;
+use Getopt::Std;
+use vars qw ($opt_h $opt_d $opt_m $opt_s);
+
+getopts ('hdms:');
+
+my $debug = defined ($opt_d);
+my $gen_master = defined ($opt_m);
+
+if ($opt_h or (! $opt_s and ! $opt_m)) {
+	die (<<EOT);
+Syntax: $0 -s or -m [options]
+	options :
+		-d	debug output
+		-s IP	generate slave config, fetch zones from IP
+		-m	generate master config
+
+EOT
+}
+
+my $hostdbini = Config::IniFiles->new (-file => HOSTDB::get_inifile ());
+
+my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
+			  db => $hostdbini->val ('db', 'database'),
+			  user => $hostdbini->val ('db', 'user'),
+			  password => $hostdbini->val ('db', 'password'),
+			  debug => $debug
+			 );
+
+foreach my $zone ($hostdb->findallzones ()) {
+	next if ($zone->delegated () eq "Y");
+
+	my $zonename = $zone->zonename ();
+	
+	my $z = tab_format (4, "zone \"$zonename\"");
+
+	if ($gen_master) {
+		print ("$z	{ type master; file \"/approved/$zonename..ZONE\"; };\n");
+	} else {
+		print ("$z	{ type slave; masters { $opt_s; }; file \"/slave/$zonename..DUMP\"; };\n");
+	}
+}
+
+exit (0);
+
+
+sub tab_format
+{
+	my $tab_count = shift;
+	my $string = shift;
+
+	my $minus_tabs = int (length ($string) / 8);
+
+	return $string . "	" x ($tab_count - $minus_tabs);
+}
