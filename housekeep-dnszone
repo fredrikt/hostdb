@@ -45,13 +45,10 @@ my $changed_count = 0;
 my $total_count = 0;
 my $failed_count = 0;
 
-my @all_hosts = $hostdb->findallhosts ();
-foreach my $host (@all_hosts) {
+foreach my $host ($hostdb->findallhosts ()) {
     $total_count++;
 
     my $hostname = $host->hostname ();
-    my $id = $host->id ();
-    my $dnszone = $host->dnszone () || 'NULL';
 
     if ($host->manual_dnszone () eq 'Y') {
 	# host has auto-DNS-zone disabled, probably glue
@@ -61,37 +58,82 @@ foreach my $host (@all_hosts) {
 
     next unless defined ($hostname);
 
-    my $host_dnszone = $hostdb->findzonenamebyhostname ($hostname, @all_zonenames) || 'NULL';
+    do_object ($hostdb, $host, $hostname, 'host', \@all_zonenames, \$changed_count, \$failed_count, $verbose);
+}
 
-    if ($dnszone ne $host_dnszone) {
-	warn ("Changing DNS zone on $hostname (id $id) from '$dnszone' to '$host_dnszone'\n");
+my $t = '';
+$t = '(dry run) ' if ($dry_run);
+print ("Changed DNS zone on $changed_count ${t}out of $total_count hosts, $failed_count failed.\n") unless $quiet;
+
+$changed_count = 0;
+$total_count = 0;
+$failed_count = 0;
+
+foreach my $alias ($hostdb->findallhostaliases ()) {
+    $total_count++;
+
+    my $aliasname = $alias->aliasname ();
+
+    next unless defined ($aliasname);
+
+    do_object ($hostdb, $alias, $aliasname, 'alias', \@all_zonenames, \$changed_count, \$failed_count, $verbose);
+}
+
+$t = '';
+$t = '(dry run) ' if ($dry_run);
+print ("Changed DNS zone on $changed_count ${t}out of $total_count host aliases, $failed_count failed.\n") unless $quiet;
+
+exit (1) if ($failed_count);
+
+exit (0);
+
+
+sub do_object
+{
+    my $hostdb = shift;
+    my $o = shift;
+    my $name = shift;
+    my $type = shift;
+    my $all_zonenames_ref = shift;
+    my $changed_ref = shift;
+    my $failed_ref = shift;
+    my $verbose = shift;
+
+    my $res = 1;
+    my $correct_zonename = $hostdb->findzonenamebyhostname ($name, @{$all_zonenames_ref}) || 'NULL';
+
+    my $object_zonename = $o->dnszone ();
+    my $id = $o->id ();
+
+    if (! $object_zonename) {
+	warn ("$type $id ($name) has no DNS zone set\n") if ($verbose);
+	return undef;
+    }
+
+    if ($object_zonename ne $correct_zonename) {
+	warn ("Changing DNS zone on $type $name (id $id) from '$object_zonename' to '$correct_zonename'\n");
 
 	my $valid = 1;
-	$host->dnszone ($host_dnszone) or warn ("Could not change zone from '$dnszone' to '$host_dnszone' on host $id ($hostname): $host->{error}\n"), $valid = 0;
+	$o->dnszone ($correct_zonename) or warn ("Could not change zone from '$object_zonename' to '$correct_zonename' on $type $id ($name): $o->{error}\n"), $valid = 0;
 
 	if ($valid) {
-	    $changed_count++;
+	    $$changed_ref++;
 
 	    if (! $dry_run) {
-		if ($host->commit ()) {
-		    warn ("Changed zone for '$hostname' from '$dnszone' to '$host_dnszone'\n") if ($debug);
+		if ($o->commit ()) {
+		    warn ("Changed zone for $type $id ($name) from '$object_zonename' to '$correct_zonename'\n") if ($debug);
 		} else {
-		    warn ("Commit on host $id ($hostname) failed: $host->{error}\n");
-		    $failed_count++;
+		    warn ("Commit on $type $id ($name) failed: $o->{error}\n");
+		    $$failed_ref++;
+		    $res = 0;
 		}
 	    }
 	}
     }
 
-    if ($host_dnszone eq 'NULL' and $verbose) {
-	warn ("Host $hostname (id $id) has empty DNS zone\n");
+    if ($object_zonename eq 'NULL' and $verbose) {
+	warn ("$type $name (id $id) has empty DNS zone\n");
     }
+
+    return $res;
 }
-
-my $t = '';
-$t = '(dry run) ' if (defined ($dry_run));
-print ("Changed DNS zone on $changed_count ${t}out of $total_count hosts, $failed_count failed.\n") unless $quiet;
-
-exit (1) if ($failed_count);
-
-exit (0);
