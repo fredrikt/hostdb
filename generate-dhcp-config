@@ -46,10 +46,12 @@ my @subnet_list = @ARGV;
 push (@subnet_list, '*') if (0 == @subnet_list);
 
 my (@subnets);
-foreach my $subnet_name (@subnet_list) {
-	if ($subnet_name eq '*') {
-		push (@subnets, $hostdb->findallsubnets ());
-	} else {
+my $all_subnets = 0;
+if (grep (/^\*$/, @subnet_list)) {
+	@subnets = $hostdb->findallsubnets ();
+	$all_subnets = 1;
+} else {
+	foreach my $subnet_name (@subnet_list) {
 		push (@subnets, $hostdb->findsubnet ($subnet_name));
 	}
 }
@@ -57,20 +59,28 @@ foreach my $subnet_name (@subnet_list) {
 usage () if (! @subnets);
 
 my $failed = 0;
+my %all_generated_files;
 foreach my $subnet (@subnets) {
 	die ("$0: Empty subnet, oh no.\n") if (! $subnet);
 
 	my %generated_files;
 	
 	$failed = 1 if (! print_dhcp_config ($hostdb, $subnet, $output_dir, \%generated_files, $debug, $quiet));
-	if (! $failed) {
+	if (! $failed and ! $all_subnets) {
 		$failed = 1 if (! remove_old_files ($subnet, $output_dir, \%generated_files,
 						    $remove_old, $debug, $quiet));
 	}
 
 	last if ($failed);
+
+	foreach my $k (keys %generated_files) {
+		$all_generated_files{$k} = $generated_files{$k};
+	}
 }
 
+if (! $failed and $all_subnets) {
+	$failed = 1 if (! remove_old_files (undef, $output_dir, \%all_generated_files, $remove_old, $debug, $quiet));
+}
 
 exit ($failed);
 
@@ -226,13 +236,21 @@ sub remove_old_files
 
 	opendir (DIR, $output_dir) or warn ("$0: Could not opendir () '$output_dir': $!\n"), return 0;
 	
-	my $file_regexp = $subnet->subnet () . "_id" . $subnet->id () . "-";
-	$file_regexp =~ s#/#-#go;	# replace slash(es) with - (dash)
+	my @files;
+
+	if (defined ($subnet)) {
+		my $file_regexp = $subnet->subnet () . "_id" . $subnet->id () . "-";
+		$file_regexp =~ s#/#-#go;	# replace slash(es) with - (dash)
 	
-	my @files = grep { /^$file_regexp/ } readdir DIR;
+		@files = grep { /^$file_regexp/ } readdir DIR;
+	} else {
+		@files = readdir DIR;
+	}
 	close (DIR);
 	
 	foreach my $fn (@files) {
+		next if ($fn eq "filelist");
+
 		my $file = "$output_dir/$fn";
 		
 		next unless (-f $file);	# skip non-files
