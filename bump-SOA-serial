@@ -19,20 +19,21 @@ my $debug = defined ($opt_d);
 my $dns_sync = defined ($opt_D);
 my $quiet = defined ($opt_q);
 my $force = defined ($opt_f);
-my @zones = @ARGV;
+my $zonename = shift;
+my $zonefile = shift;
 
 my $soa_seq_limit = 80;
 
-if (! $zones[0] or $opt_h) {
+if (! $zonename or $opt_h) {
 	die (<<EOM);
-Syntax: $0 [options] zone ...
+Syntax: $0 [options] zone [zonefile]
 
 	options:
 		-d	debug
 		-h	this help text
 		-D	sync SOA serials in database with DNS
 		-q	quiet mode
-		-f	force update
+		-f	override sanity checks for matching SOA/seq number
 
 EOM
 }
@@ -46,21 +47,26 @@ my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
 			  debug => $debug
 			 );
 
-my $zonename;
-my $errors = 0;
-foreach $zonename (@zones) {
+my $res = update_serial ($zonename, $zonefile);
+
+exit ($res);
+
+
+sub update_serial
+{
+	my $zonename = shift;
+	my $zonefile = shift;
+
 	if (! $hostdb->clean_domainname ($zonename)) {
 		warn ("Invalid zone name '$zonename'\n");
-		$errors++;
-		next;
+		return 0;
 	}
 
 	my $zone = $hostdb->findzonebyname ($zonename);
 
 	if (! defined ($zone)) {
 		warn ("$0: Zone not found '$zonename'\n");
-		$errors++;
-		next;
+		return 0;
 	}
 
 	my $old_serial = $zone->serial ();
@@ -68,26 +74,27 @@ foreach $zonename (@zones) {
 
 	if ($dns_sync) {
 		$new_serial = get_dns_soa_serial ($zone);
-		$errors++, next if (! defined ($new_serial));
+		return 0 if (! defined ($new_serial));
 	} else {
 		my ($sec, $min, $hour, $mday, $mon, $year, $yday, $isdst) = localtime ();
 		$year += 1900;  # yes, this is Y2K safe (why do you even bother? this was written
 				# in the year of 2002)
+		$mon++;
 		my $today = sprintf ("%.4d%.2d%.2d", $year, $mon, $mday);
 
-		if ($old_serial =~ /^$today(\d\d)/) {
+		if ($old_serial =~ /^$today(\d\d)$/o) {
 			my $n = int ($1);
 			if ($n >= 99) {
 				# should never be more of course, but anyways...
 				warn ("$0: Can't increase SOA for zone $zonename any more today. Sorry.");
-				next;
+				return 0;
 			}
 			if ($n > $soa_seq_limit) {
 				if (! $force) {
 					warn ("$0: SOA serial for zone $zonename has todays date but " .
 					      "sequence number is > $soa_seq_limit ($n) - won't update unless " .
 					      "you force me to.");
-					next;
+					return 0;
 				}
 			}
 			$new_serial = sprintf("%s%.2d", $today, $n + 1);
@@ -97,11 +104,34 @@ foreach $zonename (@zones) {
 	}
 	
 	if ($old_serial ne $new_serial) {
-		$zone->serial ($new_serial) or warn ($zone->{error}), $errors++, next;
-		$zone->commit () or warn ($zone->{error}), $errors++, next;
+		my $new_zonefile = $zonefile . ".BUMP-$$";
+
+		if ($zonefile) {
+			my $new_zonefile = $zonefile . ".BUMP-$$";
+			my $r = make_new_zonefile ($zonefile, $old_serial,
+						   $new_zonefile, $new_serial);
+			if (! $r) {
+				warn ("$0: Failed to write new zone file, aborting before updating the database.\n");
+				unlink ($new_zonefile);
+				return 0;
+			}
+		}
+
+		$zone->serial ($new_serial) or warn ($zone->{error}), return 0;
+		$zone->commit () or warn ($zone->{error}), return 0;
+
+		if ($zonefile) {
+			rename ($new_zonefile, $zonefile) or
+				warn ("$0: Could not rename $new_zonefile to $zonefile " .
+				      "($!) - check for consistency!"), return 0;
+			# XXX maybe we should change SOA serial in database back
+			# if this rename fails...
+		}
 		
 		print ("$zonename: Changed SOA serial from $old_serial to $new_serial\n") if (! $quiet);
 	}
+
+	return 1;
 }
 
 
@@ -121,4 +151,60 @@ sub get_dns_soa_serial
 
 	warn ("$0: Could not get SOA serial for zone '$zone'\n");
 	return undef;
+}
+
+# write a new zonefile - new_zonefile should be in the same directory (and therefor
+# the same file system) as old_zonefile so that an atomic rename() can be made
+# afterwards
+#
+# try to check for write errors as much as possible so that we do not accidently
+# truncate the zone file or otherwise damage it if the file system becomes full or
+# something else happens
+sub make_new_zonefile
+{
+	my $old_zonefile = shift;
+	my $old_serial = shift;
+	my $new_zonefile = shift;
+	my $new_serial = shift;
+
+	open (IN, "< $old_zonefile") or warn ("$0: Could not open zone file '$old_zonefile' for reading: $!\n"), return 0;
+	
+	open (OUT, "> $new_zonefile") or warn ("$0: Could not create zone file '$new_zonefile' for writing: $!\n"), return 0;
+	
+	my $line;
+	while ($line = <IN>) {
+		last if ($line =~ /^\S+\s+\d+\s+IN\s+SOA\s+/o);
+		print (OUT $line) or warn ("$0: Could not write to file '$new_zonefile': $!\n"), return 0;;
+	}
+	
+	if (! defined ($line)) {
+		warn ("$0: SOA RR not found in file '$old_zonefile'\n");
+		return 0;
+	}
+	
+	chomp ($line);
+	if ($line =~ /^(\S+\s+\d+\s+IN\s+SOA\s+\S+\s+\S+\s+)(\d+)(\s+\d+\s+\d+\s+\d+\s+\d+\s*)$/o) {
+		my $lhs = $1;
+		my $serial = $2;
+		my $rhs = $3;
+		
+		if ($serial ne $old_serial) {
+			warn ("$0: SOA serial in file '$old_zonefile' ($serial) is not what I expected ($old_serial)\n");
+			return 0 if (! $force);
+		}
+		print (OUT "$lhs$new_serial$rhs\n") or warn ("$0: Could not write to file '$new_zonefile': $!\n"), return 0;
+	} else {
+		warn ("$0: Incorrectly formatted SOA RR found in file '$old_zonefile'\n");
+	}
+
+	while ($line = <IN>) {
+		print (OUT $line) or warn ("$0: Could not write to file '$new_zonefile': $!\n"), return 0;
+	}
+	
+
+	# no error checking, error on close is not really an error...
+	close (IN);
+	close (OUT);
+	
+	return 1;
 }
