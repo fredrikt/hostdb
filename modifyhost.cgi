@@ -50,6 +50,26 @@ if (defined ($ENV{REMOTE_USER}) and $ENV{REMOTE_USER} =~ /^[a-z0-9]{,50}$/) {
 	$remote_user = 'ft';
 }
 
+my $host;
+
+my $id = $q->param('id');
+if (defined ($id) and $id ne '') {
+	$host = get_host ($hostdb, 'ID', $id);
+} else {
+	$host = $hostdb->create_host ();
+	if (defined ($host)) {
+		# set some defaults
+		$host->profile ('default');
+		$host->manual_dnszone ('N');
+	}
+}
+
+if (! defined ($host)) {
+	$q->print ("&nbsp;<p><ul><font COLOR='red' SIZE='3'><strong>No host found and none could be created (hostdb error: $hostdb->{error})</strong></font></ul>\n\n");
+	$q->end ();
+	die ("$0: Could not get/create host (hostdb error: $hostdb->{error})");
+}
+
 
 my $me = $q->state_url ();
 
@@ -67,63 +87,39 @@ $q->print (<<EOH);
 		$table_blank_line
 EOH
 
-my $host;
+my $action = lc ($q->param('action'));
+$action = 'search' unless $action;
 
-my $action = $q->param('action');
-$action = 'Search' unless $action;
-SWITCH:
-{
-	$action eq 'Commit' and do
-	{
-		my $id = $q->param('id');
+if ($action eq 'commit') {
+	if (modify_host ($hostdb, $host, $q, $remote_user)) {
+		eval
+		{
+			$host->commit ();
+		};
+		if ($@) {
+			error_line ($q, "Could not commit changes: $@");
+			warn ("Changes to host with id '$id' could not be committed");
+		} 
+	}
+	$id = $host->id () unless ($id);
+	$host = get_host ($hostdb, 'ID', $id); # read-back
 
-		if (defined ($id) and $id ne '') {
-			$host = get_host ($hostdb, 'ID', $id);
-		} else {
-			$host = $hostdb->create_host ();
-			error_line ($q, "$0: Could not create host entry: $hostdb->{error}\n"), last SWITCH unless (defined ($host));
-			$host->profile ('default');
-			$host->manual_dnszone ('N');
-		}
-
-		if (modify_host ($hostdb, $host, $q, $remote_user)) {
-			eval
-			{
-				$host->commit ();
-			};
-			if ($@) {
-				error_line ($q, "Could not commit changes: $@");
-				warn ("Changes to host with id '" . $host->id () . "' could not be committed");
-				last SWITCH;
-			}
-		}
-
-		$id = $host->id () unless ($id);
-		$host = get_host($hostdb,'ID',$id); # read-back
-		error_line ($q, "Host mysteriously vanished"), last SWITCH unless $host;
-	},last SWITCH;
-
-	$action eq 'Search' and do
-	{
-		$host = get_host ($hostdb, 'ID', $q->param('id')) if $q->param('id');
-		if (! defined ($host)) {
-			$host = $hostdb->create_host ();
-			# call modify_host but don't commit () afterwards to get
-			# ip and other stuff supplied to us as CGI parameters
-			# set on the host before we call host_form () below.
-			modify_host ($hostdb, $host, $q, $remote_user);
-		}
-
-	},last SWITCH;
+	if (! defined ($host)) {
+		error_line ($q, "Host mysteriously vanished (id '$id')");
+	}
+} elsif	($action eq 'search') {
+	# call modify_host but don't commit () afterwards to get
+	# ip and other stuff supplied to us as CGI parameters
+	# set on the host before we call host_form () below.
+	modify_host ($hostdb, $host, $q, $remote_user);
+} else {
+	error_line ($q, 'Unknown action');
+	$subnet = undef;
 }
 
 
-if ($@) {
-	error_line($q, "$@\n");
-} else {
-	if (defined ($host)) {
-		host_form ($q, $host, $remote_user);
-	}
+if (defined ($host)) {
+	host_form ($q, $host, $remote_user);
 }
 
 END:
@@ -277,7 +273,7 @@ sub modify_host
 	
 	if ($@) {
 		chomp ($@);
-		error_line ($q, "Failed to set host attribute: $@: $host->{error}");
+		error_line ($q, $@ . "\n");
 		return 0;
 	}
 	
@@ -480,6 +476,7 @@ sub error_line
 {
 	my $q = shift;
 	my $error = shift;
+	chomp ($error);
 	$q->print (<<EOH);
 	   <tr>
 		<td COLSPAN='4'>
@@ -489,4 +486,6 @@ sub error_line
 		</td>
 	   </tr>
 EOH
+	my $i = localtime () . " modifyhost.cgi[$$]";
+	warn ("$i: $error\n");
 }

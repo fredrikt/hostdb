@@ -56,6 +56,26 @@ if (! $hostdb->auth->is_admin ($remote_user)) {
 	die ("$0: User '$remote_user' denied\n");
 }
 
+my $subnet;
+
+my $id = $q->param('id');
+if (defined ($id) and $id ne '') {
+	$subnet = get_subnet ($hostdb, $id);
+} else {
+	$subnet = $hostdb->create_subnet ();
+	if (defined ($subnet)) {
+		# set some defaults
+		$subnet->profilelist ('default');
+	}
+}
+
+if (! defined ($subnet)) {
+	$q->print ("&nbsp;<p><ul><font COLOR='red' SIZE='3'><strong>No subnet found and none could be created (hostdb error: $hostdb->{error})</strong></font></ul>\n\n");
+	$q->end ();
+	die ("$0: Could not get/create subnet (hostdb error: $hostdb->{error})");
+}
+
+
 my $me = $q->state_url ();
 
 $q->print (<<EOH);
@@ -72,57 +92,39 @@ $q->print (<<EOH);
 		$table_blank_line
 EOH
 
-my $subnet;
+my $action = lc ($q->param('action'));
+$action = 'search' unless $action;
 
-my $action = $q->param('action');
-$action = 'Search' unless $action;
-SWITCH:
-{
-	$action eq 'Commit' and do
-	{
-		my $id = $q->param('id');
+if ($action eq 'commit') {
+	if (modify_subnet ($hostdb, $subnet, $q, \%colors, $remote_user)) {
+		eval
+		{
+			$subnet->commit ();
+		};
+		if ($@) {
+			error_line ($q, "Could not commit changes: $@");
+			warn ("Changes to subnet with id '$id' could not be committed");
+		} 
+	}
+	$id = $subnet->id () unless ($id);
+	$subnet = get_subnet ($hostdb, $id); # read-back
 
-		if (defined ($id) and $id ne '') {
-			$subnet = get_subnet ($hostdb, $id);
-		} else {
-			$subnet = $hostdb->create_subnet ();
-			error_line ($q, "$0: Could not create subnet entry: $hostdb->{error}\n"), last SWITCH unless (defined ($subnet));
-			$subnet->profilelist ('default');
-		}
-
-		if (modify_subnet ($hostdb, $subnet, $q, \%colors, $remote_user)) {
-			eval
-			{
-				$subnet->commit ();
-			};
-		}
-
-		$id = $subnet->id () unless ($id);
-		$subnet = get_subnet ($hostdb, $id); # read-back
-		error_line ($q, "Subnet mysteriously vanished"), last SWITCH unless $subnet;
-	},last SWITCH;
-
-	$action eq 'Search' and do
-	{
-		$subnet = get_subnet ($hostdb, $q->param('id')) if $q->param('id');
-		if (! defined ($subnet)) {
-			$subnet = $hostdb->create_subnet ();
-			# call modify_subnet but don't commit () afterwards to get
-			# stuff supplied to us as CGI parameters
-			# set on the subnet before we call host_form () below.
-			modify_subnet ($hostdb, $subnet, $q, $remote_user);
-		}
-
-	},last SWITCH;
+	if (! defined ($subnet)) {
+		error_line ($q, "Subnet mysteriously vanished (id '$id')");
+	}
+} elsif ($action eq 'search') {
+	# call modify_subnet but don't commit () afterwards to get
+	# stuff supplied to us as CGI parameters
+	# set on the subnet before we call host_form () below.
+	modify_subnet ($hostdb, $subnet, $q, $remote_user);
+} else {
+	error_line ($q, 'Unknown action');
+	$subnet = undef;
 }
 
 
-if ($@) {
-	error_line($q, "$@\n");
-} else {
-	if (defined ($subnet)) {
-		subnet_form ($q, $subnet, \%colors, $remote_user);
-	}
+if (defined ($subnet)) {
+	subnet_form ($q, $subnet, \%colors, $remote_user);
 }
 
 END:
@@ -172,7 +174,7 @@ sub modify_subnet
 				
 				if ($new_val ne $old_val) {
 					push (@changelog, "Changed '$name' from '$old_val' to '$new_val'");
-					$subnet->$func ($new_val) or die ("Failed to set subnet attribute: '$name' - error was '$subnet->{error}'");
+					$subnet->$func ($new_val) or die ("$subnet->{error}\n");
 				}
 			}
 		}
@@ -186,7 +188,7 @@ sub modify_subnet
 	
 	if ($@) {
 		chomp ($@);
-		error_line ($q, "Failed to set subnet attribute: $@: $subnet->{error}");
+		error_line ($q, $@ . "\n");
 		return 0;
 	}
 	
@@ -230,11 +232,11 @@ sub subnet_form
 		$id = $subnet->id ();
 		$description = $q->textfield (-name => 'description',
 					  -default => $subnet->description () || '',
-					  -size => 45,
+					  -size => 65,
 					  -maxlength => 255);
 		$short_description = $q->textfield (-name => 'short_description',
 					  -default => $subnet->short_description () || '',
-					  -size => 45,
+					  -size => 65,
 					  -maxlength => 255);
 		$htmlcolor = $q->popup_menu (-name => 'htmlcolor',
 					     -values => [sort keys %{$colors_ref}],
@@ -242,7 +244,7 @@ sub subnet_form
 		$owner = $q->textfield ('owner', $subnet->owner () || $remote_user);
 		$profilelist = $q->textfield (-name => 'profilelist',
 					  -default => $subnet->profilelist () || '',
-					  -size => 45,
+					  -size => 65,
 					  -maxlength => 255);
 	}
 
@@ -317,6 +319,7 @@ sub error_line
 {
 	my $q = shift;
 	my $error = shift;
+	chomp ($error);
 	$q->print (<<EOH);
 	   <tr>
 		<td COLSPAN='4'>
@@ -326,6 +329,8 @@ sub error_line
 		</td>
 	   </tr>
 EOH
+	my $i = localtime () . " modifysubnet.cgi[$$]";
+	warn ("$i: $error\n");
 }
 
 sub load_colors
