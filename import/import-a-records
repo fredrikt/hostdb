@@ -48,6 +48,9 @@ if ($output_filename) {
 my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
 			      debug => $debug
 			      );
+
+my $exitstatus = 0;
+
 foreach my $file (@files) {
     open (FIL, "< $file") or die ("Could not open $file for reading: $!\n");
 
@@ -86,6 +89,8 @@ foreach my $file (@files) {
 	    if (add_host ($hostdb, 0, $name, $ttl, $ip, $debug, $db_dry_run)) {
 		$imported++;
 		$skip_copy = 1;
+	    } else {
+		$exitstatus = 1;
 	    }
 	}
 
@@ -97,7 +102,11 @@ foreach my $file (@files) {
     foreach my $arrayref (@delayed) {
 	my ($name, $ttl, $ip) = @{ $arrayref };
 
-	$imported++ if (add_host ($hostdb, 1, $name, $ttl, $ip, $debug, $db_dry_run));
+	if (add_host ($hostdb, 1, $name, $ttl, $ip, $debug, $db_dry_run)) {
+	    $imported++;
+	} else {
+	    $exitstatus = 1;
+	}
     }
 
     print ("Imported $imported A RR's from file $file\n");
@@ -108,12 +117,14 @@ foreach my $file (@files) {
 close (OUTFILE) if ($output_filename);
 print ("done\n");
 
+exit ($exitstatus);
 
 sub add_host
 {
     my ($hostdb, $findparent, $name, $ttl, $ip, $debug, $dry_run) = @_;
 
     my $host = $hostdb->findhostbyname ($name);
+    my $dnszone;
 
     if (defined ($host)) {
 	warn ("$0: conflicting hostname '$name' (import IP $ip, hostdb IP " . $host->ip () . "), skipped\n");
@@ -122,8 +133,13 @@ sub add_host
 
     $host = undef;
 
+    my $z = $hostdb->findzonebyhostname ($name);
+
+    warn ("$0: Could not find a suitable DNS zone for hostname '$name'\n"), return undef unless defined ($z);
+    $dnszone = $z->zonename ();
+
     if ($dry_run) {
-	print ("dry-run skipping host '$name $ttl $ip'\n");
+	print ("dry-run skipping host '$name $ttl $ip' (dns zone '$dnszone')\n");
 	return 1;
     }
 
@@ -141,13 +157,13 @@ sub add_host
 
 	if ($debug) {
 	    if ($parent_id) {
-		print ("add host '$name $ttl $ip', parent $parent_id ($parent_hostname)\n");
+		print ("add host '$name $ttl $ip', parent $parent_id ($parent_hostname) (dns zone '$dnszone')\n");
 	    }
 	} else {
-	    print ("add host '$name $ttl $ip'\n");
+	    print ("add host '$name $ttl $ip' (dns zone '$dnszone')\n");
 	}
     } else {
-	print ("add host '$name $ttl $ip'\n") if ($debug);
+	print ("add host '$name $ttl $ip' (dns zone '$dnszone')\n") if ($debug);
     }
 
     my $valid = 1;
@@ -166,6 +182,9 @@ sub add_host
 	$host->dhcpmode ("STATIC") or warn ($host->{error}), $valid = 0;
     }
     $host->dhcpstatus ("ENABLED");
+    $host->manual_dnszone('N');
+    $host->profile('default');
+    $host->dnszone ($dnszone);
 
     $host->commit() if ($valid);
 
