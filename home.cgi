@@ -99,10 +99,10 @@ sub home_form
 	# HTML 
         my $state_field = $q->state_field ();
 	my $me = $q->state_url ();
-	my $reload = $q->submit ('action', 'Activate changes');
+	my $reload = $q->submit (-name=>'action', -value=>'Activate changes',-class=>'button');
 	my $user = '&nbsp';
 	
-	$user = $q->submit ('foo', 'Pretend to be') . "&nbsp;" . $q->textfield ('user') if ($is_admin);
+	$user = $q->submit (-name=>'foo', -value=>'Pretend to be',-class=>'button') . "&nbsp;" . $q->textfield ('user') if ($is_admin);
 	$reload .= "&nbsp;" . $q->textfield ('activateother') if ($is_admin or $is_helpdesk);
 
 	$q->print ($table_hr_line);

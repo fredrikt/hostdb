@@ -485,7 +485,7 @@ sub host_form
 
 	# HTML 
         my $state_field = $q->state_field ();
-	my $commit = $q->submit ('action', 'Commit');
+	my $commit = $q->submit (-name=>'action', -value=>'Commit', -class=>'button');
 
 	my %dnsmode_labels = ('A_AND_PTR' => "Both 'A' and 'PTR'",
 			      'A'	  => "Only 'A'");

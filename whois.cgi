@@ -97,7 +97,7 @@ sub whois_form
 	my $me = $q->state_url ();
         my $popup = $q->popup_menu (-name => 'whoisdatatype', -values => ['Guess', 'IP', 'FQDN', 'MAC', 'ID', 'Zone', 'Subnet'], -default => 'Guess');
 	my $datafield = $q->textfield ('whoisdata');
-	my $submit = $q->submit ('Search');
+	my $submit = $q->submit (-name=>'Search',-class=>'button');
 
 	$q->print (<<EOH);
 		<tr>
@@ -216,10 +216,10 @@ sub perform_search
 
 				$q->print (<<EOH);
 					<tr>
-					   <th ALIGN='left'>IP</th>
-					   <th ALIGN='left'>Hostname</th>
-					   <th ALIGN='left'>Mac address</th>
-					   <th ALIGN='center'>Last used</th>
+					   <td>&nbsp;&nbsp;<b>IP</b></td>
+					   <td>&nbsp;<b>Hostname</b></td>
+					   <td>&nbsp;<b>MAC address</b></td>
+					   <td>&nbsp;<b>Last used</b></td>
 					</tr>
 EOH
 				foreach my $host (@host_refs) {
@@ -508,7 +508,7 @@ sub print_brief_host_info
 		   <td>$ip&nbsp;</td>
 		   <td>$hostname&nbsp;</td>
 		   <td>$mac&nbsp;</td>
-		   <td ALIGN='right' NOWRAP>${ts_font}${mac_ts}${ts_font_end}&nbsp;</td>
+		   <td NOWRAP>${ts_font}${mac_ts}${ts_font_end}&nbsp;</td>
 		</tr>
 EOH
 

@@ -209,7 +209,7 @@ sub delete_form
 
 	# HTML 
         my $state_field = $q->state_field ();
-	my $delete = $q->submit ('action', 'Delete');
+	my $delete = $q->submit (-name=>'action', -value=>'Delete',-class=>'button');
 	my $me = $q->state_url ();
 	my $id = $host->id ();
 

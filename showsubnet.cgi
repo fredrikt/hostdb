@@ -196,10 +196,10 @@ EOH
 	my ($i, @o);
 	push (@o, <<EOH);
 		<tr>
-			<th ALIGN='left'>IP</th>
-			<th ALIGN='left'>Hostname</th>
-			<th ALIGN='left'>MAC address</th>
-			<th ALIGN='right'>Last used&nbsp;</th>
+			<td>&nbsp;&nbsp;<b>IP</b></td>
+			<td>&nbsp;<b>Hostname</b></th>
+			<td>&nbsp;<b>MAC address</b></td>
+			<td>&nbsp;<b>Last used&nbsp;</b></td>
 		</tr>
 EOH
 	for $i (1 .. $subnet->addresses () - 2) {
@@ -365,9 +365,9 @@ sub print_host
 	push (@$o, <<EOH);
 		<tr>
 		   <td ALIGN='$ip_align'>$ip</td>
-		   <td ALIGN='left'>$hostname</td>
-		   <td ALIGN='center'><font SIZE='2'><pre>$mac</pre></font></td>
-		   <td ALIGN='right' NOWRAP>${ts_font}${mac_ts}${ts_font_end}</td>
+		   <td>$hostname</td>
+		   <td>$mac</td>
+		   <td NOWRAP>${ts_font}${mac_ts}${ts_font_end}</td>
 		</tr>
 EOH
 
