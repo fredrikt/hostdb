@@ -69,16 +69,27 @@ sub list_subnet
 
 				my @subnet_hosts = get_hosts_in_subnet ($subnet->subnet(), @hosts);
 
+				if (get_host_with_ip ($subnet->netaddr (), @subnet_hosts) or
+				    get_host_with_ip ($subnet->broadcast (), @subnet_hosts)) {
+					if (get_host_with_ip ($subnet->netaddr (), @subnet_hosts)) {
+						$q->print ("<TR><TD COLSPAN='3'><FONT COLOR='red'>WARNING: There is a host entry for the network address " . $subnet->netaddr () . "</FONT></TD></TR>\n");
+					}
+					if (get_host_with_ip ($subnet->broadcast (), @subnet_hosts)) {
+						$q->print ("<TR><TD COLSPAN='3'><FONT COLOR='red'>WARNING: There is a host entry for the broadcast address " . $subnet->broadcast () . "</FONT></TD></TR>\n");
+					}
+					$q->print ("<TR><TD COLSPAN='3'>&nbsp;</TD></TR>\n");
+				}
+
 				$q->print ("<TR><TD>Netmask</TD><TD>" . $subnet->netmask () . "</TD></TR>\n" .
 					   "<TR><TD>Address usage</TD><TD>" . ($#subnet_hosts + 1) . "/" .
-					   $subnet->addresses () . " (" .
-					   int ((($#subnet_hosts + 1) / $subnet->addresses ()) * 100) . "%)</TD></TR>\n");
+					   ($subnet->addresses () - 2) . " (" .
+					   int (safe_div ($#subnet_hosts + 1, $subnet->addresses () - 2) * 100) . "%)</TD></TR>\n");
 
 				$q->print ("<TR><TD COLSPAN='2'>&nbsp;</TD></TR>\n");
 
 				# loop from first to last host address in subnet
 				my $i;
-				for $i (1 .. $subnet->addresses () - 1) {
+				for $i (1 .. $subnet->addresses () - 2) {
 					my $ip = $hostdb->ntoa ($subnet->n_netaddr () + $i);
 					my $host = get_host_with_ip ($ip, @subnet_hosts);
 					if (! defined ($host)) {
@@ -127,11 +138,20 @@ sub get_host_with_ip
 	my $ip = shift;
 	my @hosts = @_;
 	
-	$q->print ("<!-- S4IP $ip -->\n");
 	my $host;
 	foreach $host (@hosts) {
 		return $host if ($host->ip () eq $ip);	
 	}
 	
 	return undef;
+}
+
+sub safe_div
+{
+	my $a = shift;
+	my $b = shift;
+
+	return ($a / $b) if ($a != 0 and $b != 0);
+
+	return 0;
 }
