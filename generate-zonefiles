@@ -87,6 +87,8 @@ foreach my $buildzone (sort @generate) {
 
 		my %zone_parameters = %zone_defaults;
 
+		$zone->dump () if ($debug);
+
 		$zone_parameters{default_ttl} = $zone->default_ttl () if ($zone->default_ttl ());
 		$zone_parameters{soa_ttl} = $zone->ttl () if ($zone->ttl ());
 		$zone_parameters{soa_serial} = $zone->serial () if ($zone->serial ());
