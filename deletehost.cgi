@@ -38,6 +38,14 @@ my $modifyhost_path = $q->state_url($hostdbini->val('subnet','modifyhost_uri'));
 
 $q->begin (title => 'Delete Host');
 
+my $remote_user = '';
+if (defined ($ENV{REMOTE_USER}) and $ENV{REMOTE_USER} =~ /^[a-z0-9]{,50}/) {
+	$remote_user = $ENV{REMOTE_USER};
+}
+# XXX JUST FOR DEBUGGING UNTIL PUBCOOKIE IS FINISHED
+$remote_user = 'ft';
+
+
 $q->print (<<EOH);
 	<table BORDER='0' CELLPADDING='0' CELLSPACING='3' WIDTH='600'>
 		$table_blank_line
@@ -62,40 +70,59 @@ SWITCH:
 	$action eq 'Delete' and do
 	{
 		my $ip = $host->ip ();
-		my $subnet = $hostdb->findsubnetclosestmatch ($host->ip ());
 		
-		if (delete_host ($hostdb, $host, $q)) {
-			$q->print (<<EOH);
-				<tr>
-					<td COLSPAN='2'><strong><font COLOR='red'>Host deleted</font></strong></td>
-				</tr>
-EOH
+		# get subnet
+		my $subnet = $hostdb->findsubnetclosestmatch ($host->ip ());
+
+		# get zone
+		my $zone = $hostdb->findzonebyhostname ($host->hostname ());
+
+		# check that user is allowed to edit both zone and subnet
+		my $authorized = 1;
+
+		if (! $hostdb->auth->is_admin ($remote_user)) {
+			if (! defined ($subnet) or ! $hostdb->auth->is_allowed_write ($subnet, $remote_user)) {
+				error_line ($q, "You do not have sufficient access to subnet '" . $subnet->subnet () . "'");
+			}
+
+			if (! defined ($zone) or ! $hostdb->auth->is_allowed_write ($zone, $remote_user)) {
+				error_line ($q, "You do not have sufficient access to zone '" . $zone->zone () . "'");
+				$authorized = 0;
+			}
 		}
 
-		if (defined ($subnet)) {
-			my $s = $subnet->subnet ();
-			
-			if ($showsubnet_path) {
-				$s = "<a HREF='$showsubnet_path;subnet=$s'>$s</a>";
-				
+		if ($authorized) {
+			if (delete_host ($hostdb, $host, $q)) {
 				$q->print (<<EOH);
 					<tr>
-						<td COLSPAN='2'>[$s]<br></td>
+						<td COLSPAN='2'><strong><font COLOR='red'>Host deleted</font></strong></td>
 					</tr>
 EOH
-			}
-	
-
-		}
-		
-		$ip = "<a HREF='$modifyhost_path;ip=$ip'>New host</a>";
-
-		$q->print (<<EOH);
-			<tr>
-				<td COLSPAN='2'>[$ip]</td>
-			</tr>
+				if (defined ($subnet)) {
+					my $s = $subnet->subnet ();
+			
+					if ($showsubnet_path) {
+						$s = "<a HREF='$showsubnet_path;subnet=$s'>$s</a>";
+				
+						$q->print (<<EOH);
+							<tr>
+								<td COLSPAN='2'>[$s]<br></td>
+							</tr>
 EOH
+					}
+				}
+		
+				$ip = "<a HREF='$modifyhost_path;ip=$ip'>New host</a>";
 
+				$q->print (<<EOH);
+					<tr>
+						<td COLSPAN='2'>[$ip]</td>
+					</tr>
+EOH
+			} else {
+				error_line ($q, "Delete failed: $host->{error}");
+			}
+		}
 	},last SWITCH;
 
 	print_host_info ($q, $hostdb, $host);
