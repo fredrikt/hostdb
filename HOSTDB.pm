@@ -866,6 +866,23 @@ sub findhostbyip
 	$self->_find(_hostbyip => 'HOSTDB::Object::Host', $_[0]);
 }
 
+=head2 findhostbywildcardname
+
+	foreach my $host ($hostdb->findhostbywildcardname ($searchhost)) {
+		printf ("%-20s %s\n, $host->ip (), $host->hostname ());
+	}
+
+
+=cut
+sub findhostbywildcardname
+{
+	my $self = shift;
+
+	$self->_debug_print ("Find host with hostname LIKE '$_[0]'");
+	
+	$self->_find(_hostbywildcardname => 'HOSTDB::Object::Host', $_[0]);
+}
+
 
 =head2 findhostbymac
 
