@@ -123,10 +123,7 @@ sub perform_search
 			
 		if ($whoisdatatype eq "IP") {
 			if ($hostdb->is_valid_ip ($search_for)) {
-				my $host = $hostdb->findhostbyip ($search_for);
-				my @gaah;
-				push (@gaah, $host);
-				push (@host_refs, \@gaah);
+				@host_refs = $hostdb->findhostbyip ($search_for);
 			} else {
 				error_line ($q, "Search failed: '$search_for' is not a valid IP address");
 				return undef;
@@ -142,20 +139,14 @@ sub perform_search
 			my $t = $search_for;
 			if ($hostdb->clean_mac_address ($t)) {
 				$search_for = $t;
-				my $host = $hostdb->findhostbymac ($search_for);
-				my @gaah;
-				push (@gaah, $host);
-				push (@host_refs, \@gaah);
+				@host_refs = $hostdb->findhostbymac ($search_for);
 			} else {
 				error_line ($q, "Search failed: '$search_for' is not a valid MAC address");
 				return undef;
 			}
 		} elsif ($whoisdatatype eq "ID") {
 			if ($search_for =~ /^\d+$/) { 
-				my $host = $hostdb->findhostbyid ($search_for);
-				my @gaah;
-				push (@gaah, $host);
-				push (@host_refs, \@gaah);
+				@host_refs = $hostdb->findhostbyid ($search_for);
 			} else {
 				error_line ($q, "Search failed: '$search_for' is not a valid ID");
 				return undef;
@@ -167,9 +158,8 @@ sub perform_search
 
 		if (@host_refs) {
 			if ($#host_refs == 0) {
-				# only one host (may still be multiple host records), show detailed information
-				my $host_ref = @host_refs[0];
-				foreach my $host (@$host_ref) {
+				# only one host, show detailed information
+				foreach my $host (@host_refs) {
 					$q->print ("<tr><th COLSPAN='2' ALIGN='left'>Host :</th></tr>");
 					$q->print ("<tr><td COLSPAN='2'>&nbsp;</td></tr>\n");
 		
@@ -191,29 +181,27 @@ sub perform_search
 				$q->print ($table_hr_line);
 			} else {
 				# more than one host record, show brief information
-				foreach my $host_ref (@host_refs) {
-					foreach my $host (@$host_ref) {
-						# HTML
-						my $ip = $host->ip ();
-						my $id = $host->id ();
-						my $me = $q->state_url ();
+				foreach my $host (@host_refs) {
+					# HTML
+					my $ip = $host->ip ();
+					my $id = $host->id ();
+					my $me = $q->state_url ();
 
-						$ip = "<a href='$me&whoisdatatype=ID&whoisdata=$id'>$ip</a>";
-						my $hostname = $host->hostname ();
-						my $mac = $host->mac_address ();
+					$ip = "<a href='$me&whoisdatatype=ID&whoisdata=$id'>$ip</a>";
+					my $hostname = $host->hostname ();
+					my $mac = $host->mac_address ();
 						
-						$q->print (<<EOH);
-							<tr>
-							   <td>$ip</td>
-							   <td>$hostname</td>
-							   <td>$mac</td>
-							</tr>
+					$q->print (<<EOH);
+						<tr>
+						   <td>$ip</td>
+						   <td>$hostname</td>
+						   <td>$mac</td>
+						</tr>
 EOH
-					}
 				}
-
-				$q->print ($table_hr_line);
 			}
+
+			$q->print ($table_hr_line);
 
 			return 1;
 		}

@@ -815,20 +815,9 @@ sub create_subnet
 
 =head2 findhostbyname
 
-	foreach my $matching_host_ref ($hostdb->findhostbyname ($searchhost)) {
-		foreach my $host (@$matching_host_ref) {
-			print ("$host->{hostname}	$host->{ip}\n");
-		}
+	foreach my $host ($hostdb->findhostbyname ($searchhost)) {
+		printf ("%-5s %-20s %s\n", $host->id (), $host->ip (), $host->hostname ());
 	}
-
-	Returns a list of references to lists of host objects matching the search.
-
-	This might sound complicated, but is needed if two hosts match the search :
-
-	HOST1	IP 1.2.3.4	HOSTNAME min.it.su.se.
-
-	HOST2	IP 2.3.4.5	HOSTNAME foo.it.su.se.
-		IP 3.4.5.6	HOSTNAME min.it.su.se.
 
 
 =cut
@@ -839,34 +828,19 @@ sub findhostbyname
 
 	$self->_debug_print ("Find host with name '$_[0]'");
 	
-	foreach my $host ($self->_find (_hostbyname => 'HOSTDB::Object::Host', $_[0])) {
-		my @hostparts;
-		my $superhost = $host;
-
-		if ($host->{partof}) {
-			$superhost = $self->findhostbyid ($host->{partof});
-		}
-		push (@hostparts, $superhost);
-		
-		# go look for more parts of this host
-		foreach my $hostpart ($self->findhostbypartof ($superhost->{id})) {
-			push (@hostparts, $hostpart);
-		}
-		
-		push (@res, \@hostparts);
-		$self->_debug_print ("Host " . ($#res + 1) . " in result set consists of " . ($#hostparts + 1) . " entrys");
+	if (! $self->is_valid_fqdn ($_[0])) {
+		$self->_set_error ("findhostbyname: '$_[0]' is not a valid FQDN");
+		return undef;
 	}
 	
-	# return all matching hosts
-	$self->_debug_print ("Returning " . $#res + 1 . " references to hosts");
-	return (@res);
+	$self->_find(_hostbyname => 'HOSTDB::Object::Host', $_[0]);
 }
 
 
 =head2 findhostbyip
 
 	foreach my $host ($hostdb->findhostbyip ($searchhost)) {
-		printf ("%-20s %s\n, $host->ip (), $host->hostname ());
+		printf ("%-20s %s\n", $host->ip (), $host->hostname ());
 	}
 
 
@@ -888,7 +862,7 @@ sub findhostbyip
 =head2 findhostbywildcardname
 
 	foreach my $host ($hostdb->findhostbywildcardname ($searchhost)) {
-		printf ("%-20s %s\n, $host->ip (), $host->hostname ());
+		printf ("%-20s %s\n", $host->ip (), $host->hostname ());
 	}
 
 
@@ -906,7 +880,7 @@ sub findhostbywildcardname
 =head2 findhostbymac
 
 	foreach my $host ($hostdb->findhostbymac ($searchhost)) {
-		printf ("%-20s %-20s %s\n, $host->mac(), $host->ip (),
+		printf ("%-20s %-20s %s\n", $host->mac(), $host->ip (),
 			$host->hostname ());
 	}
 
@@ -930,6 +904,7 @@ sub findhostbymac
 =head2 findhostbyid
 
 	$host = $hostdb->findhostbyid ($id);
+	print ($host->hostname ());
 
 
 =cut
