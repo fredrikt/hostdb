@@ -265,7 +265,7 @@ ERROR:
 }
 
 
-=head2 clean_mac
+=head2 clean_mac_address
 
 	if (! $hostdb->clean_mac_address ($mac_address)) {
 		print ("given mac address was invalid: $hostdb->{error}\n");
@@ -1471,9 +1471,9 @@ sub init
 	$self->_debug_print ("creating object");
 
 	if ($hostdb->{_dbh}) {
-		$self->{_new_zone} = $hostdb->{_dbh}->prepare ("INSERT INTO $hostdb->{db}.zone (zonename, delegated, ttl, mname, rname, serial, refresh, retry, expiry, minimum, owner) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+		$self->{_new_zone} = $hostdb->{_dbh}->prepare ("INSERT INTO $hostdb->{db}.zone (zonename, delegated, default_ttl, ttl, mname, rname, serial, refresh, retry, expiry, minimum, owner) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
 			or die "$DBI::errstr";
-		$self->{_update_zone} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.zone SET zonename = ?, delegated = ?, ttl = ?, mname = ?, rname = ?, serial = ?, refresh = ?, retry = ?, expiry = ?, minimum = ?, owner = ? WHERE zonename = ?")
+		$self->{_update_zone} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.zone SET zonename = ?, delegated = ?, default_ttl = ?, ttl = ?, mname = ?, rname = ?, serial = ?, refresh = ?, retry = ?, expiry = ?, minimum = ?, owner = ? WHERE zonename = ?")
 			or die "$DBI::errstr";
 
 		#$self->{_get_last_id} = $hostdb->{_dbh}->prepare ("SELECT LAST_INSERT_ID()")
@@ -1483,16 +1483,8 @@ sub init
 	# XXX ugly hack to differentiate on zones already in DB
 	# (find* sets this to 1) and new zones
 	$self->{in_db} = 0;
-}
 
-sub check_is_valid_zonename
-{
-	my $self = shift;
-	my $zone = shift;
-	
-	$self->_debug_print ("zone '$zone'");
-
-	return (is_valid_zonename ($zone));
+	return 1;
 }
 
 sub zonename
