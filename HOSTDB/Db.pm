@@ -1017,15 +1017,15 @@ sub findhostaliasesbyhostid
 }
 
 
-=head2 findaliasbyzone
+=head2 findhostaliasbyzone
 
-	foreach my $alias ($hostdb->findaliasbyzone ($zone)) {
+	foreach my $alias ($hostdb->findhostaliasbyzone ($zone)) {
 		printf ("%-5s %s\n", $alias->id (), $alias->aliasname ());
 	}
 
 
 =cut
-sub findaliasbyzone
+sub findhostaliasbyzone
 {
 	my $self = shift;
 	my @res;
@@ -1041,13 +1041,13 @@ sub findaliasbyzone
 }
 
 
-=head2 findallaliases
+=head2 findallhostaliases
 
-	@aliases = $hostdb->findallaliases ();
+	@aliases = $hostdb->findallhostaliases ();
 
 
 =cut
-sub findallaliases
+sub findallhostaliases
 {
 	my $self = shift;
 
