@@ -8,43 +8,16 @@
 use strict;
 use Config::IniFiles;
 use HOSTDB;
-use SUCGI2;
 
-my $table_blank_line = "<tr><td COLSPAN='4'>&nbsp;</td></tr>\n";
-my $table_hr_line = "<tr><td COLSPAN='4'><hr></td></tr>\n";
+my $table_cols = 4;
 
-my $debug = 0;
-if (defined ($ARGV[0]) and $ARGV[0] eq "-d") {
-	shift (@ARGV);
-	$debug = 1;
-}
-
-my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
-			      debug => $debug
-			     );
-
-my $hostdbini = $hostdb->inifile ();
-
-my $sucgi_ini;
-if (-f $hostdbini->val ('sucgi', 'cfgfile')) {
-	$sucgi_ini = Config::IniFiles->new (-file => $hostdbini->val ('sucgi', 'cfgfile'));
-} else {
-	warn ("No SUCGI config-file ('" . $hostdbini->val ('sucgi', 'cfgfile') . "')");
-}
-
-my $q = SUCGI2->new ($sucgi_ini,'hostdb');
-my %links = $hostdb->html_links ($q);
-
-$q->begin (title => "Subnet details");
-my $remote_user = $q->user();
-unless ($remote_user) {
-	$q->print ("&nbsp;<p><ul><font COLOR='red' SIZE='3'><strong>You are not logged in.</strong></font></ul>\n\n");
-	$q->end ();
-	die ("$0: Invalid REMOTE_USER environment variable '$ENV{REMOTE_USER}'");
-}
-my $is_admin = $hostdb->auth->is_admin ($remote_user);
-my $is_helpdesk = $hostdb->auth->is_helpdesk ($remote_user);
-
+## Generic Stockholm university HOSTDB CGI initialization
+my ($table_blank_line, $table_hr_line, $empty_td) = HOSTDB::StdCGI::get_table_variables ($table_cols);
+my $debug = HOSTDB::StdCGI::parse_debug_arg (@ARGV);
+my ($hostdbini, $hostdb, $q, $remote_user) = HOSTDB::StdCGI::get_hostdb_and_sucgi ('Subnet details', $debug);
+my (%links, $is_admin, $is_helpdesk, $me);
+HOSTDB::StdCGI::get_cgi_common_variables ($q, $hostdb, $remote_user, \%links, \$is_admin, \$is_helpdesk, $me);
+## end generic initialization
 
 my $subnet;
 if (defined ($q->param ('id'))) {
@@ -81,33 +54,17 @@ if (! $subnet) {
 
 my $subnetname = $subnet->subnet ();
 
-my (@links, @admin_links);
-push (@admin_links, "[<a HREF='$links{netplan}'>netplan</a>]") if (($is_admin or $is_helpdesk) and $links{netplan});
-push (@links, "[<a HREF='$links{home}'>home</a>]") if ($links{home});
-push (@links, "[<a HREF='$links{whois}'>whois</a>]") if ($links{whois});
-
-my $l = '';
-if (@links or @admin_links) {
-	$l = join(' ', @links, @admin_links);
-}
-
-$q->print (<<EOH);
-	<table BORDER='0' CELLPADDING='0' CELLSPACING='3' WIDTH='100%'>
-		$table_blank_line
-		<tr>
-			<td COLSPAN='3' ALIGN='center'><h3>HOSTDB: Subnet $subnetname</h3></td>
-			<td ALIGN='right'>$l</td>
-		</tr>
-		$table_blank_line
-EOH
+## Generic Stockholm university HOSTDB CGI header
+my (@l);
+push (@l, "[<a HREF='$links{home}'>home</a>]") if ($links{home});
+push (@l, "[<a HREF='$links{whois}'>whois</a>]") if ($links{whois});
+HOSTDB::StdCGI::print_cgi_header ($q, "Subnet $subnetname", $is_admin, $is_helpdesk, \%links, \@l);
+## end generic header
 
 my $static_flag_days = $hostdbini->val ('subnet', 'static_flag_days');
 my $dynamic_flag_days = $hostdbini->val ('subnet', 'static_flag_days');
 list_subnet ($hostdb, $q, $subnet, $remote_user, $is_admin, $is_helpdesk, $static_flag_days, $dynamic_flag_days);
 
-$q->print (<<EOH);
-	</table>
-EOH
 $q->end ();
 
 
@@ -150,6 +107,15 @@ sub list_subnet
 
 	my $h_desc = $q->escapeHTML ($subnet->description ()?$subnet->description ():'no description');
 	$q->print (<<EOH);
+		<table BORDER='0' CELLPADDING='0' CELLSPACING='3' WIDTH='100%'>
+	        <!-- table width disposition tds -->
+		<tr>
+			<td WIDTH='25%'>&nbsp;</td>
+			<td WIDTH='25%'>&nbsp;</td>
+			<td WIDTH='25%'>&nbsp;</td>
+			<td WIDTH='25%'>&nbsp;</td>
+		</tr>
+
 		<tr>
 		   <td NOWRAP>
 			<strong>$subnet_name</strong>
@@ -283,7 +249,7 @@ EOH
 		$table_blank_line
 EOH
 
-	$q->print (join ("\n", @o), $table_blank_line, "\n\n");
+	$q->print (join ("\n", @o), $table_blank_line, "\n\n\t</table>\n");
 	
 	return 1;
 }
