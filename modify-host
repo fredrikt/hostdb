@@ -12,23 +12,23 @@ use vars qw ($opt_ip $opt_hostname $opt_manual_dnszone $opt_dnszone $opt_owner $
 
 my %o = ();
 my $res = GetOptions (
-	    "ip=s",
-	    "hostname=s",
-	    "dnszone=s",
-	    "manual_dnszone=s",
-	    "owner=s",
-	    "dhcpmode=s",
-	    "dhcpstatus=s",
-	    "dnsmode=s",
-	    "dnsstatus=s",
-	    "mac_address=s",
-	    "ttl=s",
-	    "comment=s",
-	    "partof=i",
-	    "profile=s",
-	    "debug",
-	    "force"
-	   );
+		      "ip=s",
+		      "hostname=s",
+		      "dnszone=s",
+		      "manual_dnszone=s",
+		      "owner=s",
+		      "dhcpmode=s",
+		      "dhcpstatus=s",
+		      "dnsmode=s",
+		      "dnsstatus=s",
+		      "mac_address=s",
+		      "ttl=s",
+		      "comment=s",
+		      "partof=i",
+		      "profile=s",
+		      "debug",
+		      "force"
+		      );
 
 #die ("$0: Parsing options failed\n") if ($res);
 
@@ -39,7 +39,7 @@ sub usage
 {
 	my $msg = shift;
 	# interpolation
-	
+
 	die(<<EOT);
 ${msg}Syntax: $0 [options] <IP/FQDN/MAC/ID>
 	options:
@@ -68,49 +68,49 @@ usage("") if (! $search_for);
 
 my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
 			      debug => $debug
-			     );
+			      );
 
 my $host = get_host ($hostdb, 'guess', $search_for);
 
 die ("$0: Could not find host object\n") unless ($host);
 
 if (! $opt_force) {
-	# do some extra sanity checks if not forced
+    # do some extra sanity checks if not forced
 
-	my $h;
-	my $ip = $opt_ip || $host->ip ();
-	my $subnet = $hostdb->findsubnetbyip ($ip);
-		
-	if (! defined ($subnet)) {
-		die ("$0: No subnet matches IP '$ip'");
-	}
-	
-	if ($opt_ip) {
-		$h = $hostdb->findhostbyip ($opt_ip);
-		die ("$0: A host with IP $opt_ip already exists, use --force to set anyways.\n") if (defined ($h));
-	}
-	
-	if ($opt_hostname) {
-		$h = $hostdb->findhostbyname ($opt_hostname);
-		die ("$0: A host with hostname $opt_hostname already exists, use --force to set anyways.\n") if (defined ($h));
-	}
-	
-	if ($opt_mac_address) {
-		$h = $hostdb->findhostbymac ($opt_mac_address);
-		die ("$0: A host with MAC address $opt_mac_address already exists, use --force to set anyways.\n") if (defined ($h));
-	}
-	
-	if ($opt_partof) {
-		$h = $hostdb->findhostbyid ($opt_partof);
-		die ("$0: A parent host with ID $opt_partof could not be found, use --force to set partof anyways.\n") unless (defined ($h));
-	}
+    my $h;
+    my $ip = $opt_ip || $host->ip ();
+    my $subnet = $hostdb->findsubnetbyip ($ip);
 
-	if ($opt_profile) {
-		my @profiles = split (',', $subnet->profilelist ());
-		if (! grep (/^$opt_profile$/, @profiles)) {
-			die ("$0: No profile called '$opt_profile' for subnet " . $subnet->subnet () . "\n");
-		}
+    if (! defined ($subnet)) {
+	die ("$0: No subnet matches IP '$ip'");
+    }
+
+    if ($opt_ip) {
+	$h = $hostdb->findhostbyip ($opt_ip);
+	die ("$0: A host with IP $opt_ip already exists, use --force to set anyways.\n") if (defined ($h));
+    }
+
+    if ($opt_hostname) {
+	$h = $hostdb->findhostbyname ($opt_hostname);
+	die ("$0: A host with hostname $opt_hostname already exists, use --force to set anyways.\n") if (defined ($h));
+    }
+
+    if ($opt_mac_address) {
+	$h = $hostdb->findhostbymac ($opt_mac_address);
+	die ("$0: A host with MAC address $opt_mac_address already exists, use --force to set anyways.\n") if (defined ($h));
+    }
+
+    if ($opt_partof) {
+	$h = $hostdb->findhostbyid ($opt_partof);
+	die ("$0: A parent host with ID $opt_partof could not be found, use --force to set partof anyways.\n") unless (defined ($h));
+    }
+
+    if ($opt_profile) {
+	my @profiles = split (',', $subnet->profilelist ());
+	if (! grep (/^$opt_profile$/, @profiles)) {
+	    die ("$0: No profile called '$opt_profile' for subnet " . $subnet->subnet () . "\n");
 	}
+    }
 }
 
 $host->ip ($opt_ip)			or die ("$0: Invalid ip - $host->{error}\n") if (defined ($opt_ip));
@@ -127,25 +127,25 @@ $host->manual_dnszone ($opt_manual_dnszone) or die ("$0: Invalid manual_dnszone 
 $host->profile ($opt_profile)		or die ("$0: Invalid profile - $host->{error}\n") if (defined ($opt_profile));
 
 if (defined ($opt_dnszone)) {
-	$host->dnszone ($opt_dnszone) or die ("$0: Invalid dnszone - $host->{error}\n");
+    $host->dnszone ($opt_dnszone) or die ("$0: Invalid dnszone - $host->{error}\n");
 } else {
-	if (defined ($opt_hostname) and $opt_hostname ne $host->hostname()) {
-		# setting hostname, but not setting DNS zone. auto-detect.
-		my $z = $hostdb->findzonebyhostname ($opt_hostname);
+    if (defined ($opt_hostname) and $opt_hostname ne $host->hostname()) {
+	# setting hostname, but not setting DNS zone. auto-detect.
+	my $z = $hostdb->findzonebyhostname ($opt_hostname);
 
-		if (defined ($z)) {
-			if ($host->dnszone () ne $z->zonename()) {
-				if ($host->manual_dnszone () ne 'Y') {
-					warn ("$0: You changed hostname so I changed DNS zone for you (from " . $host->dnszone () . " to " . $z->zonename () . ")\n");
-					$host->dnszone ($z->zonename ());
-				} else {
-					warn ("$0: NOT changing DNS zone (from " . $host->dnszone () . " to " . $z->zonename () . ") since manual_dnszone is set to 'Y' for this host\n");
-				}
-			}
+	if (defined ($z)) {
+	    if ($host->dnszone () ne $z->zonename()) {
+		if ($host->manual_dnszone () ne 'Y') {
+		    warn ("$0: You changed hostname so I changed DNS zone for you (from " . $host->dnszone () . " to " . $z->zonename () . ")\n");
+		    $host->dnszone ($z->zonename ());
 		} else {
-			warn ("$0: Could not find a suitable dnszone for new hostname '$opt_hostname'\n");
+		    warn ("$0: NOT changing DNS zone (from " . $host->dnszone () . " to " . $z->zonename () . ") since manual_dnszone is set to 'Y' for this host\n");
 		}
+	    }
+	} else {
+	    warn ("$0: Could not find a suitable dnszone for new hostname '$opt_hostname'\n");
 	}
+    }
 }
 $host->hostname ($opt_hostname) or die ("$0: Invalid hostname - $host->{error}\n") if (defined ($opt_hostname));
 
@@ -156,23 +156,23 @@ exit (0);
 
 sub get_host
 {
-	my $hostdb = shift;
-	my $datatype = shift;
-	my $search_for = shift;
-	my @host_refs;
+    my $hostdb = shift;
+    my $datatype = shift;
+    my $search_for = shift;
+    my @host_refs;
 
-	@host_refs = $hostdb->findhost ($datatype, $search_for);
+    @host_refs = $hostdb->findhost ($datatype, $search_for);
 
-	if ($#host_refs == -1) {
-		warn ("$0: Search for '$search_for' (type '$datatype') failed - no match\n");
-		return undef;
-	}
-	if ($#host_refs == -1) {
-		my $count = $#host_refs + 1;
-		warn ("$0: Search for '$search_for' (type '$datatype') failed - more than one ($count) match\n");
-		return undef;
-	}
-	
-	return $host_refs[0];
+    if ($#host_refs == -1) {
+	warn ("$0: Search for '$search_for' (type '$datatype') failed - no match\n");
+	return undef;
+    }
+    if ($#host_refs == -1) {
+	my $count = $#host_refs + 1;
+	warn ("$0: Search for '$search_for' (type '$datatype') failed - more than one ($count) match\n");
+	return undef;
+    }
+
+    return $host_refs[0];
 }
 
