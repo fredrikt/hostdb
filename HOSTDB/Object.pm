@@ -1,5 +1,6 @@
 # $Id$
 
+use strict;
 use HOSTDB;
 
 package HOSTDB::Object;
