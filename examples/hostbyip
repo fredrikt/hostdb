@@ -1,4 +1,4 @@
-#!/usr/local/bin/perl
+#!/usr/local/bin/perl -w
 #
 # $Id$
 #
@@ -8,11 +8,15 @@ use strict;
 use Config::IniFiles;
 #use lib 'blib/lib';
 use HOSTDB;
+use Getopt::Std;
+use vars qw ($opt_h $opt_d);
 
-my $debug = 0;
-if ($ARGV[0] eq "-d") {
-	shift (@ARGV);
-	$debug = 1;
+getopts ('hd');
+
+my $debug = defined ($opt_d);
+
+if ($opt_h) {
+	die ("Syntax: $0 [-d] ip ...\n");
 }
 
 my $hostdbini = Config::IniFiles->new (-file => HOSTDB::get_inifile ());
@@ -46,12 +50,12 @@ foreach my $t_search (sort @searchfor) {
 	}
 
 	foreach my $host (@hostlist) {
-		printf ("%-7s %-7s %-16s %s\n", "id", "partof", "ip", "hostname"),
+		printf "%-7s %-7s %-16s %s\n", "id", "partof", "ip", "hostname",
 			$first = 0 if ($first);
 
-		printf ("%-7s %-7s %-16s %s\n", $host->id (),
-			$host->partof () == 0?"-":$host->partof (),
-			$host->ip (), $host->hostname ());
+		printf "%-7s %-7s %-16s %s\n", $host->id (),
+			defined ($host->partof ())?$host->partof ():"-",
+			$host->ip (), $host->hostname ();
 
 		$match_count++;
 	}

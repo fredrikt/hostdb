@@ -1,4 +1,4 @@
-#!/usr/local/bin/perl
+#!/usr/local/bin/perl -w
 #
 # $Id$
 #
@@ -42,12 +42,12 @@ foreach my $t_search (sort @searchfor) {
 	}
 	
 	foreach my $host (@hostlist) {
-		printf ("%-7s %-7s %-16s %s\n", "id", "partof", "ip", "hostname"),
+		printf "%-7s %-7s %-16s %s\n", "id", "partof", "ip", "hostname",
 			$first = 0 if ($first);
 
-		printf ("%-7s %-7s %-16s %s\n", $host->id (),
-			$host->partof () == 0?"-":$host->partof (),
-			$host->ip (), $host->hostname ());
+		printf "%-7s %-7s %-16s %s\n", $host->id (),
+			defined ($host->partof ())?$host->partof ():"-",
+			$host->ip (), $host->hostname ();
 
 		$match_count++;
 	}
