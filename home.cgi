@@ -335,7 +335,7 @@ sub request_reload
 		
 	$sam = SAM2->new (directory => $dhcp_signal_directory, name => 'home.cgi');
 	if (! defined ($sam)) {
-		error_line ($q, 'Could not create SAM object (directory $dhcp_signal_directory)');
+		error_line ($q, "Could not create SAM object (directory $dhcp_signal_directory)");
 		return 0;
 	}
 
