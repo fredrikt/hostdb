@@ -74,17 +74,23 @@ sub init
 	if (defined ($self->{dsn})) {
 		$self->{_dbh} = DBI->connect ($self->{dsn}, $self->{user}, $self->{password}) or die "$DBI::errstr";
 
+		##
+		## HOST
+		##
 		my $SELECT_host = "SELECT *, UNIX_TIMESTAMP(mac_address_ts) AS unix_mac_address_ts FROM $self->{db}.host";
-		$self->{_hostbyid} =		$self->{_dbh}->prepare ("$SELECT_host WHERE id = ? ORDER BY id")			or die "$DBI::errstr";
-		$self->{_hostbypartof} =	$self->{_dbh}->prepare ("$SELECT_host WHERE partof = ? ORDER BY id")			or die "$DBI::errstr";
-		$self->{_hostbymac} =		$self->{_dbh}->prepare ("$SELECT_host WHERE mac = ? ORDER BY mac")			or die "$DBI::errstr";
-		$self->{_hostbyname} =		$self->{_dbh}->prepare ("$SELECT_host WHERE hostname = ? ORDER BY hostname")		or die "$DBI::errstr";
-		$self->{_hostbyzone} =		$self->{_dbh}->prepare ("$SELECT_host WHERE dnszone = ? ORDER BY hostname")		or die "$DBI::errstr";
-		$self->{_hostbywildcardname} =	$self->{_dbh}->prepare ("$SELECT_host WHERE hostname LIKE ? ORDER BY hostname")		or die "$DBI::errstr";
-		$self->{_hostbyip} =		$self->{_dbh}->prepare ("$SELECT_host WHERE ip = ? ORDER BY n_ip")			or die "$DBI::errstr";
-		$self->{_hostbyiprange} =	$self->{_dbh}->prepare ("$SELECT_host WHERE n_ip >= ? AND n_ip <= ? ORDER BY n_ip")	or die "$DBI::errstr";
-		$self->{_allhosts} =		$self->{_dbh}->prepare ("$SELECT_host ORDER BY id")					or die "$DBI::errstr";
+		$self->{_hostbyid}		= $self->{_dbh}->prepare ("$SELECT_host WHERE id = ? ORDER BY id")			or die "$DBI::errstr";
+		$self->{_hostbypartof}		= $self->{_dbh}->prepare ("$SELECT_host WHERE partof = ? ORDER BY id")			or die "$DBI::errstr";
+		$self->{_hostbymac}		= $self->{_dbh}->prepare ("$SELECT_host WHERE mac = ? ORDER BY mac")			or die "$DBI::errstr";
+		$self->{_hostbyname}		= $self->{_dbh}->prepare ("$SELECT_host WHERE hostname = ? ORDER BY hostname")		or die "$DBI::errstr";
+		$self->{_hostbyzone}		= $self->{_dbh}->prepare ("$SELECT_host WHERE dnszone = ? ORDER BY hostname")		or die "$DBI::errstr";
+		$self->{_hostbywildcardname}	= $self->{_dbh}->prepare ("$SELECT_host WHERE hostname LIKE ? ORDER BY hostname")		or die "$DBI::errstr";
+		$self->{_hostbyip}		= $self->{_dbh}->prepare ("$SELECT_host WHERE ip = ? ORDER BY n_ip")			or die "$DBI::errstr";
+		$self->{_hostbyiprange}		= $self->{_dbh}->prepare ("$SELECT_host WHERE n_ip >= ? AND n_ip <= ? ORDER BY n_ip")	or die "$DBI::errstr";
+		$self->{_allhosts}		= $self->{_dbh}->prepare ("$SELECT_host ORDER BY id")					or die "$DBI::errstr";
 
+		##
+		## HOSTS BY ATTRIBUTE
+		##
 		my $SELECT_hostwithattr = "SELECT host.*, UNIX_TIMESTAMP(host.mac_address_ts) AS unix_mac_address_ts FROM $self->{db}.host, $self->{db}.hostattribute WHERE host.id = hostattribute.hostid AND hostattribute.v_key = ? AND hostattribute.v_section = ?";
 		$self->{_hostswithattr_streq} = $self->{_dbh}->prepare ("$SELECT_hostwithattr AND hostattribute.v_type = 'string' AND hostattribute.v_string = ?");
 		$self->{_hostswithattr_strne} = $self->{_dbh}->prepare ("$SELECT_hostwithattr AND hostattribute.v_type = 'string' AND hostattribute.v_string != ?");
@@ -99,29 +105,46 @@ sub init
 		$self->{_hostswithattr_bloblike} = $self->{_dbh}->prepare ("$SELECT_hostwithattr AND hostattribute.v_type = 'blob' AND hostattribute.v_blob LIKE ?");
 		$self->{_hostswithattr_blobnotlike} = $self->{_dbh}->prepare ("$SELECT_hostwithattr AND hostattribute.v_type = 'blob' AND hostattribute.v_blob NOT LIKE ?");
 
-		my $SELECT_hostattr = "SELECT *, UNIX_TIMESTAMP(lastmodified) AS unix_lastmodified, UNIX_TIMESTAMP(lastupdated) AS unix_lastupdated FROM $self->{db}.hostattribute";
-		$self->{_hostattributebyid} =		$self->{_dbh}->prepare ("$SELECT_hostattr WHERE id = ? ORDER BY id")		or die "$DBI::errstr";
-		$self->{_hostattributesbyhostid} =	$self->{_dbh}->prepare ("$SELECT_hostattr WHERE hostid = ? ORDER BY v_section, v_key")	or die "$DBI::errstr";
-
-		my $SELECT_hostalias = "SELECT *, UNIX_TIMESTAMP(lastmodified) AS unix_lastmodified, UNIX_TIMESTAMP(lastupdated) AS unix_lastupdated FROM $self->{db}.hostalias";
-		$self->{_hostaliasbyid} =	$self->{_dbh}->prepare ("$SELECT_hostalias WHERE id = ? ORDER BY id") or die "$DBI::errstr";
-		$self->{_hostaliasesbyhostid} =	$self->{_dbh}->prepare ("$SELECT_hostalias WHERE hostid = ? ORDER BY aliasname") or die "$DBI::errstr";
-
+		##
+		## HOSTS BY ALIAS
+		##
 		my $SELECT_hostwithalias = "SELECT host.*, UNIX_TIMESTAMP(host.mac_address_ts) AS unix_mac_address_ts FROM $self->{db}.host, $self->{db}.hostalias WHERE host.id = hostalias.hostid";
-		$self->{_hostswithaliasname} = $self->{_dbh}->prepare ("$SELECT_hostwithalias AND hostalias.aliasname = ? ORDER BY host.hostname, hostalias.aliasname");
-		$self->{_hostswithaliaswildcardname} = $self->{_dbh}->prepare ("$SELECT_hostwithalias AND hostalias.aliasname LIKE ? ORDER BY host.hostname, hostalias.aliasname");
+		$self->{_hostswithaliasname}		= $self->{_dbh}->prepare ("$SELECT_hostwithalias AND hostalias.aliasname = ? ORDER BY host.hostname, hostalias.aliasname");
+		$self->{_hostswithaliaswildcardname}	= $self->{_dbh}->prepare ("$SELECT_hostwithalias AND hostalias.aliasname LIKE ? ORDER BY host.hostname, hostalias.aliasname");
 
+		##
+		## HOST ATTRIBUTE
+		##
+		my $SELECT_hostattr = "SELECT *, UNIX_TIMESTAMP(lastmodified) AS unix_lastmodified, UNIX_TIMESTAMP(lastupdated) AS unix_lastupdated FROM $self->{db}.hostattribute";
+		$self->{_hostattributebyid}		= $self->{_dbh}->prepare ("$SELECT_hostattr WHERE id = ? ORDER BY id") or die "$DBI::errstr";
+		$self->{_hostattributesbyhostid}	= $self->{_dbh}->prepare ("$SELECT_hostattr WHERE hostid = ? ORDER BY v_section, v_key") or die "$DBI::errstr";
+
+		##
+		## HOST ALIAS
+		##
+		my $SELECT_hostalias = "SELECT *, UNIX_TIMESTAMP(lastmodified) AS unix_lastmodified, UNIX_TIMESTAMP(lastupdated) AS unix_lastupdated FROM $self->{db}.hostalias";
+		$self->{_hostaliasbyid}		= $self->{_dbh}->prepare ("$SELECT_hostalias WHERE id = ? ORDER BY id") or die "$DBI::errstr";
+		$self->{_hostaliasesbyhostid}	= $self->{_dbh}->prepare ("$SELECT_hostalias WHERE hostid = ? ORDER BY aliasname") or die "$DBI::errstr";
+		$self->{_hostaliasesbydnszone}	= $self->{_dbh}->prepare ("$SELECT_hostalias WHERE dnszone = ? ORDER BY aliasname") or die "$DBI::errstr";
+		$self->{_allaliases}		= $self->{_dbh}->prepare ("SELECT * ") or die "$DBI::errstr";
+
+		##
+		## ZONE
+		##
 		my $SELECT_zone = "SELECT * FROM $self->{db}.zone";
-		$self->{_zonebyname} =		$self->{_dbh}->prepare ("$SELECT_zone WHERE zonename = ? ORDER BY zonename")		or die "$DBI::errstr";
-		$self->{_zonebyid} =		$self->{_dbh}->prepare ("$SELECT_zone WHERE id = ? ORDER BY zonename")				or die "$DBI::errstr";
-		$self->{_allzones} =		$self->{_dbh}->prepare ("$SELECT_zone ORDER BY zonename")				or die "$DBI::errstr";
+		$self->{_zonebyname}	= $self->{_dbh}->prepare ("$SELECT_zone WHERE zonename = ? ORDER BY zonename") or die "$DBI::errstr";
+		$self->{_zonebyid}	= $self->{_dbh}->prepare ("$SELECT_zone WHERE id = ? ORDER BY zonename") or die "$DBI::errstr";
+		$self->{_allzones}	= $self->{_dbh}->prepare ("$SELECT_zone ORDER BY zonename") or die "$DBI::errstr";
 
+		##
+		## SUBNET
+		##
 		my $SELECT_subnet = "SELECT * FROM $self->{db}.subnet";
-		$self->{_subnet} =			$self->{_dbh}->prepare ("$SELECT_subnet WHERE netaddr = ? AND slashnotation = ? ORDER BY n_netaddr")	or die "$DBI::errstr";
-		$self->{_subnet_longer_prefix} =	$self->{_dbh}->prepare ("$SELECT_subnet WHERE n_netaddr >= ? AND n_netaddr <= ? ORDER BY n_netaddr")	or die "$DBI::errstr";
-		$self->{_subnetbyip} =	$self->{_dbh}->prepare ("$SELECT_subnet WHERE n_netaddr <= ? AND n_broadcast >= ? ORDER BY n_netaddr DESC LIMIT 1")		or die "$DBI::errstr";
-		$self->{_subnetbyid} =			$self->{_dbh}->prepare ("$SELECT_subnet WHERE id = ? ORDER BY n_netaddr")			or die "$DBI::errstr";
-		$self->{_allsubnets} =			$self->{_dbh}->prepare ("$SELECT_subnet ORDER BY n_netaddr")			or die "$DBI::errstr";
+		$self->{_subnet}		= $self->{_dbh}->prepare ("$SELECT_subnet WHERE netaddr = ? AND slashnotation = ? ORDER BY n_netaddr") or die "$DBI::errstr";
+		$self->{_subnet_longer_prefix}	= $self->{_dbh}->prepare ("$SELECT_subnet WHERE n_netaddr >= ? AND n_netaddr <= ? ORDER BY n_netaddr") or die "$DBI::errstr";
+		$self->{_subnetbyip}		= $self->{_dbh}->prepare ("$SELECT_subnet WHERE n_netaddr <= ? AND n_broadcast >= ? ORDER BY n_netaddr DESC LIMIT 1") or die "$DBI::errstr";
+		$self->{_subnetbyid}		= $self->{_dbh}->prepare ("$SELECT_subnet WHERE id = ? ORDER BY n_netaddr") or die "$DBI::errstr";
+		$self->{_allsubnets}		= $self->{_dbh}->prepare ("$SELECT_subnet ORDER BY n_netaddr") or die "$DBI::errstr";
 	} else {
 		$self->_debug_print ("DSN not provided, not connecting to database.");
 	}
@@ -407,7 +430,7 @@ sub findhostbyaliaswildcardname
 =head2 findhostbyzone
 
 	foreach my $host ($hostdb->findhostbyzone ($zone)) {
-		printf ("%-5s %-20s %s\n", $host->id (), $host->hostname (), $host->zone);
+		printf ("%-5s %s\n", $host->id (), $host->hostname ());
 	}
 
 
@@ -417,10 +440,10 @@ sub findhostbyzone
 	my $self = shift;
 	my @res;
 
-	$self->_debug_print ("Find host with zone '$_[0]'");
+	$self->_debug_print ("Find hosts by zone '$_[0]'");
 	
 	if (! $self->is_valid_domainname ($_[0])) {
-		$self->_set_error ("findhostbyname: '$_[0]' is not a valid domain name");
+		$self->_set_error ("findhostbyzone: '$_[0]' is not a valid domain name");
 		return undef;
 	}
 	
@@ -969,6 +992,46 @@ sub findhostaliasesbyhostid
 	$self->_debug_print ("Find host aliases for host with id '$_[0]'");
 	
 	$self->_find(_hostaliasesbyhostid => 'HOSTDB::Object::HostAlias', $_[0]);
+}
+
+
+=head2 findaliasbyzone
+
+	foreach my $alias ($hostdb->findaliasbyzone ($zone)) {
+		printf ("%-5s %s\n", $alias->id (), $alias->aliasname ());
+	}
+
+
+=cut
+sub findaliasbyzone
+{
+	my $self = shift;
+	my @res;
+
+	$self->_debug_print ("Find aliases with zone '$_[0]'");
+	
+	if (! $self->is_valid_domainname ($_[0])) {
+		$self->_set_error ("findaliasbyzone: '$_[0]' is not a valid domain name");
+		return undef;
+	}
+	
+	$self->_find(_hostaliasesbydnszone => 'HOSTDB::Object::HostAlias', $_[0]);
+}
+
+
+=head2 findallaliases
+
+	@aliases = $hostdb->findallaliases ();
+
+
+=cut
+sub findallaliases
+{
+	my $self = shift;
+
+	$self->_debug_print ("Find all aliases");
+	
+	$self->_find(_allhosts => 'HOSTDB::Object::HostAlias');
 }
 
 
