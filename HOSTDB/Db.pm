@@ -85,6 +85,10 @@ sub init
 		$self->{_hostbyiprange} =	$self->{_dbh}->prepare ("$SELECT_host WHERE n_ip >= ? AND n_ip <= ? ORDER BY n_ip")	or die "$DBI::errstr";
 		$self->{_allhosts} =		$self->{_dbh}->prepare ("$SELECT_host ORDER BY id")					or die "$DBI::errstr";
 
+		my $SELECT_hostattr = "SELECT * FROM $self->{db}.hostattribute";
+		$self->{_hostattributebyid} =		$self->{_dbh}->prepare ("$SELECT_hostattr WHERE id = ? ORDER BY id")		or die "$DBI::errstr";
+		$self->{_hostattributesbyhostid} =	$self->{_dbh}->prepare ("$SELECT_hostattr WHERE hostid = ? ORDER BY v_section, v_key")	or die "$DBI::errstr";
+
 		my $SELECT_zone = "SELECT * FROM $self->{db}.zone";
 		$self->{_zonebyname} =		$self->{_dbh}->prepare ("$SELECT_zone WHERE zonename = ? ORDER BY zonename")		or die "$DBI::errstr";
 		$self->{_zonebyid} =		$self->{_dbh}->prepare ("$SELECT_zone WHERE id = ? ORDER BY zonename")				or die "$DBI::errstr";
@@ -595,6 +599,22 @@ sub findhost
 	}
 	
 	return @host_refs;
+}
+
+
+=head2 findhostattributesbyhostid
+
+	@attrs = $hostdb->findhostattributesbyhostid ($host->id ());
+
+
+=cut
+sub findhostattributesbyhostid
+{
+	my $self = shift;
+
+	$self->_debug_print ("Find host attributes for host with id '$_[0]'");
+	
+	$self->_find(_hostattributesbyhostid => 'HOSTDB::Object::HostAttribute', $_[0]);
 }
 
 
