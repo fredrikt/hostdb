@@ -9,7 +9,7 @@ use strict;
 use Config::IniFiles;
 use HOSTDB;
 use Getopt::Long;
-use vars qw ($opt_subnet $opt_ipver $opt_desc $opt_short_desc $opt_htmlcolor $opt_dhcpconfig $opt_owner $opt_force $opt_debug $opt_d $opt_h $opt_help);
+use vars qw ($opt_subnet $opt_ipver $opt_desc $opt_short_desc $opt_htmlcolor $opt_dhcpconfig $opt_owner $opt_profilelist $opt_force $opt_debug $opt_d $opt_h $opt_help);
 
 my %o = ();
 my $res = GetOptions (
@@ -20,6 +20,7 @@ my $res = GetOptions (
 	    "htmlcolor=s",
 	    "dhcpconfig=s",
 	    "owner=s",
+	    "profilelist=s",
 	    "force",
 	    "debug",
 	    "d",
@@ -53,9 +54,10 @@ Syntax: $0 [options] subnet
 		--ipver		IP version (currently useless)
 		--desc		description
 		--short_desc	short description
-		--htmlcolor	html color
+		--htmlcolor	color (see below)
 		--dhcpconfig	dhcp config for subnet
 		--owner		HOSTDB::Auth identifier
+		--profilelist	comma-separated list of profiles for subnet
 
 	subnet is the subnet in slash notation (eg. 192.168.1.0/24)
 	
@@ -74,13 +76,14 @@ die ("Could not find subnet '$subnet_name' in database\n") if (! $subnet);
 
 test_color (\%colors, $opt_htmlcolor) if (defined ($opt_htmlcolor));
 
-$subnet->subnet ($opt_subnet) if (defined ($opt_subnet));
-$subnet->ipver ($opt_ipver) if (defined ($opt_ipver));
-$subnet->description ($opt_desc) if (defined ($opt_desc));
-$subnet->short_description ($opt_short_desc) if (defined ($opt_short_desc));
-$subnet->htmlcolor ($opt_htmlcolor) if (defined ($opt_htmlcolor));
-$subnet->dhcpconfig ($opt_dhcpconfig) if (defined ($opt_dhcpconfig));
-$subnet->owner ($opt_owner) if (defined ($opt_owner));
+$subnet->subnet ($opt_subnet)			or die ("$0: Invalid subnet - $subnet->{error}\n") if (defined ($opt_subnet));
+$subnet->ipver ($opt_ipver)			or die ("$0: Invalid ipver - $subnet->{error}\n") if (defined ($opt_ipver));
+$subnet->description ($opt_desc)		or die ("$0: Invalid description - $subnet->{error}\n") if (defined ($opt_desc));
+$subnet->short_description ($opt_short_desc)	or die ("$0: Invalid short_description - $subnet->{error}\n") if (defined ($opt_short_desc));
+$subnet->htmlcolor ($opt_htmlcolor)		or die ("$0: Invalid htmlcolor - $subnet->{error}\n") if (defined ($opt_htmlcolor));
+$subnet->dhcpconfig ($opt_dhcpconfig)		or die ("$0: Invalid dhcpconfig - $subnet->{error}\n") if (defined ($opt_dhcpconfig));
+$subnet->owner ($opt_owner)			or die ("$0: Invalid owner - $subnet->{error}\n") if (defined ($opt_owner));
+$subnet->profilelist ($opt_profilelist)		or die ("$0: Invalid profilelist - $subnet->{error}\n") if (defined ($opt_profilelist));
 
 $subnet->commit() or die ("Could not commit subnet object: " . $hostdb->{error} . "\n");
 
