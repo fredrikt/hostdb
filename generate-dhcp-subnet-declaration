@@ -214,32 +214,3 @@ sub remove_old_files
 	
 	return 1;
 }
-
-
-sub print_host
-{
-	my $OUT = shift;
-	my $host = shift;
-	
-	my $hostname = $host->hostname () || 'NULL';
-	my $id = $host->id ();
-	my $ip = $host->ip ();
-	my $mac = $host->mac_address ();
-
-	my $prefix = '';
-	$prefix = '# DHCP disabled ' if ($host->dhcpstatus () eq 'DISABLED');
-
-	if (! defined ($ip)) {
-		$prefix = '# NO IP ';
-		$ip = 'NULL';
-	} elsif (! defined ($mac)) {
-		$prefix = '# NO MAC ';
-		$mac = 'NULL';
-	}
-
-	print ($OUT <<EOD) or return undef;
-${prefix}host ${hostname}_${id} { hardware ethernet $mac; fixed-address $ip; option host-name \"$hostname\"; }
-EOD
-
-	return 1;
-}
