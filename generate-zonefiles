@@ -170,7 +170,12 @@ sub gen_zonefile
 	warn ("$0: ip6.int not implemented\n");
 	print ($ZONEFILE "; $0: HOSTDB - ip6.int not implemented (and most probably never will be)\n") unless ($quiet);
     } else {
+	# plain zonefile, write A and then CNAME RR's
 	if (! a_rr ($hostdb, $zonename, $zone_parameters{default_ttl}, $ZONEFILE, $fn)) {
+	    close ($ZONEFILE);
+	    return 0;
+	}
+	if (! cname_rr ($hostdb, $zonename, $zone_parameters{default_ttl}, $ZONEFILE, $fn)) {
 	    close ($ZONEFILE);
 	    return 0;
 	}
@@ -311,6 +316,60 @@ sub a_rr
     }
 
     print ("Found $included_hosts_count hosts in $zonename\n") unless ($quiet);
+
+    return 1;
+}
+
+sub cname_rr
+{
+    my $hostdb = shift;
+    my $zonename = shift;
+    my $default_ttl = shift;
+    my $FH = shift;
+    my $fn = shift;
+
+    my $included_aliases_count = 0;
+
+    my @aliaslist = $hostdb->findhostaliasbyzone ($zonename);
+
+    foreach my $alias (@aliaslist) {
+	warn ("$0: Invalid search results: $hostdb->{error}\n"), next unless ($alias);
+
+	my $prefix = '';
+
+	$prefix = '; ' if ($alias->dnsstatus () eq 'DISABLED');
+
+	my $id = $alias->id ();
+	my $aliasname = $alias->aliasname ();
+	my $hostid = $alias->hostid ();
+
+	my $h = $hostdb->findhostbyid ($hostid);
+	warn ("$0: Alias $id ($aliasname) : Host $hostid not found\n"), next unless ($alias);
+	my $hostname = $h->hostname ();
+
+	$aliasname =~ s/\.+$//o;	# strip trailing dots
+
+	# sanity check $alias->aliasname ()
+	if ($aliasname !~ /^.+?\.$zonename$/) {
+	    warn ("$0: Obviously incorrect dnszone ($zonename) set on alias $id ($aliasname) - skipping zone.\n");
+	    return 0;
+	}
+
+	$aliasname .= '.';
+	$hostname .= '.';
+
+	my $rr_ttl = $alias->ttl () || '';
+
+	$rr_ttl = '' if ($rr_ttl eq $default_ttl);
+
+	my $str = tab_format (3, "${prefix}$aliasname") . "	$rr_ttl	CNAME	$hostname\n";
+	print ($FH $str) or
+	    warn ("$0: Couldn't write data to '$fn': $!\n"), return 0;
+
+	$included_aliases_count++;
+    }
+
+    print ("Found $included_aliases_count aliases in $zonename\n") unless ($quiet);
 
     return 1;
 }
