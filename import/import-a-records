@@ -11,6 +11,8 @@ use Config::IniFiles;
 #use lib 'blib/lib';
 use HOSTDB;
 
+my $debug = 0;
+
 my $hostdbini = Config::IniFiles->new (-file => '/usr/local/etc/hostdb.ini');
 
 my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
@@ -38,28 +40,34 @@ foreach my $file (@files) {
 		
 		$default_ttl = $1 if ($rad =~ /^\$TTL\s+(\d+)/);
 
-		if ($rad =~ /^(b2-gw2|ny-gw2|physto-gw|stud-gw|su2-gw)\./) {
-			warn ("skipping known broken DNS record for '$1'\n");
-			next;
-		}
-		
 		if ($rad =~ /^(.+?)\s+(\d+)\s+A\s+([\d\.]+)$/) {
 			my ($name, $ttl, $ip) = ($1, $2, $3);
-			
-			if ($name =~ /^(mbox|mx)\.su\.se\.$/) {
+
+			my $delay = 0;
+
+			if ($name =~ /^(b2-gw2|ny-gw2|physto-gw|stud-gw|su2-gw)\./) {
+				# name is one of our routers which has multiple IPs with
+				# the same name. see if it is the loopback address, delay
+				# if not.
+				$delay = 1 if ($ip !~ /^130\.237\.154\.(25|131|128|203|130)$/);
+			}
+
+			$delay = 1 if ($name =~ /^(mbox|mx)\.su\.se\.$/);
+
+			if ($delay) {
 				my @info = ($name, $ttl, $ip);
 				push (@delayed, \@info);
 				next;
 			}
 			
-			$imported++ if (add_host ($name, $ttl, $ip));
+			$imported++ if (add_host (0, $name, $ttl, $ip));
 		}
 	}
 
 	foreach my $arrayref (@delayed) {
 		my ($name, $ttl, $ip) = @{ $arrayref };
 
-		$imported++ if (add_host ($name, $ttl, $ip));
+		$imported++ if (add_host (1, $name, $ttl, $ip));
 	}
 
 	print ("Imported $imported A RR's from file $file\n");
@@ -71,13 +79,14 @@ print ("done\n");
 
 sub add_host
 {
-	my ($name, $ttl, $ip) = @_;
+	my ($lookuphost, $name, $ttl, $ip) = @_;
 	
 	my $host = $hostdb->create_host();
 
-	if ($name =~ /^(mbox|mx)\.su\.se\.$/) {
+	if ($lookuphost) {
 		my $super_host = $hostdb->findhostbyip ($ip);
 		$host->set_partof ($super_host->{id}) if ($super_host->{id});
+		undef ($super_host);
 	}
 			
 	my $valid = 1;
@@ -89,6 +98,8 @@ sub add_host
 			
 	$host->commit() if ($valid);
 
+	undef ($host);
+	
 	return $valid;
 }
 
