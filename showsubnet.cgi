@@ -49,15 +49,20 @@ $q->begin (title => "Subnet(s) matching $subnet");
 
 $q->print (<<EOH);
 	<table BORDER='0' CELLPADDING='0' CELLSPACING='3' WIDTH='600'>
-	   $table_blank_line
-	   <td COLSPAN='4' ALIGN='center'><h3>Subnet(s) matching $subnet</h3></td></tr>
-	   $table_blank_line
+		$table_blank_line
+		<tr>
+			<td COLSPAN='4' ALIGN='center'><h3>Subnet(s) matching $subnet</h3></td>
+		</tr>
+		$table_blank_line
 EOH
 
 my $static_flag_days = $hostdbini->val ('subnet', 'static_flag_days');
 my $dynamic_flag_days = $hostdbini->val ('subnet', 'static_flag_days');
 list_subnet ($hostdb, $q, $subnet, $static_flag_days, $dynamic_flag_days);
 
+$q->print (<<EOH);
+	</table>
+EOH
 $q->end ();
 
 
@@ -89,8 +94,8 @@ sub list_subnet
 				my $h_subnet = $subnet->subnet ();
 				my $me = $q->state_url ();
 
-				$h_subnet = "<a href='$me&subnet=$h_subnet'>$h_subnet</a>";
-				my $h_desc = $subnet->description ()?$subnet->description ():'no description';
+				$h_subnet = "<a href='$me;subnet=$h_subnet'>$h_subnet</a>";
+				my $h_desc = $q->escapeHTML ($subnet->description ()?$subnet->description ():'no description');
 				$q->print (<<EOH);
 					<tr>
 					   <td NOWRAP>
@@ -133,7 +138,7 @@ EOH
 						# there is a gap here, output IP in green
 						
 						if ($modifyhost_path) {
-							$ip = "<a href='$modifyhost_path&ip=$ip'>$ip</a>";
+							$ip = "<a href='$modifyhost_path;ip=$ip'>$ip</a>";
 						}
 						push (@o, <<EOH);
 							<tr>
@@ -153,7 +158,7 @@ EOH
 						my $mac_ts = $host->mac_address_ts () || "";
 						
 						if ($whois_path) {
-							$ip = "<a href='$whois_path&whoisdatatype=ID&whoisdata=$id'>$ip</a>";
+							$ip = "<a href='$whois_path;whoisdatatype=ID;whoisdata=$id'>$ip</a>";
 						}
 						
 						my $ts_font = "";
@@ -331,8 +336,8 @@ sub create_url
 		$url .= '?_sucgi_sid=' . $q->getSID ();
 	} else {
 		# put this here since our users expects to be able to add
-		# all their parameters with & as separator
-		$url .= '?_sucgi_foo=bar';
+		# all their parameters with ; as separator
+		$url .= '?';
 	}
 
 	return undef if ($url !~ '^https*://');
