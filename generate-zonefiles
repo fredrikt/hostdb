@@ -225,13 +225,17 @@ sub ipv4_ptr_rr
 			$host->hostname ("host-" . $host->id () . ".no-host-name.su.se");
 		}
 
-		my $hostname = $host->hostname ();
+		my $hostname = $host->hostname () || '';
 		my $hostip = $host->ip ();
+		my $hostid = $host->id ();
 		my $rr_ttl = $host->ttl () || '';
 		
 		$rr_ttl = "" if ($rr_ttl eq $default_ttl);
 			
 		$hostname =~ s/\.+$//o;	# strip trailing dots
+
+		warn ("$0: Host with IP '$hostip' and ID '$hostid' has NULL hostname - can't generate IPv4 PTR RR\n"), return 0 if (! $hostname);
+
 		$hostname .= ".";			
 
 		my @t = split ('\.', $hostip);
