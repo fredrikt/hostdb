@@ -122,6 +122,8 @@ sub clean_hostname
 				# future and also bulk change everything in database
 	my $valid;
 
+	return 0 unless $new;
+
 	$new =~ s/\.+$//o;	# strip trailing dots
 
 	$valid = $self->is_valid_fqdn ($new) || $self->is_valid_domainname ($new);
@@ -155,6 +157,8 @@ sub clean_domainname
 	my $new = lc ($_[0]);	# lowercase
 	my $valid;
 
+	return 0 unless $new;
+
 	$new =~ s/\.+$//o;	# strip trailing dots
 
 	$valid = $self->is_valid_domainname ("$new");
@@ -179,6 +183,8 @@ sub is_valid_fqdn
 {
 	my $self = shift;
 	my $hostname = shift;
+
+	return 0 unless $hostname;
 
 	# do NOT clean_hostname() because that function actually uses this one
 
@@ -435,6 +441,32 @@ sub is_valid_ip
 	$self->_debug_print ("ip '$ip' is NOT a valid IP");
 
 	return 0;
+}
+
+
+=head2 is_valid_profilename
+
+	$is_valid = $hostdb->is_valid_profilename ($new_profile);
+
+	Checks with some regexps if $new_profile is a valid host profile name.
+
+
+=cut
+sub is_valid_profilename
+{
+	my $self = shift;
+	my $profilename = shift;
+
+	my $illegal_chars = $profilename;
+	$illegal_chars =~ s/[a-zA-Z0-9\._-]//og;
+	# what is left are illegal chars
+	if ($illegal_chars) {
+		$self->_debug_print ("'$profilename' has illegal characters in it ($illegal_chars)");
+		return 0;
+	}
+
+	$self->_debug_print ("'$profilename' is a valid profile name");
+	return 1;
 }
 
 
