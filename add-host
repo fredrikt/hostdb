@@ -8,7 +8,7 @@
 use strict;
 use HOSTDB;
 use Getopt::Long;
-use vars qw ($opt_dhcpmode $opt_dhcpstatus $opt_dnsmode $opt_dnsstatus $opt_mac_address $opt_ttl $opt_user $opt_partof $opt_debug $opt_force);
+use vars qw ($opt_dhcpmode $opt_dhcpstatus $opt_dnsmode $opt_dnsstatus $opt_mac_address $opt_ttl $opt_user $opt_partof $opt_dnszone $opt_manual_dnszone $opt_debug $opt_force);
 
 my %o = ();
 my $res = GetOptions (
@@ -20,6 +20,8 @@ my $res = GetOptions (
 	    "ttl=i",
 	    "user=s",
 	    "partof=i",
+	    "dnszone=s",
+	    "manual_dnszone=s",
 	    "debug",
 	    "force"
 	   );
@@ -50,6 +52,7 @@ ${msg}Syntax: $0 [options] ip hostname owner
 		--ttl		DNS TTL
 		--user		Comment about user
 		--partof	parent Host ID
+		--dnszone	Which zone to include this host record in (defaults to the most logical one)
 
 EOT
 }
@@ -95,14 +98,25 @@ $host->dnsmode ('A_AND_PTR')	or die ("$0: Could not set default 'dhcpmode': $hos
 $host->dnsstatus ('ENABLED')	or die ("$0: Could not set default 'dnsstatus': $host->{error}\n");
 
 # optional ones
-$host->dhcpmode ($opt_dhcpmode)		or die ("$0: Invalid value - $host->{error}\n") if (defined ($opt_dhcpmode));
-$host->dhcpstatus ($opt_dhcpstatus)	or die ("$0: Invalid value - $host->{error}\n") if (defined ($opt_dhcpstatus));
-$host->dnsmode ($opt_dnsmode)		or die ("$0: Invalid value - $host->{error}\n") if (defined ($opt_dnsmode));
-$host->dnsstatus ($opt_dnsstatus)	or die ("$0: Invalid value - $host->{error}\n") if (defined ($opt_dnsstatus));
-$host->mac_address ($opt_mac_address)	or die ("$0: Invalid value - $host->{error}\n") if (defined ($opt_mac_address));
-$host->ttl ($opt_ttl)			or die ("$0: Invalid value - $host->{error}\n") if (defined ($opt_ttl));
-$host->user ($opt_user)			or die ("$0: Invalid value - $host->{error}\n") if (defined ($opt_user));
-$host->partof ($opt_partof)		or die ("$0: Invalid value - $host->{error}\n") if (defined ($opt_partof));
+$host->dhcpmode ($opt_dhcpmode)			or die ("$0: Invalid dhcpmode - $host->{error}\n") if (defined ($opt_dhcpmode));
+$host->dhcpstatus ($opt_dhcpstatus)		or die ("$0: Invalid dhcpstatus - $host->{error}\n") if (defined ($opt_dhcpstatus));
+$host->dnsmode ($opt_dnsmode)			or die ("$0: Invalid dnsmode - $host->{error}\n") if (defined ($opt_dnsmode));
+$host->dnsstatus ($opt_dnsstatus)		or die ("$0: Invalid dnsstatus - $host->{error}\n") if (defined ($opt_dnsstatus));
+$host->mac_address ($opt_mac_address)		or die ("$0: Invalid mac_address - $host->{error}\n") if (defined ($opt_mac_address));
+$host->ttl ($opt_ttl)				or die ("$0: Invalid ttl - $host->{error}\n") if (defined ($opt_ttl));
+$host->user ($opt_user)				or die ("$0: Invalid user - $host->{error}\n") if (defined ($opt_user));
+$host->partof ($opt_partof)			or die ("$0: Invalid partof - $host->{error}\n") if (defined ($opt_partof));
+$host->manual_dnszone ($opt_manual_dnszone)	or die ("$0: Invalid manual_dnszone - $host->{error}\n") if (defined ($opt_manual_dnszone));
+
+if (! defined ($opt_dnszone)) {
+	my $z = $hostdb->findzonebyhostname ($host->hostname ());
+	
+	die ("$0: Could not find a suitable DNS zone for hostname '" . $host->hostname () . "'\n") unless defined ($z);
+
+	$host->dnszone ($z->zonename ()) or die ("$0: Invalid dnszone - $host->{error}\n");
+} else {
+	$host->dnszone ($opt_dnszone) or die ("$0: Invalid dnszone - $host->{error}\n");
+}
 
 $host->commit () or die ("$0: Could not commit host object - $host->{error}\n");
 
