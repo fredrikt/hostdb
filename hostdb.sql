@@ -34,6 +34,7 @@ CREATE TABLE zone (
 # ipver in this table is only to think ahead - don't think this database and
 # scripts associated with it works with IPv6.
 CREATE TABLE subnet (
+	id INT AUTO_INCREMENT NOT NULL,
 	ipver TINYINT UNSIGNED NOT NULL,
 	netaddr	CHAR(20) NOT NULL,
 	slashnotation TINYINT UNSIGNED NOT NULL,
@@ -47,7 +48,7 @@ CREATE TABLE subnet (
 	n_broadcast INT UNSIGNED NOT NULL,
 	htmlcolor CHAR(20),
 	dhcpconfig MEDIUMBLOB,
-	PRIMARY KEY (netaddr)
+	PRIMARY KEY (id)
 );
 
 # this is an EXAMPLE grant command, you need to replace $database, $user, example.org and $password
