@@ -24,6 +24,7 @@ CREATE TABLE host (
 );
 
 CREATE TABLE zone (
+	id INT AUTO_INCREMENT NOT NULL,
 	zonename VARCHAR(255) NOT NULL,
 	delegated ENUM ('Y', 'N') NOT NULL DEFAULT 'N',
 	default_ttl INT,
@@ -36,7 +37,7 @@ CREATE TABLE zone (
 	expiry INT,
 	minimum INT,
 	owner VARCHAR(255),
-	PRIMARY KEY (zonename)
+	PRIMARY KEY (id)
 );
 
 # the use of unsigned int for n_netaddr and n_netmask is not enough for IPv6.
