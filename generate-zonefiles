@@ -60,7 +60,7 @@ foreach my $buildzone (sort @generate) {
 	if ($buildzone eq "*") {
 		print ("build: ALL ZONES\n") if ($debug);
 	} else {
-		if (! $hostdb->clean_zonename ($buildzone)) {
+		if (! $hostdb->clean_domainname ($buildzone)) {
 			warn ("$0: Invalid zonename '$buildzone'\n");
 			next;
 		}
@@ -257,10 +257,18 @@ sub a_rr
 	my $included_hosts_count = 0;
 	my $skipped_hosts_count = 0;
 
+	# use a wildcard search to locate everything that ends in $zonename.
+	# this is later checked for stuff that actually belongs to delegated zones.
+	# XXX what about glue records? alternatives : don't keep them in HOSTDB
+	# or include stuff that belongs to delegated sub-zones into this zone. the
+	# latter would be very bad when you delegate something you used to be primary
+	# for and forgot to clean out all the host entrys from HOSTDB. i'd vote for
+	# glue outside HOSTDB.
 	my @hostlist = $hostdb->findhostbywildcardname ("%.$zonename");
-	warn ("findhostbywildcardname (%.$zonename) failed: $hostdb->{error}\n"), return 0 if (! $hostlist[0]);
-	my $host = $hostdb->findhostbywildcardname ($zonename);
-	push (@hostlist, $host) if (defined ($host));
+	# find hosts exactly matching the zone name (to make it possible to 'http://su.se' for example)
+	my $host = $hostdb->findhostbyname ($zonename);
+	unshift (@hostlist, $host) if (defined ($host));
+
 	foreach my $host (@hostlist) {
 		my $hostname = $host->hostname ();
 		my $hostip = $host->ip ();
@@ -300,6 +308,9 @@ sub host_in_zone
 	my $hostname = shift;
 	my $zonename = shift;
 	my @all_zones = @_;
+
+	# XXX this is where glue records should be detected, if glue records
+	# are to be generated from HOSTDB
 
 	my $checkzone = $hostname;
 	while ($checkzone) {
