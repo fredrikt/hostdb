@@ -7,9 +7,18 @@
 
 use strict;
 use HOSTDB;
+use Getopt::Std;
+use vars qw ($opt_h $opt_d $opt_r);
+
+getopts ('hdr');
 
 my $debug = 0;
-if ($ARGV[0] eq "-d") {
+my $raw = 0;
+
+$debug = 1 if (defined ($opt_d));
+$raw = 1 if (defined ($opt_r));
+
+if (defined ($ARGV[0]) and $ARGV[0] eq "-d") {
 	shift (@ARGV);
 	$debug = 1;
 }
@@ -20,9 +29,12 @@ my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
 
 my @searchfor = @ARGV;
 
-if ($#searchfor == -1) {
-	die ("Syntax: $0 [-d] subnet/slash ...\n" .
+if ($#searchfor == -1 or $opt_h) {
+	die ("Syntax: $0 [-dr] subnet/slash ...\n" .
 	     "	subnet is the subnet in slash notation (eg. 192.168.1.0/24)\n" .
+	     "	options :\n" .
+	     "		-d debug output\n" .
+	     "		-r raw mode, just IP address and hostnames, separated by semi-colon\n" .
 	     "\n");
 }
 
@@ -52,7 +64,8 @@ while ($searchfor[0]) {
 				my $netmask = $subnet->netmask ();
 				my $broadcast = $subnet->broadcast ();
 
-				print (<<EOT);
+				if (! $raw) {
+					print (<<EOT);
 
 $subnet_name :
 
@@ -67,22 +80,25 @@ $subnet_name :
   Profiles		$profilelist
 				
 EOT
+				}
 
 				my @subnet_hosts = get_hosts_in_subnet ($subnet->subnet(), @hosts);
 				if (@subnet_hosts) {
 					my $num_hosts = scalar @subnet_hosts;
 					
-					print ("  $num_hosts hosts in subnet :\n\n");
+					print ("  $num_hosts hosts in subnet :\n\n") unless ($raw);
 					my $host;
+					my $fmt = "	%-20s %s\n";
+					$fmt = "%s;%s\n" if ($raw);
 					foreach $host (@subnet_hosts) {
-						printf "	%-20s %s\n",
+						printf $fmt,
 							$host->ip (),
 							defined ($host->hostname ())?$host->hostname ():"NULL";
 					}
 				}
 			}
 			
-			print ("\n");
+			print ("\n") unless ($raw);
 		}
 	} else {
 		warn ("Ignoring invalid subnet '$subnet'\n");
