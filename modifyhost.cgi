@@ -39,6 +39,14 @@ my $whois_path = $q->state_url ($hostdbini->val ('subnet', 'whois_uri'));
 
 $q->begin (title => 'Modify/Add Host');
 
+my $remote_user = '';
+if ($ENV{REMOTE_USER} =~ /^[a-z0-9]{,50}/) {
+	$remote_user = $ENV{REMOTE_USER};
+}
+# XXX JUST FOR DEBUGGING UNTIL PUBCOOKIE IS FINISHED
+$remote_user = 'andreaso';
+
+
 my $me = $q->state_url ();
 
 $q->print (<<EOH);
@@ -52,9 +60,6 @@ $q->print (<<EOH);
 		</tr>
 		$table_blank_line
 EOH
-
-# XXX set to '', not 'ft' XXX JUST FOR DEBUGGING UNTIL PUBCOOKIE IS FINISHED
-my $remote_user = $ENV{REMOTE_USER} || 'ft';
 
 my $host;
 
@@ -101,11 +106,17 @@ if (defined ($host)) {
 	# get subnet
 	my $subnet = $hostdb->findsubnetclosestmatch ($host->ip () || $q->param ('ip'));
 
+	# get zone
+	my $zone = $hostdb->findzonebyhostname ($host->hostname ());
+
 	if (! $hostdb->auth->is_allowed_write ($subnet, $remote_user)) {
 		error_line ($q, "You do not have sufficient access to subnet '" . 
 			    $subnet->subnet () . "'");
+	} elsif (! $hostdb->auth->is_allowed_write ($zone, $remote_user)) {
+		error_line ($q, "You do not have sufficient access to zone '" . 
+			    $zone->zonename () . "'");
 	} else {
-		host_form($q, $host, $subnet, $remote_user);
+		host_form ($q, $host, $subnet, $remote_user);
 	}
 }
 
@@ -138,10 +149,25 @@ sub modify_host
 		# get subnet
 		my $subnet = $hostdb->findsubnetclosestmatch ($host->ip ()) if (defined ($host->ip ()));
 
+		# get zone
+		my $zone = $hostdb->findzonebyhostname ($host->hostname ());
+
+		# check that user is allowed to edit both current zone and subnet
+		#
+		# the reason to not demand subnet and host to be defined is to not
+		# make it impossible to move hosts to a new subnet if the old subnet
+		# is renamed or such... but maybe that is a bad idea. XXX
+
 		if (defined ($subnet) and 
 		    ! $hostdb->auth->is_allowed_write ($subnet, $remote_user)) {
 			die ("You do not have sufficient access to subnet '" . 
 				    $subnet->subnet () . "'");
+		}
+
+		if (defined ($zone) and 
+		    ! $hostdb->auth->is_allowed_write ($zone, $remote_user)) {
+			error_line ($q, "You do not have sufficient access to zone '" . 
+				    $zone->zonename () . "'");
 		}
 
 		# this is a hash and not an array to provide a better framework
@@ -170,8 +196,7 @@ sub modify_host
 					
 					if ($name eq 'ip') {
 						# changing IP, check that user has enough permissions for the _new_ subnet too
-						my $ip;
-						$ip = $q->param ('ip');
+						my $ip = $q->param ('ip');
 
 						my $t_host = $hostdb->findhostbyip ($ip);
 						if (defined ($t_host)) {
@@ -186,6 +211,24 @@ sub modify_host
 						if (! $hostdb->auth->is_allowed_write ($new_subnet, $remote_user)) {
 							die ("You do not have sufficient access to the new IP's subnet '" . 
 							     $new_subnet->subnet () . "'");
+						}
+					} elsif ($name eq 'hostname') {
+						# changing hostname, check that user has enough permissions for the _new_ zone too
+						my $hostname = $q->param ('hostname');
+
+						my $t_host = $hostdb->findhostbyname ($hostname);
+						if (defined ($t_host)) {
+							my $t_id = $t_host->id () ;
+							die "Another host object (ID $t_id) currently have the hostname '$hostname'\n";
+						}
+				
+						my $new_zone = $hostdb->findzonebyhostname ($hostname);
+				
+						die ("Invalid new hostname '$hostname': no zone for that hostname found in database") if (! defined ($new_zone));
+				
+						if (! $hostdb->auth->is_allowed_write ($new_zone, $remote_user)) {
+							die ("You do not have sufficient access to the new hostnames zone '" . 
+							     $new_zone->zone () . "'");
 						}
 					} elsif ($name eq 'partof') {
 						# changing partof, look it up using hostdb->findhost so that
