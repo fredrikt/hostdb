@@ -786,6 +786,35 @@ sub html_links
 }
 
 
+=head unique_id
+
+    Return a list of objects with unique id\'s. Should only be used on
+    a list of the same type of objects, where id\'s are supposed to be
+    unique.
+
+    @uniqye_objects = HOSTDB::unique_id (@list_of_objects);
+
+
+=cut
+sub unique_id
+{
+    my %seen;
+    my @in = @_;
+
+    my @res;
+    foreach my $o (@in) {
+	my $id = $o->id ();
+	if (defined ($id)) {
+	    next if ($seen{$id});
+	    push (@res, $o);
+	    $seen{$id} = 1;
+	}
+    }
+
+    return @res;
+}
+
+
 =head2 dump
 
 	$hostdb->dump();
