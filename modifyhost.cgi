@@ -54,73 +54,50 @@ my $action = $q->param('action');
 $action = 'Search' unless $action;
 SWITCH:
 {
-  $action eq 'Commit' and do
-    {
-      my $id = $q->param('id');
-      my $host;
-      #die "No ID specified for commit" unless $id;
-      if (defined ($id) and $id ne '') {
-	warn ("GET HOST: $id\n");
-        $host = get_host ($hostdb,'ID',$id);
-      } else {
-        $host = $hostdb->create_host ();
-	die ("$0: Could not create host entry: $hostdb->{error}\n") unless (defined ($host));
-      }
-      if (modify_host ($hostdb, $host, $q))
+	$action eq 'Commit' and do
 	{
-	  eval
-	    {
-	      $host->commit ();
-	    };
-	  if ($@)
-	    {
-	      error_line ($q, "Could not commit changes: $@");
-	    }
-	}
-      $id = $host->id () unless ($id);
-      $host = get_host($hostdb,'ID',$id); # read-back
-      die "Host mysteriously vanished" unless $host;
-      host_form($q,$host);
-    },last SWITCH;
+		my $id = $q->param('id');
+		my $host;
 
-  $action eq 'Search' and do
-    {
-      my $host;
-      my $host = get_host ($hostdb, 'ID', $q->param('id')) if $q->param('id');
-      #$host = get_host ($hostdb, 'IP', $q->param('ip')) if $q->param('ip') and !$host;
-      $host = $hostdb->create_host () unless defined $host;
+		#die "No ID specified for commit" unless $id;
+		if (defined ($id) and $id ne '') {
+			#warn ("GET HOST: $id\n");
+			$host = get_host ($hostdb,'ID',$id);
+		} else {
+			$host = $hostdb->create_host ();
+			die ("$0: Could not create host entry: $hostdb->{error}\n") unless (defined ($host));
+		}
 
-      host_form($q,$host);
-    },last SWITCH;
+		if (modify_host ($hostdb, $host, $q)) {
+			eval
+			{
+				$host->commit ();
+			};
+			if ($@) {
+				error_line ($q, "Could not commit changes: $@");
+			}
+		}
+
+		$id = $host->id () unless ($id);
+		$host = get_host($hostdb,'ID',$id); # read-back
+		die "Host mysteriously vanished" unless $host;
+		host_form($q, $host);
+	},last SWITCH;
+
+	$action eq 'Search' and do
+	{
+		my $host = get_host ($hostdb, 'ID', $q->param('id')) if $q->param('id');
+		$host = $hostdb->create_host () unless defined $host;
+
+		host_form($q, $host);
+	},last SWITCH;
 }
 
-if ($@)
-  {
-    error_line($q,"$@\n");
-  }
+if ($@) {
+	error_line($q, "$@\n");
+}
 
 $q->end();
-
-# if (! $fail) {
-# 	my $host = get_host ($hostdb, $datatype, $search_for);
-
-# 	if (! defined ($host)) {
-# 		$host = $hostdb->create_host ();
-# 	}
-
-# 	if (modify_host ($hostdb, $host, $q) and $q->param ('action') eq 'Commit') {
-# 		eval {
-# 			$host->commit ();
-# 		};
-# 		if ($@) {
-# 			 error_line ($q, "Could not commit changes: $@");
-# 		}
-# 	}
-	
-# 	host_form ($q, $host);
-# }
-
-# $q->end ();
 
 
 sub modify_host
