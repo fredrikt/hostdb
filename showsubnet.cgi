@@ -221,13 +221,14 @@ EOH
 EOH
 		} else {
 			my $dup = 0;
-			my $parent;
-			foreach my $host (@thesehosts) {
+			my ($parent, $firsthostpartof);
+			foreach my $host (sort parentchildsort @thesehosts) {
 				if (! $dup) {
 					$parent = $host->id ();	
+					$firsthostpartof = $host->partof () || 'NULL';
 				}
 				
-				print_host (\@o, $host, $dup, $parent,
+				print_host (\@o, $host, $dup, $parent, $firsthostpartof,
 					    $static_flag_days, $dynamic_flag_days,
 					    \$static_hosts, \$dynamic_hosts,
 					    \$static_in_use, \$dynamic_in_use);
@@ -293,6 +294,7 @@ sub print_host
 	my $host = shift;
 	my $dup = shift;
 	my $thisip_parent = shift;
+	my $thisip_partof = shift;
 	my $static_flag_days = shift;
 	my $dynamic_flag_days = shift;
 	my $static_hosts_ref = shift;
@@ -316,9 +318,17 @@ sub print_host
 		if ($partof eq $thisip_parent) {
 			$ip = 'child';
 			$ip_align = 'center';
+		} elsif ($partof eq $thisip_partof) {
+			$ip = '(child)';
+			$ip_align = 'center';
 		} else {
 			$ip = 'DUPLICATE';
 			$ip_align = 'center';
+		}
+	} else {
+		my $partof = $host->partof () || 'NULL';
+		if ($partof ne 'NULL') {
+			$ip = "$ip (child)";
 		}
 	}
 
@@ -375,6 +385,19 @@ sub get_hosts_with_ip
 	}
 	
 	wantarray ? @retval : $retval[0];
+}
+
+sub parentchildsort
+{
+	if ($a->partof () == $b->id ()) {
+		return 1;
+	}
+	
+	if ($b->partof () == $a->id ()) {
+		return -1;
+	}
+	
+	return $a->id () <=> $b->id ();
 }
 
 sub safe_div
