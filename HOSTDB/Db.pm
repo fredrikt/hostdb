@@ -62,7 +62,12 @@ sub init
 		$self->{password} = $self->{ini}->val ('db', 'password') unless (defined ($self->{password}));
 
 		# other misc settings
-		$self->{auth_ldap_server} = $self->{ini}->val ('ldap', 'auth_server') unless (defined ($self->{auth_ldap_server}));
+		$self->{auth_ldap_server} = $self->{ini}->val ('auth', 'ldap_server') unless (defined ($self->{auth_ldap_server}));
+		$self->{auth_admins} = $self->{ini}->val ('auth', 'admins') unless (defined ($self->{auth_admins}));
+		unless (defined ($self->{dont_authorize})) {
+			my $v = $self->{ini}->val ('auth', 'dont_authorize') || '';
+			$self->{auth_disabled} = 'DISABLED' if ($v eq 'YES');
+		}
 	}
 
 	if (defined ($self->{dsn})) {
@@ -85,16 +90,20 @@ sub init
 		my $SELECT_subnet = "SELECT * FROM $self->{db}.subnet";
 		$self->{_subnet} =			$self->{_dbh}->prepare ("$SELECT_subnet WHERE netaddr = ? AND slashnotation = ? ORDER BY n_netaddr")	or die "$DBI::errstr";
 		$self->{_subnet_longer_prefix} =	$self->{_dbh}->prepare ("$SELECT_subnet WHERE n_netaddr >= ? AND n_netaddr <= ? ORDER BY n_netaddr")	or die "$DBI::errstr";
-		$self->{_subnet_closest_match} =	$self->{_dbh}->prepare ("$SELECT_subnet WHERE n_netaddr <= ? ORDER BY n_netaddr DESC LIMIT 1")		or die "$DBI::errstr";
+		$self->{_subnet_closest_match} =	$self->{_dbh}->prepare ("$SELECT_subnet WHERE n_netaddr <= ? AND n_broadcast >= ? ORDER BY n_netaddr DESC LIMIT 1")		or die "$DBI::errstr";
 	} else {
 		$self->_debug_print ("DSN not provided, not connecting to database.");
 	}
 
 	$self->user (getpwuid("$<"));
 
-	$self->{auth} = $self->create_auth ();
+	# create an HOSTDB::Auth to be used for authorization
+	$self->{auth} = $self->create_auth (authorization => $self->{auth_disabled});
 	$self->auth->ldap_server ($self->{auth_ldap_server});
+	$self->auth->admin_list (split (',', $self->{auth_admins}));
 	$self->{auth_ldap_server} = undef;
+	$self->{auth_admins} = undef;
+	$self->{auth_disabled} = undef;
 
 	return 1;
 }
@@ -480,17 +489,17 @@ sub findhost
 		my $t = $search_for;
 		if ($self->clean_mac_address ($t)) {
 			$search_for = $t;
-			$datatype = 'MAC';
+			$datatype = 'mac';
 		} elsif ($search_for =~ /^[+-]*(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.in-addr\.arpa\.*$/i) {
-			$datatype = 'IP';
+			$datatype = 'ip';
 			$search_for = "$4.$3.$2.$1";
 		} elsif ($self->is_valid_ip ($search_for)) {
-			$datatype = 'IP';
+			$datatype = 'ip';
 		} elsif ($self->clean_hostname ($t)) {
-			$datatype = 'FQDN';
+			$datatype = 'fqdn';
 			$search_for = $t;
 		} elsif ($search_for =~ /^\d+$/) { 
-			$datatype = 'ID';
+			$datatype = 'id';
 		} else {
 			$self->_set_error ("findhost () search failed: could not guess data type of '$search_for'");
 			return undef;
@@ -499,14 +508,14 @@ sub findhost
 
 	my @host_refs;
 			
-	if ($datatype eq "IP") {
+	if ($datatype eq 'ip') {
 		if ($self->is_valid_ip ($search_for)) {
 			@host_refs = $self->findhostbyip ($search_for);
 		} else {
 			$self->_set_error ("findhost () search failed: '$search_for' is not a valid IP address");
 			return undef;
 		}
-	} elsif ($datatype eq "FQDN") {
+	} elsif ($datatype eq 'fqdn') {
 		my $t = $search_for;
 		if ($self->clean_hostname ($t)) {
 			$search_for = $t;
@@ -515,7 +524,7 @@ sub findhost
 			$self->_set_error ("findhost () search failed: '$search_for' is not a valid FQDN");
 			return undef;
 		}
-	} elsif ($datatype eq "MAC") {
+	} elsif ($datatype eq 'mac') {
 		my $t = $search_for;
 		if ($self->clean_mac_address ($t)) {
 			$search_for = $t;
@@ -524,7 +533,7 @@ sub findhost
 			$self->_set_error ("findhost () search failed: '$search_for' is not a valid MAC address");
 			return undef;
 		}
-	} elsif ($datatype eq "ID") {
+	} elsif ($datatype eq 'id') {
 		if ($search_for =~ /^\d+$/) { 
 			@host_refs = $self->findhostbyid ($search_for);
 		} else {
@@ -606,7 +615,8 @@ sub findsubnetclosestmatch
 
 	$self->_debug_print ("Find subnet for IP '$_[0]'");
 
-	$self->_find(_subnet_closest_match => 'HOSTDB::Object::Subnet', $self->aton ($_[0]));
+	$self->_find(_subnet_closest_match => 'HOSTDB::Object::Subnet',
+		     $self->aton ($_[0]), $self->aton ($_[0]));
 }
 
 
