@@ -6,6 +6,31 @@ package HOSTDB::DB;
 @HOSTDB::DB::ISA = qw(HOSTDB);
 
 
+=head1 NAME
+
+HOSTDB::Db - Database access routines.
+
+=head1 SYNOPSIS
+
+  use HOSTDB;
+
+  my $hostdb = HOSTDB::DB->new (dsn => $dsn, db => $db, user = $user,
+				password => $pw);
+
+=head1 DESCRIPTION
+
+Database access routines.
+
+
+=head1 EXPORT
+
+None.
+
+=head1 METHODS
+
+=cut
+
+
 sub init
 {
 	my $self = shift;
@@ -45,12 +70,12 @@ sub DESTROY
 }
 
 
-#######################################
-# package HOSTDB::DB public functions #
-#######################################
+####################
+# PUBLIC FUNCTIONS #
+####################
 
 
-=head1 PACKAGE HOSTDB::DB FUNCTIONS
+=head1 PUBLIC FUNCTIONS
 
 
 =head2 user
@@ -75,7 +100,11 @@ sub user
 	if (@_) {
 		my $user = shift;
 
-		$self->_debug_print ("Changing username from '$self->{localuser}' to $user");
+		if (defined ($self->{localuser})) {
+			$self->_debug_print ("Changing username from '$self->{localuser}' to $user");
+		} else {
+			$self->_debug_print ("Initializing username: $user");
+		}
 		$self->{localuser} = $user;
 
 		return 1;
@@ -420,12 +449,12 @@ sub findsubnetlongerprefix
 }
 
 
-########################################
-# package HOSTDB::DB private functions #
-########################################
+#####################
+# PRIVATE FUNCTIONS #
+#####################
 
 
-=head1 PACKAGE HOSTDB::DB PRIVATE FUNCTIONS
+=head1 PRIVATE FUNCTIONS
 
 	These functions should NEVER be called by a program using this class,
 	but are documented here as well just for the sake of documentation.
@@ -468,7 +497,7 @@ sub _find
 		my $o = bless $hr,$class;
 		foreach my $k (keys %{$hr}) {
 			# strip leading and trailing white space on all keys
-			$hr->{$k} =~ s/^\s*(.*?)\s*$/$1/;
+			$hr->{$k} =~ s/^\s*(.*?)\s*$/$1/ if (defined ($hr->{$k}));
 		}
 		$o->{hostdb} = $self;
 		$o->{debug} = $self->{debug};
@@ -482,3 +511,16 @@ sub _find
 
 
 
+1;
+__END__
+
+=head1 AUTHOR
+
+Fredrik Thulin <ft@it.su.se>, Stockholm University
+
+=head1 SEE ALSO
+
+L<HOSTDB>
+
+
+=cut
