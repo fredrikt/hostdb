@@ -177,12 +177,7 @@ sub id
 {
 	my $self = shift;
 
-	if (@_) {
-		$self->_set_error ("this is a read-only function, it is a database auto increment");
-		return undef;
-	}
-
-	return ($self->{id});
+	$self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_read_only, @_);
 }
 
 
@@ -196,19 +191,7 @@ sub zonename
 {
 	my $self = shift;
 
-	if (@_) {
-		my $zonename = shift;
-	
-		if (! $self->clean_domainname ($zonename)) {
-			$self->_set_error ("Invalid zonename '$zonename'");
-			return 0;
-		}
-		$self->{zonename} = $zonename;
-		
-		return 1;
-	}
-
-	return ($self->{zonename});
+	$self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_clean_domainname, @_);
 }
 
 
@@ -234,22 +217,7 @@ sub delegated
 {
 	my $self = shift;
 
-	if (@_) {
-		my $newvalue = shift;
-	
-		if ($newvalue =~ /^y/oi) {
-			$self->{delegated} = 'Y';
-		} elsif ($newvalue =~ /^n/oi) {
-			$self->{delegated} = 'N';
-		} else {
-			$self->_set_error ('Invalid delegated format');
-			return 0;
-		}
-		
-		return 1;
-	}
-
-	return ($self->{delegated});
+	$self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_y_or_n, @_);
 }
 
 
@@ -262,25 +230,9 @@ sub delegated
 # this is the zone default ttl ($TTL)
 sub default_ttl
 {
-	my $self = shift;
+    my $self = shift;
 
-	if (@_) {
-		my $newvalue = shift;
-
-		if ($newvalue eq 'NULL') {
-			$self->{default_ttl} = undef;
-		} else {
-			if (! $self->is_valid_nameserver_time ($newvalue)) {
-				$self->_set_error ("Invalid default_ttl '$newvalue'");
-				return 0;
-			}
-			$self->{default_ttl} = $newvalue;
-		}
-		
-		return 1;
-	}
-
-	return ($self->{default_ttl});
+    $self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_nameserver_time_or_null, @_);
 }
 
 
@@ -292,32 +244,16 @@ sub default_ttl
 =cut
 sub serial
 {
-	my $self = shift;
-	if (@_) {
-		my $newvalue = shift;
+    my $self = shift;
 
-		$self->_debug_print ("Setting SOA serial '$newvalue'");
-
-		if ($newvalue eq "NULL") {
-			$self->{serial} = undef;
-		} else {
-			if ($newvalue !~ /^\d{10,10}$/) {
-				$self->_set_error("Invalid serial number (should be 10 digits, todays date and two incrementing)");
-				return 0;
-			}
-			$self->{serial} = int ($newvalue);
-		}
-		
-		return 1;
-	}
-
-	return ($self->{serial});
+    $self->_set_or_get_attribute (undef, \&_validate_soa_serial, @_);
 }
 
 
 =head2 mname
 
-	Not yet documented, saving that for a rainy day.
+    Get/set function for SOA mname. Mname is the hostname of the primary master
+    nameserver for a zone.
 
 
 =cut
@@ -325,32 +261,17 @@ sub mname
 {
 	my $self = shift;
 
-	if (@_) {
-		my $newvalue = shift;
-
-		if ($newvalue eq 'NULL') {
-			$self->{mname} = undef;
-		} else {
-			my $illegal_chars = $newvalue;
-			$illegal_chars =~ s/[a-zA-Z0-9\.\-]//og;
-			if ($illegal_chars) {
-				$self->_set_error ("SOA mname '$newvalue' contains illegal characters ($illegal_chars)");
-				return 0;
-			}
-
-			$self->{mname} = $newvalue;
-		}
-
-		return 1;
-	}
-
-	return ($self->{mname});
+	$self->_set_or_get_attribute (undef, \&_validate_soa_mname, @_);
 }
 
 
 =head2 rname
 
-	Not yet documented, saving that for a rainy day.
+    Get/set function for SOA rname. Rname is the e-mail address of the person
+    responsible for a zone. The at-sign of the e-mail address should be replaced
+    by a dot, and any dots that are supposed to be present (in the username part)
+    of the e-mail address should be escaped. E-mail firstname.lastname@example.com
+    as SOA rname is firstname\.lastname.example.com.
 
 
 =cut
@@ -358,31 +279,7 @@ sub rname
 {
 	my $self = shift;
 
-	if (@_) {
-		my $newvalue = shift;
-
-		if ($newvalue eq 'NULL') {
-			$self->{rname} = undef;
-		} else {
-			if ($newvalue =~ /@/) {
-				$self->_set_error ("SOA rname ($newvalue) should not contain '\@' signs.");
-				return 0;
-			}
-
-			my $illegal_chars = $newvalue;
-			$illegal_chars =~ s/[a-zA-Z0-9\.\-]//og;
-			if ($illegal_chars) {
-				$self->_set_error ("SOA rname ($newvalue) contains illegal characters ($illegal_chars)");
-				return 0;
-			}
-
-			$self->{rname} = $newvalue;
-		}
-
-		return 1;
-	}
-
-	return ($self->{rname});
+	$self->_set_or_get_attribute (undef, \&_validate_soa_rname, @_);
 }
 
 
@@ -396,24 +293,7 @@ sub refresh
 {
 	my $self = shift;
 
-	if (@_) {
-		my $newvalue = shift;
-
-		if ($newvalue eq 'NULL') {
-			$self->{refresh} = undef;
-		} else {
-			if (! $self->is_valid_nameserver_time ($newvalue)) {
-				$self->_set_error ("Invalid refresh '$newvalue'");
-				return 0;
-			}
-
-			$self->{refresh} = $newvalue;
-		}
-		
-		return 1;
-	}
-
-	return ($self->{refresh});
+	$self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_nameserver_time_or_null, @_);
 }
 
 
@@ -428,24 +308,7 @@ sub ttl
 {
 	my $self = shift;
 
-	if (@_) {
-		my $newvalue = shift;
-
-		if ($newvalue eq 'NULL') {
-			$self->{ttl} = undef;
-		} else {
-			if (! $self->is_valid_nameserver_time ($newvalue)) {
-				$self->_set_error ("Invalid refresh '$newvalue'");
-				return 0;
-			}
-			
-			$self->{ttl} = $newvalue;
-		}
-		
-		return 1;
-	}
-
-	return ($self->{ttl});
+	$self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_nameserver_time_or_null, @_);
 }
 
 
@@ -459,24 +322,7 @@ sub retry
 {
 	my $self = shift;
 
-	if (@_) {
-		my $newvalue = shift;
-
-		if ($newvalue eq 'NULL') {
-			$self->{retry} = undef;
-		} else {
-			if (! $self->is_valid_nameserver_time ($newvalue)) {
-				$self->_set_error ("Invalid retry '$newvalue'");
-				return 0;
-			}
-			
-			$self->{retry} = $newvalue;
-		}
-		
-		return 1;
-	}
-
-	return ($self->{retry});
+	$self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_nameserver_time_or_null, @_);
 }
 
 
@@ -490,24 +336,7 @@ sub expiry
 {
 	my $self = shift;
 	
-	if (@_) {
-		my $newvalue = shift;
-
-		if ($newvalue eq 'NULL') {
-			$self->{expiry} = undef;
-		} else {
-			if (! $self->is_valid_nameserver_time ($newvalue)) {
-				$self->_set_error ("Invalid retry '$newvalue'");
-				return 0;
-			}
-			
-			$self->{expiry} = $newvalue;
-		}
-		
-		return 1;
-	}
-
-	return ($self->{expiry});
+	$self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_nameserver_time_or_null, @_);
 }
 
 
@@ -521,24 +350,7 @@ sub minimum
 {
 	my $self = shift;
 
-	if (@_) {
-		my $newvalue = shift;
-
-		if ($newvalue eq 'NULL') {
-			$self->{minimum} = undef;
-		} else {
-			if (! $self->is_valid_nameserver_time ($newvalue)) {
-				$self->_set_error ("Invalid retry '$newvalue'");
-				return 0;
-			}
-			
-			$self->{minimum} = $newvalue;
-		}
-		
-		return 1;
-	}
-	
-	return ($self->{minimum});
+	$self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_nameserver_time_or_null, @_);
 }
 
 
@@ -556,36 +368,90 @@ sub owner
 {
 	my $self = shift;
 
-	if (@_) {
-		my %newlist;
-		foreach my $tt (@_) {
-			my $t = $tt;
-			# remove spaces around commas
-			$t =~ s/\s*,\s*/,/o;
-			
-			foreach my $newvalue (split (',', $t)) {
-				if (! $self->is_valid_username ($newvalue)) {
-					$self->_set_error ("Invalid owner list member '$newvalue'");
-					return 0;
-				}
-				$newlist{$newvalue} = 1;
-			}
-		}
-
-		my $newvalue = join (',', sort keys %newlist);
-
-		if (length ($newvalue) > 255) {
-			$self->_set_error ('Owner too long (max 255 chars)');
-		}
-
-		$self->{owner} = $newvalue;
-		
-		return 1;
-	}
-
-	return ($self->{owner});
+	my $l = join (',', @_) if (@_);
+	$self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_list_of_usernames, $l);
 }
 
+
+=head1 INTERNAL FUNCTIONS
+
+=head2 _validate_soa_rname
+
+    A _set_or_get_attribute validator for SOA rname.
+
+
+=cut
+sub _validate_soa_rname
+{
+    my $self = shift;
+    my $key = shift;
+    my $newvalue = $_[0];
+
+    if (uc ($newvalue) eq 'NULL') {
+	$_[0] = undef;
+    } else {
+	if ($newvalue =~ /@/) {
+	    return ("SOA rname should not contain '\@' signs.");
+	}
+	
+	my $illegal_chars = $newvalue;
+	$illegal_chars =~ s/[a-zA-Z0-9\.\-]//og;
+	if ($illegal_chars) {
+	    return ("SOA rname ($newvalue) contains illegal characters ($illegal_chars)");
+	}
+    }
+
+    return 0;
+}
+
+=head2 _validate_soa_mname
+
+    A _set_or_get_attribute validator for SOA mname.
+
+
+=cut
+sub _validate_soa_mname
+{
+    my $self = shift;
+    my $key = shift;
+    my $newvalue = $_[0];
+
+    if (uc ($newvalue) eq 'NULL') {
+	$_[0] = undef;
+    } else {
+	my $illegal_chars = $newvalue;
+	$illegal_chars =~ s/[a-zA-Z0-9\.\-]//og;
+	if ($illegal_chars) {
+	    return ("SOA mname ($newvalue) contains illegal characters ($illegal_chars)");
+	}
+    }
+
+    return 0;
+}
+
+=head2 _validate_soa_serial
+
+    A _set_or_get_attribute validator for SOA serial.
+
+
+=cut
+sub _validate_soa_serial
+{
+    my $self = shift;
+    my $key = shift;
+    my $newvalue = $_[0];
+
+    if (uc ($newvalue) eq 'NULL') {
+	$_[0] = undef;
+    } else {
+	if ($newvalue !~ /^\d{10,10}$/) {
+	    return ("Invalid serial number (should be 10 digits, todays date and two incrementing)");
+	}
+	$_[0] = int ($newvalue);
+    }
+
+    return 0;
+}
 
 
 
