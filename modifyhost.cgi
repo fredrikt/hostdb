@@ -250,26 +250,34 @@ sub modify_host
 						}
 				
 						my $new_zone = $hostdb->findzonebyhostname ($hostname);
-				
+						my $new_zonename;
 						if (defined ($new_zone)) {
-							if (! $is_admin and ! $is_helpdesk and
-							    ! $hostdb->auth->is_allowed_write ($new_zone, $remote_user)) {
-								die ("You do not have sufficient access to the new hostnames zone '" . 
-								     $new_zone->zonename () . "'");
-							}
-
-							if ($host->manual_dnszone () ne 'Y') {
-								$host->dnszone ($new_zone->zonename ());
-							} else {
-								if ($host->dnszone () ne $new_zone->zonename ()) {
-									push (@warning, "Not changing DNS zone, but hostname " .
-									      "indicates it should be changed from '" .
-									      $host->dnszone () . "' to '" . 
-									      $new_zone->zonename () . "'");
-								}
-							}
+							$new_zonename = $new_zone->zonename () || 'NULL';
 						} else {
-							push (@warning, "No DNS zone for hostname '$hostname' found in database");
+							$new_zonename = 'NULL';
+						}
+						
+						if (! $is_admin and ! $is_helpdesk and
+						    ! $hostdb->auth->is_allowed_write ($new_zone, $remote_user)) {
+							die ("You do not have sufficient access to the new hostnames zone '" . 
+							     $new_zone->zonename () . "'");
+						}
+
+						if ($host->manual_dnszone () ne 'Y') {
+							if ($new_zonename eq 'NULL') {
+								push (@warning, "Setting DNS zone to NULL. This is because " .
+								      "this system has no applicable zone for hostname " .
+								      "'$hostname' and means that no forward DNS records " .
+								      "will be generated for this host.");
+							}
+							$host->dnszone ($new_zonename);
+						} else {
+							my $old_zonename = $host->dnszone () || 'NULL';
+							if ($old_zonename ne $new_zonename) {
+								push (@warning, "Not changing DNS zone, but hostname " .
+								      "indicates it should be changed from '$old_zonename' " .
+								      "to '$new_zonename'");
+							}
 						}
 					} elsif ($name eq 'partof') {
 						# changing partof, look it up using hostdb->findhost so that
