@@ -20,7 +20,8 @@ HOSTDB::Object::HostAttribute - Host object attributes.
 
   my $attr;
   if ($create_new) {
-	$attr = $hostdb->create_hostattribute ();
+        my $host = $hostdb->findhostbyname ($hostname);
+	$attr = $host->create_hostattribute ();
   } else {
 	$attr = $hostdb->findhostattributebyid ($searchfor);
   }
@@ -74,7 +75,7 @@ sub init
 
 =head2 commit
 
-	$host->attribute->commit () or die ("Could not commit host object: $host->{error}\n");
+	$host->attribute->commit () or die ("Could not commit host attribute object: $host->{error}\n");
 
 	Commit this hosts attribute object to database.
 
