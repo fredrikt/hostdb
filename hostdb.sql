@@ -44,7 +44,7 @@ CREATE TABLE zone (
 );
 
 # the use of unsigned int for n_netaddr and n_netmask is not enough for IPv6.
-# ipver in this table is only to think ahead - don't think this database and
+# ipver in this table is only to think ahead - don\'t think this database and
 # scripts associated with it works with IPv6.
 CREATE TABLE subnet (
 	id INT AUTO_INCREMENT NOT NULL,
@@ -81,9 +81,21 @@ CREATE TABLE hostattribute (
 	UNIQUE (hostid, v_key, v_section)
 );
 
+CREATE TABLE hostalias (
+	id INT AUTO_INCREMENT NOT NULL,
+	hostid INT NOT NULL,
+	hostname VARCHAR(255),
+	ttl INT,
+	dnszone VARCHAR(255),
+	lastmodified DATETIME,
+	lastupdated DATETIME,
+	comment VARCHAR(255),
+	PRIMARY KEY (id)
+);
+
 
 # this is an EXAMPLE grant command, you need to replace $database, $user, example.org and $password
 GRANT select, insert, update, delete ON $database.* TO "$user"@"%.example.org" IDENTIFIED BY '$password';
 
-# don't forget...
+# don\'t forget...
 flush privileges;
