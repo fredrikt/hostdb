@@ -188,7 +188,10 @@ sub delete
 	my $self = shift;
 	my $check = shift;
 
-	return 0 if ($check ne "YES");
+	if (! defined ($check) or $check ne "YES") {
+		$self->_set_error ("Delete function invoked with incorrect magic cookie");
+		return 0;
+	}
 
 	my $sth;
 	if (defined ($self->{id})) {
