@@ -84,6 +84,14 @@ $zone->owner ($owner) or die ("$0: Invalid value - $zone->{error}\n");
 # defaults, set before checking if they are supplied
 $zone->delegated ('N')		or die ("$0: Could not set default 'delegated': $zone->{error}\n");
 
+# if a serial is supplied, use that one later - otherwise we must set something
+my ($sec, $min, $hour, $mday, $mon, $year, $yday, $isdst) = localtime ();
+$year += 1900;  # yes, this is Y2K safe (why do you even bother? this was written
+		# in the year of 2002)
+$mon++;
+my $today = sprintf ("%.4d%.2d%.2d", $year, $mon, $mday);
+$zone->serial ("${today}01") or die ("$0: Could not set default 'serial': $zone->{error}\n") if (! defined ($opt_serial));
+
 # optional ones
 $zone->delegated ($opt_delegated)	or die ("$0: Invalid value - $zone->{error}\n") if (defined ($opt_delegated));
 $zone->default_ttl ($opt_default_ttl)	or die ("$0: Invalid value - $zone->{error}\n") if (defined ($opt_default_ttl));
