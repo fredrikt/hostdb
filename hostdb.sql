@@ -9,6 +9,7 @@ CREATE TABLE config (
         hostname VARCHAR(255) NOT NULL,
         ip CHAR(15) NOT NULL,
         owner VARCHAR(255) NOT NULL,
+        ttl INT,
         user VARCHAR(255),
         partof INT,
         reverse ENUM('Y', 'N') DEFAULT 'N',
