@@ -1,0 +1,39 @@
+#!/usr/bin/perl
+#
+# $Id$
+#
+
+use strict;
+use HOSTDB;
+
+my $searchfor = shift;
+my $candidate = shift;
+
+if (! $searchfor or ! $candidate) {
+	die (<<EOM);
+Syntax: $0 host-search-criteria username-to-test
+
+EOM
+}
+
+my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
+			      debug => 1
+			     );
+
+my @host_refs = $hostdb->findhost ('guess', $searchfor);
+
+die ("$0: Could not find host object: $hostdb->{error}\n") unless (@host_refs);
+
+my $res;
+
+foreach my $host (@host_refs) {
+	if ($hostdb->auth->is_allowed_write ($host, $candidate)) {
+		print ("\n\nYes, allowed.\n\n");
+		$res = 1;
+	} else {
+		print ("\n\nNo, NOT allowed.\n\n");
+		$res = 0;
+	}
+}
+
+exit $res;

@@ -1,0 +1,23 @@
+#!/usr/bin/perl
+#
+# $Id$
+#
+# A small compilation of tests to show how to use different functions in HOSTDB
+#
+
+use strict;
+#use lib 'blib/lib';
+use HOSTDB;
+
+my $hostdb = HOSTDB::DB->new (debug => 1);
+
+print ("Testing HOSTDB->_unixtime_to_datetime :\n");
+
+print ("	Current time              : " . $hostdb->_unixtime_to_datetime (time ()) . "\n");
+print ("	24 hours ago              : " . $hostdb->_unixtime_to_datetime (time () - 86400) . "\n");
+print ("	The time this was written : " . $hostdb->_unixtime_to_datetime (1037717589) . "\n");
+
+my $host = $hostdb->create_host ();
+
+die ("$0: Could not create host object: $hostdb->{error}\n") unless ($host);
+
