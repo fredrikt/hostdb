@@ -28,7 +28,12 @@ while (@searchfor) {
 	my @host_refs;
 	my $search_for = shift @searchfor;
 
-	@host_refs = $hostdb->findhost ('guess', $search_for);
+	if (is_wildcard ($search_for)) {
+		@host_refs = $hostdb->findhostbywildcardname ($search_for);
+	} else {
+		@host_refs = $hostdb->findhost ('guess', $search_for);
+	}
+
 	if ($hostdb->{error}) {
 		die ("$0: $hostdb->{error}\n");
 	}
@@ -158,4 +163,14 @@ sub attributesort
 	}
 
 	return $a_section cmp $b_section;	
+}
+
+sub is_wildcard
+{
+	my $in = shift;
+
+	return 1 if ($in =~ /%/);
+	return 1 if ($in =~ /\*/);
+	
+	return 0;
 }

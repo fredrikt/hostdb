@@ -186,7 +186,17 @@ sub perform_search
 			
 			return undef;
 		} else {
-			@host_refs = $hostdb->findhost ($whoisdatatype, $search_for);
+			if (is_wildcard ($search_for)) {
+				if (! $is_admin and ! $is_helpdesk) {
+					error_line ($q, "You are not permitted to search using wildcards");
+					warn ("You are not permitted to search using wildcards");
+					return undef;
+				}
+				
+				@host_refs = $hostdb->findhostbywildcardname ($search_for);
+			} else {
+				@host_refs = $hostdb->findhost ($whoisdatatype, $search_for);
+			}
 		}
 		if ($hostdb->{error}) {
 			error_line ($q, $hostdb->{error});
@@ -815,6 +825,16 @@ sub safe_div
 
 	return ($a / $b) if ($a != 0 and $b != 0);
 
+	return 0;
+}
+
+sub is_wildcard
+{
+	my $in = shift;
+
+	return 1 if ($in =~ /%/);
+	return 1 if ($in =~ /\*/);
+	
 	return 0;
 }
 
