@@ -23,7 +23,7 @@ my $debug = defined ($opt_d);
 my $quiet = defined ($opt_q);
 
 if ($opt_h or ! $ARGV[0]) {
-	die(<<EOT);
+    die(<<EOT);
 Syntax: $0 [options] zone ...
 	options:
 		-d	debug
@@ -59,387 +59,387 @@ my @generate = @ARGV;
 push (@generate, "*") if ($#generate == -1);	# default is to generate ALL
 
 foreach my $buildzone (sort @generate) {
-	my $zone;
-	my @zones;
-		
-	my $load_enum = 0;
-	
-	if ($buildzone eq "*") {
-		print ("build: ALL ZONES\n") if ($debug);
-		push (@zones, $hostdb->findallzones ());
-	} else {
-		if (! $hostdb->clean_domainname ($buildzone)) {
-			warn ("$0: Invalid zonename '$buildzone'\n");
-			next;
-		}
-		print ("build: '$buildzone'\n") if ($debug);
-		push (@zones, $hostdb->findzonebyname ($buildzone));
-		
-		$load_enum = 1 if ($buildzone =~ /\.e164\.(arpa|sunet\.se)/);
+    my $zone;
+    my @zones;
+
+    my $load_enum = 0;
+
+    if ($buildzone eq "*") {
+	print ("build: ALL ZONES\n") if ($debug);
+	push (@zones, $hostdb->findallzones ());
+    } else {
+	if (! $hostdb->clean_domainname ($buildzone)) {
+	    warn ("$0: Invalid zonename '$buildzone'\n");
+	    next;
 	}
+	print ("build: '$buildzone'\n") if ($debug);
+	push (@zones, $hostdb->findzonebyname ($buildzone));
 
-	foreach $zone (@zones) {
-		$zone->dump () if ($debug);
+	$load_enum = 1 if ($buildzone =~ /\.e164\.(arpa|sunet\.se)/);
+    }
 
-		my $zonename = $zone->zonename ();
-		
-		next if ($zone->delegated () eq 'Y');
+    foreach $zone (@zones) {
+	$zone->dump () if ($debug);
 
-		my %zone_parameters = %zone_defaults;
+	my $zonename = $zone->zonename ();
 
-		$zone_parameters{default_ttl}	= $zone->default_ttl ()	if ($zone->default_ttl ());
-		$zone_parameters{soa_ttl}	= $zone->ttl ()		if ($zone->ttl ());
-		$zone_parameters{soa_serial}	= $zone->serial ()	if ($zone->serial ());
-		$zone_parameters{soa_mname}	= $zone->mname ()	if ($zone->mname ());
-		$zone_parameters{soa_rname}	= $zone->rname ()	if ($zone->rname ());
-		$zone_parameters{soa_refresh}	= $zone->refresh ()	if ($zone->refresh ());
-		$zone_parameters{soa_retry}	= $zone->retry ()	if ($zone->retry ());
-		$zone_parameters{soa_expiry}	= $zone->expiry ()	if ($zone->expiry ());
-		$zone_parameters{soa_minimum}	= $zone->minimum ()	if ($zone->minimum ());
+	next if ($zone->delegated () eq 'Y');
 
-		$zone_parameters{soa_mname} =~ s/\.+$//o;	# strip trailing dots
-		$zone_parameters{soa_mname} .= ".";
-		$zone_parameters{soa_rname} =~ s/\.+$//o;	# strip trailing dots
-		$zone_parameters{soa_rname} .= ".";
+	my %zone_parameters = %zone_defaults;
 
-		gen_zonefile ($hostdb, $zonename, \%zone_parameters, $ldap_enumuri, $debug) or die ("$0: Failed to generate zonefile for zone '$zonename'\n");
-	}
+	$zone_parameters{default_ttl}	= $zone->default_ttl ()	if ($zone->default_ttl ());
+	$zone_parameters{soa_ttl}	= $zone->ttl ()		if ($zone->ttl ());
+	$zone_parameters{soa_serial}	= $zone->serial ()	if ($zone->serial ());
+	$zone_parameters{soa_mname}	= $zone->mname ()	if ($zone->mname ());
+	$zone_parameters{soa_rname}	= $zone->rname ()	if ($zone->rname ());
+	$zone_parameters{soa_refresh}	= $zone->refresh ()	if ($zone->refresh ());
+	$zone_parameters{soa_retry}	= $zone->retry ()	if ($zone->retry ());
+	$zone_parameters{soa_expiry}	= $zone->expiry ()	if ($zone->expiry ());
+	$zone_parameters{soa_minimum}	= $zone->minimum ()	if ($zone->minimum ());
 
-	print ("\n") if ($debug);
+	$zone_parameters{soa_mname} =~ s/\.+$//o;	# strip trailing dots
+	$zone_parameters{soa_mname} .= ".";
+	$zone_parameters{soa_rname} =~ s/\.+$//o;	# strip trailing dots
+	$zone_parameters{soa_rname} .= ".";
+
+	gen_zonefile ($hostdb, $zonename, \%zone_parameters, $ldap_enumuri, $debug) or die ("$0: Failed to generate zonefile for zone '$zonename'\n");
+    }
+
+    print ("\n") if ($debug);
 }
 
 # XXX this should be made more configurable
 sub zonefilename
 {
-	my $zonename = shift;
+    my $zonename = shift;
 
-	return ("$output_dir/$zonename..DB");
+    return ("$output_dir/$zonename..DB");
 }
 
 sub gen_zonefile
 {
-	my $hostdb = shift;
-	my $zonename = shift;
-	my $zone_param_ref = shift;
-	my $ldap_enumuri = shift;
-	my $debug = shift;
-	
-	my %zone_parameters = %$zone_param_ref;
-	
-	my $ZONEFILE = new FileHandle;
+    my $hostdb = shift;
+    my $zonename = shift;
+    my $zone_param_ref = shift;
+    my $ldap_enumuri = shift;
+    my $debug = shift;
 
-	my $fn = zonefilename ($zonename);
+    my %zone_parameters = %$zone_param_ref;
 
-	print ("building $fn\n") if ($debug);
+    my $ZONEFILE = new FileHandle;
 
-	foreach my $req_soa_val ("default_ttl", "soa_serial", "soa_mname", "soa_rname", "soa_refresh",
-				 "soa_retry", "soa_expiry", "soa_minimum") {
-		if ((! defined ($zone_parameters{$req_soa_val})) or
-		    (! $zone_parameters{$req_soa_val})) {
-			warn ("Required zone parameter $req_soa_val not present for zone '$zonename'\n");
-			return 0;    
-		}
+    my $fn = zonefilename ($zonename);
+
+    print ("building $fn\n") if ($debug);
+
+    foreach my $req_soa_val ("default_ttl", "soa_serial", "soa_mname", "soa_rname", "soa_refresh",
+			     "soa_retry", "soa_expiry", "soa_minimum") {
+	if ((! defined ($zone_parameters{$req_soa_val})) or
+	    (! $zone_parameters{$req_soa_val})) {
+	    warn ("Required zone parameter $req_soa_val not present for zone '$zonename'\n");
+	    return 0;
+	}
+    }
+
+    open ($ZONEFILE, "> $fn") or warn ("$0: Couldn't open '$fn' for writing: $!\n"), return 0;
+
+    close ($ZONEFILE), return 0 if (! soa_rr ($hostdb, $zonename, $zone_param_ref, $ZONEFILE, $fn));
+
+    if ($zonename =~ /\.in-addr\.arpa$/) {
+	if ($zonename =~ /.+\.\d+\.\d+\.\d+\.in-addr\.arpa$/) {
+	    warn ("$0: Classless in-addr.arpa not implemented ($zonename)\n") unless ($quiet);
+	    return undef;
 	}
 
-	open ($ZONEFILE, "> $fn") or warn ("$0: Couldn't open '$fn' for writing: $!\n"), return 0;
-	
-	close ($ZONEFILE), return 0 if (! soa_rr ($hostdb, $zonename, $zone_param_ref, $ZONEFILE, $fn));
-
-	if ($zonename =~ /\.in-addr\.arpa$/) {
-		if ($zonename =~ /.+\.\d+\.\d+\.\d+\.in-addr\.arpa$/) {
-			warn ("$0: Classless in-addr.arpa not implemented ($zonename)\n") unless ($quiet);
-			return undef;
-		}
-		
-		if (! ipv4_ptr_rr ($hostdb, $zonename, $zone_parameters{default_ttl}, $ZONEFILE, $fn)) {
-			close ($ZONEFILE);
-			return 0;
-		}
-	} elsif ($zonename =~ /\.e164\.(arpa|sunet\.se)$/) {
-		if (! enum_naptr_rr ($hostdb, $zonename, $zone_parameters{default_ttl}, $ZONEFILE, $fn, $ldap_enumuri)) {
-			close ($ZONEFILE);
-			return 0;
-		}
-	} elsif ($zonename =~ /\.ip6\.arpa$/) {
-		warn ("$0: zone '$zonename' - ip6.arpa not implemented\n") unless ($quiet);
-		print ($ZONEFILE "; $0: HOSTDB - ip6.arpa not implemented\n");
-	} elsif ($zonename =~ /\.arpa$/) {
-		warn ("$0: zone '$zonename' - unknown .arpa, I'd better not try\n") unless ($quiet);
-		print ($ZONEFILE "; $0: HOSTDB - unknown .arpa, I'd better not try\n");
-	} elsif ($zonename =~ /\.ip6\.int$/) {
-		warn ("$0: ip6.int not implemented\n");
-		print ($ZONEFILE "; $0: HOSTDB - ip6.int not implemented (and most probably never will be)\n") unless ($quiet);
-	} else {
-		if (! a_rr ($hostdb, $zonename, $zone_parameters{default_ttl}, $ZONEFILE, $fn)) {
-			close ($ZONEFILE);
-			return 0;
-		}
+	if (! ipv4_ptr_rr ($hostdb, $zonename, $zone_parameters{default_ttl}, $ZONEFILE, $fn)) {
+	    close ($ZONEFILE);
+	    return 0;
 	}
+    } elsif ($zonename =~ /\.e164\.(arpa|sunet\.se)$/) {
+	if (! enum_naptr_rr ($hostdb, $zonename, $zone_parameters{default_ttl}, $ZONEFILE, $fn, $ldap_enumuri)) {
+	    close ($ZONEFILE);
+	    return 0;
+	}
+    } elsif ($zonename =~ /\.ip6\.arpa$/) {
+	warn ("$0: zone '$zonename' - ip6.arpa not implemented\n") unless ($quiet);
+	print ($ZONEFILE "; $0: HOSTDB - ip6.arpa not implemented\n");
+    } elsif ($zonename =~ /\.arpa$/) {
+	warn ("$0: zone '$zonename' - unknown .arpa, I'd better not try\n") unless ($quiet);
+	print ($ZONEFILE "; $0: HOSTDB - unknown .arpa, I'd better not try\n");
+    } elsif ($zonename =~ /\.ip6\.int$/) {
+	warn ("$0: ip6.int not implemented\n");
+	print ($ZONEFILE "; $0: HOSTDB - ip6.int not implemented (and most probably never will be)\n") unless ($quiet);
+    } else {
+	if (! a_rr ($hostdb, $zonename, $zone_parameters{default_ttl}, $ZONEFILE, $fn)) {
+	    close ($ZONEFILE);
+	    return 0;
+	}
+    }
 
-	# XXX sync file to disk and make sure it went well (disk may be full)
-			
-	close ($ZONEFILE);
-	
-	return 1;
+    # XXX sync file to disk and make sure it went well (disk may be full)
+
+    close ($ZONEFILE);
+
+    return 1;
 }
 
 sub soa_rr
 {
-	my $hostdb = shift;
-	my $zonename = shift;
-	my $zone_param_ref = shift;
-	my %zp = %$zone_param_ref;
-	my $FH = shift;
-	my $fn = shift;
+    my $hostdb = shift;
+    my $zonename = shift;
+    my $zone_param_ref = shift;
+    my %zp = %$zone_param_ref;
+    my $FH = shift;
+    my $fn = shift;
 
-	my $rr_ttl = $zp{soa_ttl};
-	$rr_ttl = "" if ($rr_ttl eq $zp{default_ttl});
+    my $rr_ttl = $zp{soa_ttl};
+    $rr_ttl = "" if ($rr_ttl eq $zp{default_ttl});
 
-	print ($FH <<EOS);
+    print ($FH <<EOS);
 \$TTL $zp{default_ttl}
 \$ORIGIN $zonename.
 @	$rr_ttl	IN SOA	$zp{soa_mname} $zp{soa_rname} ($zp{soa_serial} $zp{soa_refresh} $zp{soa_retry} $zp{soa_expiry} $zp{soa_minimum});
 
 EOS
-	return 1;
+    return 1;
 }
 
 sub ipv4_ptr_rr
 {
-	my $hostdb = shift;
-	my $zonename = shift;
-	my $default_ttl = shift;
-	my $FH = shift;
-	my $fn = shift;
+    my $hostdb = shift;
+    my $zonename = shift;
+    my $default_ttl = shift;
+    my $FH = shift;
+    my $fn = shift;
 
-	my $included_hosts_count = 0;
+    my $included_hosts_count = 0;
 
-	my @i = split ('\.', $zonename);
-	my ($first_ip, $last_ip);
-	if ($zonename =~ /^\d+\.\d+\.\d+\.in-addr\.arpa/) {
-		$first_ip = "$i[2].$i[1].$i[0].0";
-		$last_ip  = "$i[2].$i[1].$i[0].255";
-	} elsif ($zonename =~ /^\d+\.\d+\.in-addr\.arpa/) {
-		$first_ip = "$i[1].$i[0].0.0";
-		$last_ip  = "$i[1].$i[0].255.255";
-	} elsif ($zonename =~ /^\d+\.in-addr\.arpa/) {
-		$first_ip = "$i[0].0.0.0";
-		$last_ip  = "$i[0].255.255.255";
-	} else {
-		warn ("$0: Invalid IPv4 zonename '$zonename'");
-		return undef;
+    my @i = split ('\.', $zonename);
+    my ($first_ip, $last_ip);
+    if ($zonename =~ /^\d+\.\d+\.\d+\.in-addr\.arpa/) {
+	$first_ip = "$i[2].$i[1].$i[0].0";
+	$last_ip  = "$i[2].$i[1].$i[0].255";
+    } elsif ($zonename =~ /^\d+\.\d+\.in-addr\.arpa/) {
+	$first_ip = "$i[1].$i[0].0.0";
+	$last_ip  = "$i[1].$i[0].255.255";
+    } elsif ($zonename =~ /^\d+\.in-addr\.arpa/) {
+	$first_ip = "$i[0].0.0.0";
+	$last_ip  = "$i[0].255.255.255";
+    } else {
+	warn ("$0: Invalid IPv4 zonename '$zonename'");
+	return undef;
+    }
+
+    foreach my $host ($hostdb->findhostbyiprange ($first_ip, $last_ip)) {
+	warn ("$0: Invalid search results: $hostdb->{error}\n"), next unless ($host);
+
+	my $prefix = "";
+
+	if ($host->dnsstatus () eq "DISABLED" or
+	    $host->dnsmode () eq "A") {
+	    $prefix = "; ";
+	    $host->hostname ("host-" . $host->id () . ".no-host-name.su.se");
 	}
 
-	foreach my $host ($hostdb->findhostbyiprange ($first_ip, $last_ip)) {
-		warn ("$0: Invalid search results: $hostdb->{error}\n"), next unless ($host);
+	my $hostname = $host->hostname () || '';
+	my $hostip = $host->ip ();
+	my $hostid = $host->id ();
+	my $rr_ttl = $host->ttl () || '';
 
-		my $prefix = "";
+	$rr_ttl = "" if ($rr_ttl eq $default_ttl);
 
-		if ($host->dnsstatus () eq "DISABLED" or
-			$host->dnsmode () eq "A") {
-			$prefix = "; ";
-			$host->hostname ("host-" . $host->id () . ".no-host-name.su.se");
-		}
+	$hostname =~ s/\.+$//o;	# strip trailing dots
 
-		my $hostname = $host->hostname () || '';
-		my $hostip = $host->ip ();
-		my $hostid = $host->id ();
-		my $rr_ttl = $host->ttl () || '';
-		
-		$rr_ttl = "" if ($rr_ttl eq $default_ttl);
-			
-		$hostname =~ s/\.+$//o;	# strip trailing dots
+	warn ("$0: Host with IP '$hostip' and ID '$hostid' has NULL hostname - can't generate IPv4 PTR RR\n"), return 0 if (! $hostname);
 
-		warn ("$0: Host with IP '$hostip' and ID '$hostid' has NULL hostname - can't generate IPv4 PTR RR\n"), return 0 if (! $hostname);
+	$hostname .= ".";
 
-		$hostname .= ".";			
+	my @t = split ('\.', $hostip);
+	my $str = tab_format (2, "${prefix}$t[3].$t[2].$t[1].$t[0].in-addr.arpa.	$rr_ttl	PTR	$hostname\n");
 
-		my @t = split ('\.', $hostip);
-		my $str = tab_format (2, "${prefix}$t[3].$t[2].$t[1].$t[0].in-addr.arpa.	$rr_ttl	PTR	$hostname\n");
-		
-		print ($FH $str) or warn ("$0: Couldn't write data to '$fn': $!\n"), return 0;
-			
-		$included_hosts_count++;
-	}
-	print ("Found $included_hosts_count hosts in $zonename\n") unless ($quiet);
+	print ($FH $str) or warn ("$0: Couldn't write data to '$fn': $!\n"), return 0;
 
-	return 1;
+	$included_hosts_count++;
+    }
+    print ("Found $included_hosts_count hosts in $zonename\n") unless ($quiet);
+
+    return 1;
 }
 
 sub a_rr
 {
-	my $hostdb = shift;
-	my $zonename = shift;
-	my $default_ttl = shift;
-	my $FH = shift;
-	my $fn = shift;
-	
-	my $included_hosts_count = 0;
+    my $hostdb = shift;
+    my $zonename = shift;
+    my $default_ttl = shift;
+    my $FH = shift;
+    my $fn = shift;
 
-	my @hostlist = $hostdb->findhostbyzone ($zonename);
+    my $included_hosts_count = 0;
 
-	foreach my $host (@hostlist) {
-		warn ("$0: Invalid search results: $hostdb->{error}\n"), next unless ($host);
+    my @hostlist = $hostdb->findhostbyzone ($zonename);
 
-		my $prefix = "";
+    foreach my $host (@hostlist) {
+	warn ("$0: Invalid search results: $hostdb->{error}\n"), next unless ($host);
 
-		$prefix = "; " if ($host->dnsstatus () eq 'DISABLED');
+	my $prefix = "";
 
-		my $hostname = $host->hostname ();
-		my $ip = $host->ip ();
-		my $id = $host->id ();
-			
-		$hostname =~ s/\.+$//o;	# strip trailing dots
-		
-		# sanity check $host->dnszone ()
-		if ($hostname ne $zonename and $hostname !~ /^.+?\.$zonename$/) {
-			warn ("$0: Obviously incorrect dnszone ($zonename) set on host $id ($hostname) - skipping zone.\n");
-			return 0;
-		}
+	$prefix = "; " if ($host->dnsstatus () eq 'DISABLED');
 
-		$hostname .= ".";
+	my $hostname = $host->hostname ();
+	my $ip = $host->ip ();
+	my $id = $host->id ();
 
-		my $rr_ttl = $host->ttl () || '';
-		
-		$rr_ttl = "" if ($rr_ttl eq $default_ttl);
-			
-		my $str = tab_format (3, "${prefix}$hostname") . "	$rr_ttl	A	$ip\n";
-		print ($FH $str) or
-			warn ("$0: Couldn't write data to '$fn': $!\n"), return 0;
+	$hostname =~ s/\.+$//o;	# strip trailing dots
 
-		$included_hosts_count++;
+	# sanity check $host->dnszone ()
+	if ($hostname ne $zonename and $hostname !~ /^.+?\.$zonename$/) {
+	    warn ("$0: Obviously incorrect dnszone ($zonename) set on host $id ($hostname) - skipping zone.\n");
+	    return 0;
 	}
 
-	print ("Found $included_hosts_count hosts in $zonename\n") unless ($quiet);
+	$hostname .= ".";
 
-	return 1;
+	my $rr_ttl = $host->ttl () || '';
+
+	$rr_ttl = "" if ($rr_ttl eq $default_ttl);
+
+	my $str = tab_format (3, "${prefix}$hostname") . "	$rr_ttl	A	$ip\n";
+	print ($FH $str) or
+	    warn ("$0: Couldn't write data to '$fn': $!\n"), return 0;
+
+	$included_hosts_count++;
+    }
+
+    print ("Found $included_hosts_count hosts in $zonename\n") unless ($quiet);
+
+    return 1;
 }
 
 sub enum_naptr_rr
 {
-	my $hostdb = shift;
-	my $zonename = shift;
-	my $default_ttl = shift;
-	my $FH = shift;
-	my $fn = shift;
-	my $ldap_enumuri = shift;
+    my $hostdb = shift;
+    my $zonename = shift;
+    my $default_ttl = shift;
+    my $FH = shift;
+    my $fn = shift;
+    my $ldap_enumuri = shift;
 
-	my (%enumdata, $e164base, $e164root);
-	
-	my %staticmap = ('+468161225' => 'sip:ft@it.su.se',
-			 '+468164642' => 'sip:roland@it.su.se',
-			 '+468164648' => 'sip:lha@it.su.se',
-			 #'+468164541' => 'sip:leifj@it.su.se',
-			 '+468161060' => 'sip:swold@it.su.se',
-			 '+468164231' => 'sip:lfran@it.su.se',
-			 '+468164472' => 'sip:jj@it.su.se',
-			 '+468163357' => 'sip:jelun@it.su.se',
-			 '+468161223' => 'sip:wikm@it.su.se',
-			 '+468161597' => 'sip:rjons@it.su.se',
-			 '+4686747653' => 'sip:max@it.su.se',
-			 '+4686747505' => 'sip:andreaso@it.su.se'
-			);
+    my (%enumdata, $e164base, $e164root);
 
-	my $numbers_count = 0;
-	my $rrf = Net::ENUM::NAPTRFactory->new();
-	
-	if ($zonename =~ /^([\d\.]+)(\.e164\.arpa|\.e164\.sunet\.se)$/) {
-		$e164root = $2;
-		my @d = split (/\./, "$1");
-		$e164base = "+" . join ('', reverse (@d));
-	} else {
-		warn ("Can't figure out E.164 base from zonename '$zonename'\n");
-		return undef;
+    my %staticmap = ('+468161225' => 'sip:ft@it.su.se',
+		     '+468164642' => 'sip:roland@it.su.se',
+		     '+468164648' => 'sip:lha@it.su.se',
+		     #'+468164541' => 'sip:leifj@it.su.se',
+		     '+468161060' => 'sip:swold@it.su.se',
+		     '+468164231' => 'sip:lfran@it.su.se',
+		     '+468164472' => 'sip:jj@it.su.se',
+		     '+468163357' => 'sip:jelun@it.su.se',
+		     '+468161223' => 'sip:wikm@it.su.se',
+		     '+468161597' => 'sip:rjons@it.su.se',
+		     '+4686747653' => 'sip:max@it.su.se',
+		     '+4686747505' => 'sip:andreaso@it.su.se'
+		     );
+
+    my $numbers_count = 0;
+    my $rrf = Net::ENUM::NAPTRFactory->new();
+
+    if ($zonename =~ /^([\d\.]+)(\.e164\.arpa|\.e164\.sunet\.se)$/) {
+	$e164root = $2;
+	my @d = split (/\./, "$1");
+	$e164base = "+" . join ('', reverse (@d));
+    } else {
+	warn ("Can't figure out E.164 base from zonename '$zonename'\n");
+	return undef;
+    }
+
+    warn ("E164 base for zone '$zonename' is '$e164base'\n") if ($debug);
+
+    load_enumdata ($e164base, \%enumdata, $ldap_enumuri);
+
+    foreach my $e164 (sort keys %enumdata) {
+	my $uri = "sip:${e164}\@pstnproxy.sip.su.se";
+
+	if ($enumdata{$e164}{sipaddress}) {
+	    $uri = $enumdata{$e164}{sipaddress};
+	} elsif (defined ($staticmap{$e164})) {
+	    $uri = $staticmap{$e164};
 	}
-	
-	warn ("E164 base for zone '$zonename' is '$e164base'\n") if ($debug);
 
-	load_enumdata ($e164base, \%enumdata, $ldap_enumuri);
+	print ($FH $rrf->create (e164 => $e164, uri => "$uri", e164root => $e164root)->string . "\n") or
+	    warn ("$0: Couldn't write data to '$fn': $!\n"), return 0;
+	print ($FH $rrf->create (e164 => $e164, uri => "$uri", e164root => $e164root, rfc2916bis => 1)->string . "\n") or
+	    warn ("$0: Couldn't write data to '$fn': $!\n"), return 0;
 
-	foreach my $e164 (sort keys %enumdata) {
-		my $uri = "sip:${e164}\@pstnproxy.sip.su.se";
-		
-		if ($enumdata{$e164}{sipaddress}) {
-			$uri = $enumdata{$e164}{sipaddress};
-		} elsif (defined ($staticmap{$e164})) {
-			$uri = $staticmap{$e164};
-		}
+	$numbers_count++;
+    }
 
-		print ($FH $rrf->create (e164 => $e164, uri => "$uri", e164root => $e164root)->string . "\n") or
-			warn ("$0: Couldn't write data to '$fn': $!\n"), return 0;
-		print ($FH $rrf->create (e164 => $e164, uri => "$uri", e164root => $e164root, rfc2916bis => 1)->string . "\n") or
-			warn ("$0: Couldn't write data to '$fn': $!\n"), return 0;
+    print ("Found $numbers_count E.164-numbers to NAPTRs to include in $zonename\n") unless ($quiet);
 
-		$numbers_count++;
-	}
-	
-	print ("Found $numbers_count E.164-numbers to NAPTRs to include in $zonename\n") unless ($quiet);
-
-	return 1;
+    return 1;
 }
 
 sub load_enumdata
 {
-	my $e164base = shift;
-	my $enumdata_ref = shift;
-	my $ldap_enumuri = shift;
+    my $e164base = shift;
+    my $enumdata_ref = shift;
+    my $ldap_enumuri = shift;
 
-	my $numbers_count = 0;
-	if (! defined ($ldap_enumuri)) {
-		printf ("Skipping load of ENUM data, no ldap_enumuri in section zone of hostdb.ini\n") if ($debug);
-		return undef;	
+    my $numbers_count = 0;
+    if (! defined ($ldap_enumuri)) {
+	printf ("Skipping load of ENUM data, no ldap_enumuri in section zone of hostdb.ini\n") if ($debug);
+	return undef;
+    }
+
+    print ("Loading ENUM data from URI '$ldap_enumuri'\n") if ($debug);
+
+    my $uri = URI->new ($ldap_enumuri);
+
+    my ($host, $port, $path) = $uri->opaque =~ /\/\/([^\/:]+):?([0-9]*)\/(.*)/;
+    my @pc = split(/\?/, uri_unescape ($path));
+
+    my $ldap = Net::LDAP->new($host, port => $port) or warn ("Unable to contact to LDAP server on $host:$port\n"), return undef;
+
+    my $scope = $pc[2] || 'sub';
+
+    my $res = $ldap->search (base => $pc[0],
+			     attrs => ['telephoneNumber', 'mail', 'uid', 'sipLocalAddress'],
+			     scope => $scope, filter => "telephoneNumber=${e164base}*");
+    if ($res->code ()) {
+	warn ("LDAP error ". $res->error () . " while searching below '$pc[0]'\n");
+	return undef;
+    }
+
+    $ldap->unbind ();
+
+    foreach my $e ($res->all_entries ()) {
+	my @e164list = $e->get_value ('telephoneNumber');
+
+	next if ! (@e164list);
+
+	# XXX does not check for sub-ENUM-zone, will not understand
+	# that +468162000 belongs to zone 0.2.6.1.8.6.4.e164.arpa and not
+	# 2.6.1.8.6.4.e164.arpa, if both exists
+	my $r = "^\\${e164base}";
+	foreach my $e164 (grep (/$r/, @e164list)) {
+	    #print ("Found ENUM data for E.164 number $e164\n") if ($debug);
+
+	    $$enumdata_ref{$e164}{mail} = $e->get_value ('mail') || '';
+	    $$enumdata_ref{$e164}{uid} = $e->get_value ('uid') || '';
+	    $$enumdata_ref{$e164}{sipaddress} = $e->get_value ('sipLocalAddress') || '';
+
+	    $numbers_count++;
 	}
-	
-	print ("Loading ENUM data from URI '$ldap_enumuri'\n") if ($debug);
-	
-	my $uri = URI->new ($ldap_enumuri);
-	
-	my ($host, $port, $path) = $uri->opaque =~ /\/\/([^\/:]+):?([0-9]*)\/(.*)/;
-	my @pc = split(/\?/, uri_unescape ($path));
+    }
 
-	my $ldap = Net::LDAP->new($host, port => $port) or warn ("Unable to contact to LDAP server on $host:$port\n"), return undef;
-
-	my $scope = $pc[2] || 'sub';
-
-	my $res = $ldap->search (base => $pc[0],
-				 attrs => ['telephoneNumber', 'mail', 'uid', 'sipLocalAddress'],
-				 scope => $scope, filter => "telephoneNumber=${e164base}*");
-	if ($res->code ()) {
-		warn ("LDAP error ". $res->error () . " while searching below '$pc[0]'\n");
-		return undef;
-	}
-
-	$ldap->unbind ();
-	
-	foreach my $e ($res->all_entries ()) {
-		my @e164list = $e->get_value ('telephoneNumber');
-		
-		next if ! (@e164list);
-		
-		# XXX does not check for sub-ENUM-zone, will not understand
-		# that +468162000 belongs to zone 0.2.6.1.8.6.4.e164.arpa and not
-		# 2.6.1.8.6.4.e164.arpa, if both exists
-		my $r = "^\\${e164base}";
-		foreach my $e164 (grep (/$r/, @e164list)) {
-			#print ("Found ENUM data for E.164 number $e164\n") if ($debug);
-
-			$$enumdata_ref{$e164}{mail} = $e->get_value ('mail') || '';
-			$$enumdata_ref{$e164}{uid} = $e->get_value ('uid') || '';
-			$$enumdata_ref{$e164}{sipaddress} = $e->get_value ('sipLocalAddress') || '';		
-
-			$numbers_count++;
-		}
-	}
-	
-	print ("Loaded $numbers_count ENUM entrys from $ldap_enumuri for E.164 base $e164base\n") if ($debug);
+    print ("Loaded $numbers_count ENUM entrys from $ldap_enumuri for E.164 base $e164base\n") if ($debug);
 }
 
 sub tab_format
 {
-	my $tab_count = shift;
-	my $string = shift;
+    my $tab_count = shift;
+    my $string = shift;
 
-	my $minus_tabs = int (length ($string) / 8);
+    my $minus_tabs = int (length ($string) / 8);
 
-	return $string . "	" x ($tab_count - $minus_tabs);
+    return $string . "\t" x ($tab_count - $minus_tabs);
 }
