@@ -117,16 +117,17 @@ sub print_dhcp_config
 		$outfile = "$output_dir/$outfile";
 	
 		open ($OUT, "> $outfile") or warn ("$0: Could not open outfile '$outfile' for writing: $!\n"), return undef;
+		print ($OUT "# \$Id\$\n# DON'T EDIT THIS FILE, IT IS AUTO GENERATED AND WILL GET OVERWRITTEN\n#\n");
 		
 		my $t;
 		foreach $t (@ranges) {
-			print ($OUT "	range $t;\n");
+			print ($OUT "	range $t;\n") or warn ("$0: Could not write to file '$outfile': $!\n"), return undef;		;
 		}
 		
 		close ($OUT);
 	}
 	
-	foreach my $profile (keys %hosts) {
+	foreach my $profile (@subnet_profiles) {
 		my $outfile = "${subnet_name}-${profile}";
 
 		$outfile =~ s#/#-#go;
@@ -136,10 +137,15 @@ sub print_dhcp_config
 		my $OUT = new FileHandle;
 		open ($OUT, "> $outfile") or warn ("$0: Could not open outfile '$outfile' for writing: $!\n"), return undef;
 
+		print ($OUT "# \$Id\$\n# DON'T EDIT THIS FILE, IT IS AUTO GENERATED AND WILL GET OVERWRITTEN\n#\n");
+
+		my $t_count = 0;
 		foreach my $host (@{$hosts{$profile}}) {
-			print_host ($OUT, $host);		
+			print_host ($OUT, $host) or warn ("$0: Could not write to file '$outfile': $!\n"), return undef;		
+			$t_count++;
 		}
 
+		warn ("$0: No hosts in ${subnet_name}-${profile}\n") if (! $t_count and ! $quiet);
 		close ($OUT);
 	}
 	
@@ -153,11 +159,12 @@ sub print_host
 	my $host = shift;
 	
 	my $hostname = $host->hostname () || 'NULL';
+	my $id = $host->id ();
 	my $ip = $host->ip ();
 	my $mac = $host->mac_address ();
 
 	my $prefix = '';
-	$prefix = '# ' if ($host->dhcpstatus () eq 'DISABLED');
+	$prefix = '# DHCP disabled ' if ($host->dhcpstatus () eq 'DISABLED');
 
 	if (! defined ($ip)) {
 		$prefix = '# NO IP ';
@@ -167,7 +174,9 @@ sub print_host
 		$mac = 'NULL';
 	}
 
-	print ($OUT <<EOD);
-	${prefix}host ${hostname}-${ip} { hardware ethernet $mac; fixed-address $ip; }
+	print ($OUT <<EOD) or return undef;
+${prefix}host ${hostname}_${id} { hardware ethernet $mac; fixed-address $ip; }
 EOD
+
+	return 1;
 }
