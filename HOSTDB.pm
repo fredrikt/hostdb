@@ -5,6 +5,7 @@ package HOSTDB;
 
 use strict;
 use DBI;
+use Socket;
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK);
 
 require Exporter;
@@ -431,6 +432,41 @@ sub DESTROY
 	$self->{_dbh}->disconnect();
 }
 
+sub aton
+{
+	my $self = shift;
+	my $val = shift;
+
+	return unpack ('N', Socket::inet_aton ($val));
+}
+
+sub ntoa
+{
+	my $self = shift;
+	my $val = shift;
+	
+	return Socket::inet_ntoa (pack ('N', $val));
+}
+
+sub slashtonetmask
+{
+	my $self = shift;
+	my $slash = shift;
+
+	if ($slash < 0 or $slash > 31) {
+		$self->_set_error ("slash '$slash' invalid for IPv4"); # and IPv6 don't use netmasks
+		return undef;
+	}
+	return $self->ntoa (-(1 << (32 - $slash)));
+}
+
+sub netmasktoslash
+{
+	my $self = shift;
+	my $slash = shift;
+
+	return undef;
+}
 
 =head2 user
 
@@ -497,6 +533,33 @@ sub create_zone
 	
 	my $o = bless {},"HOSTDB::Object::Zone";
 	$o->{hostdb} = $self;
+	$o->{debug} = $self->{debug};
+	$o->init();
+	
+	return $o;
+}
+
+
+=head2 create_subnet
+
+	$subnet = $hostdb->create_subnet(4, "10.1.2.0/24");
+
+	Gets you a brand new HOSTDB::Object::Subnet object.
+
+	The 4 is IPv4. This is just planning ahead, IPv6 is not implemented
+	in a number of places.
+	
+=cut
+sub create_subnet
+{
+	my $self = shift;
+	my $ipver = shift;
+	my $subnet = shift;
+
+	my $o = bless {},"HOSTDB::Object::Subnet";
+	$o->{hostdb} = $self;
+	$o->{ipver} = $ipver;
+	$o->{subnet} = $subnet;
 	$o->{debug} = $self->{debug};
 	$o->init();
 	
@@ -687,6 +750,7 @@ sub init
 
 
 }
+
 
 ##################################################################
 
@@ -1126,6 +1190,293 @@ sub commit
 		$sth->execute ($self->{zonename}, $self->{serial}, $self->{refresh},
 			       $self->{retry}, $self->{expiry}, $self->{minimum},
 			       $self->{owner})
+			or die "$DBI::errstr";
+
+		$sth->finish ();
+	}	
+
+	return 1;
+}
+
+
+##################################################################
+
+package HOSTDB::Object::Subnet;
+@HOSTDB::Object::Subnet::ISA = qw(HOSTDB::Object);
+
+sub init
+{
+	my $self = shift;
+	my $hostdb = $self->{hostdb};
+
+	$hostdb->_debug_print ("creating object (IPv$self->{ipver} subnet '$self->{subnet}')");
+
+	return undef if (! $self->subnet ($self->{subnet}));
+	delete ($self->{subnet});	# the info is kept in $self->{netaddr} and $self->{slashnotation}
+	
+	if ($hostdb->{_dbh}) {
+		$self->{_new_subnet} = $hostdb->{_dbh}->prepare ("INSERT INTO $hostdb->{db}.subnet " .
+			"(ipver, netaddr, slashnotation, netmask, description, short_description," .
+			" n_netaddr, n_netmask, htmlcolor, dhcpconfig) " .
+			"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+			or die "$DBI::errstr";
+		$self->{_update_subnet} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.subnet SET " .
+			"ipver = ?, netaddr = ?, slashnotation = ?, netmask = ?, description = ?, " .
+			"short_description = ?, n_netaddr = ?, n_netmask = ?, htmlcolor = ?, " .
+			"dhcpconfig = ? WHERE netaddr = ?")
+			or die "$DBI::errstr";
+	} else {
+		$hostdb->_debug_print ("NOT preparing database stuff");
+	}
+
+	# XXX ugly hack to differentiate on zones already in DB
+	# (find* sets this to 1) and new zones
+	$self->{in_db} = 0;
+
+	return $self;
+}
+
+sub aton
+{
+	my $self = shift;
+	my $val = shift;
+
+	return unpack ('N', Socket::inet_aton ($val));
+}
+
+sub ntoa
+{
+	my $self = shift;
+	my $val = shift;
+	
+	return Socket::inet_ntoa (pack ('N', $val));
+}
+
+sub slashtonetmask
+{
+	my $self = shift;
+	my $slash = shift;
+
+	if ($slash < 0 or $slash > 31) {
+		$self->_set_error ("slash '$slash' invalid for IPv4"); # and IPv6 don't use netmasks
+		return undef;
+	}
+	return $self->ntoa (-(1 << (32 - $slash)));
+}
+
+sub netmasktoslash
+{
+	my $self = shift;
+	my $slash = shift;
+
+	return undef;
+}
+
+sub check_valid_subnet
+{
+	my $self = shift;
+	my $subnet = shift;
+	
+	$self->_debug_print ("subnet '$subnet'");
+
+	#if ($subnet !~ /^$IP_REGEXP\/$SLASH_REGEXP^/) {
+	if ($subnet !~ /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\/\d{1,2}$/) {
+		$self->_debug_print ("invalid subnet '$subnet'");
+		return 0;
+	}
+	
+	return 1;
+}
+
+sub subnet
+{
+	my $self = shift;
+
+	if (@_) {
+		my $subnet = shift;
+
+		$self->_debug_print ("setting subnet '$subnet'");
+
+		return undef if (! $self->check_valid_subnet ($subnet));
+	
+		my ($netaddr, $slash) = split ('/', $subnet);
+
+		$self->{netaddr} = $netaddr;
+		$self->{n_netaddr} = $self->aton ($netaddr);
+
+		$self->{slashnotation} = $slash;
+		$self->{netmask} = $self->slashtonetmask ($slash);
+		$self->{n_netmask} = $self->aton ($self->slashtonetmask ($slash));
+
+		return 1;
+	}
+	
+	return $self->netaddr () . "/" . $self->slashnotation ();
+}
+
+sub ipver
+{
+	my $self = shift;
+
+	if (@_) {
+		my $newvalue = shift;
+	
+		if ($newvalue != 4 && $newvalue && 6) {
+			$self->_set_error ("IP version " . $self->ipver () . " invalid (let's keep to 4 or 6 please)");
+			return 0;
+		}
+		
+		$self->{ipver} = $newvalue;
+		
+		return 1;
+	}
+
+	return ($self->{ipver});
+}
+
+sub netaddr
+{
+	my $self = shift;
+
+	if (@_) {
+		$self->_set_error ("this is a read-only function, use subnet() instead");
+	}
+
+	return ($self->{netaddr});
+}
+
+sub slashnotation
+{
+	my $self = shift;
+
+	if (@_) {
+		$self->_set_error ("this is a read-only function, use subnet() instead");
+	}
+
+	return ($self->{slashnotation});
+}
+
+sub netmask
+{
+	my $self = shift;
+
+	if (@_) {
+		$self->_set_error ("this is a read-only function, use subnet() instead");
+	}
+
+	return ($self->{netmask});
+}
+
+sub description
+{
+	my $self = shift;
+
+	if (@_) {
+		my $newvalue = shift;
+	
+		$self->{description} = $newvalue;
+		
+		return 1;
+	}
+
+	return ($self->{description});
+}
+
+sub short_description
+{
+	my $self = shift;
+
+	if (@_) {
+		my $newvalue = shift;
+	
+		$self->{short_description} = $newvalue;
+		
+		return 1;
+	}
+
+	return ($self->{short_description});
+}
+
+sub n_netaddr
+{
+	my $self = shift;
+
+	if (@_) {
+		$self->_set_error ("this is a read-only function, use subnet() instead");
+	}
+
+	return ($self->{n_netaddr});
+}
+
+sub n_netmask
+{
+	my $self = shift;
+
+	if (@_) {
+		$self->_set_error ("this is a read-only function, use subnet() instead");
+	}
+
+	return ($self->{n_netmask});
+}
+
+sub htmlcolor
+{
+	my $self = shift;
+
+	if (@_) {
+		my $newvalue = shift;
+	
+		$self->{htmlcolor} = $newvalue;
+		
+		return 1;
+	}
+
+	return ($self->{htmlcolor});
+}
+
+sub dhcpconfig
+{
+	my $self = shift;
+
+	if (@_) {
+		my $newvalue = shift;
+	
+		$self->{dhcpconfig} = $newvalue;
+		
+		return 1;
+	}
+
+	return ($self->{dhcpconfig});
+}
+
+
+sub commit
+{
+	my $self = shift;
+	my $hostdb = shift;
+
+	my $sth;
+	if (defined ($self->{in_db}) and $self->{in_db} >= 1) {
+		$sth = $self->{_update_subnet};
+		$sth->execute ($self->ipver (), $self->netaddr (), $self->slashnotation (),
+			       $self->netmask (), $self->description (), $self->short_description (),
+			       $self->n_netaddr (), $self->n_netmask (), $self->htmlcolor (),
+			       $self->dhcpconfig ()
+			      )
+			or die "$DBI::errstr";
+		
+		# XXX check number of rows affected?
+
+		$sth->finish();
+	} else {
+		# this is a new entry
+
+		$sth = $self->{_new_subnet};
+		$sth->execute ($self->ipver (), $self->netaddr (), $self->slashnotation (),
+			       $self->netmask (), $self->description (), $self->short_description (),
+			       $self->n_netaddr (), $self->n_netmask (), $self->htmlcolor (),
+			       $self->dhcpconfig ()
+			      )
 			or die "$DBI::errstr";
 
 		$sth->finish ();
