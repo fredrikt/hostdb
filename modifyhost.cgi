@@ -191,13 +191,18 @@ sub modify_host
 						# a hostname or IP address can be used instead of just ID's
 					
 						my $parentid = $q->param ('partof');
-						my @host_refs = $hostdb->findhost ('guess', $parentid);
 						
-						my $host_count = $#host_refs + 1;
-						die ("Parent host not found") if ($host_count < 1);
-						die ("Lookup of parent returned more than one ($host_count) hosts") if ($host_count > 1);
+						if ($parentid) {
+							my @host_refs = $hostdb->findhost ('guess', $parentid);
 						
-						$new_val = $host_refs[0]->id ();
+							my $host_count = $#host_refs + 1;
+							die ("Parent host not found") if ($host_count < 1);
+							die ("Lookup of parent returned more than one ($host_count) hosts") if ($host_count > 1);
+						
+							$new_val = $host_refs[0]->id ();
+						} else {
+							$new_val = 0;
+						}
 					}
 			
 					push (@changelog, "Changed '$name' from '$old_val' to '$new_val'");
