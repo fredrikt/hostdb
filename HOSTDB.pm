@@ -117,9 +117,7 @@ sub get_inifile
 sub clean_hostname
 {
 	my $self = shift;
-	#my $new = lc ($_[0]);	# lowercase
-	my $new = $_[0];	# don't lowercase for now, start doing this in the
-				# future and also bulk change everything in database
+	my $new = lc ($_[0]);	# lowercase
 	my $valid;
 
 	return 0 unless $new;
