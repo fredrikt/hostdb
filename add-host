@@ -93,6 +93,12 @@ $host->ip ($ip) or die ("$0: Invalid value - $host->{error}\n");
 $host->hostname ($hostname) or die ("$0: Invalid value - $host->{error}\n");
 $host->owner ($owner) or die ("$0: Invalid value - $host->{error}\n");
 
+# defaults, set before checking if they are supplied
+$host->dhcpmode ('STATIC')	or die ("$0: Could not set default 'dhcpmode': $host->{error}\n");
+$host->dhcpstatus ('ENABLED')	or die ("$0: Could not set default 'dhcpstatus': $host->{error}\n");
+$host->dnsmode ('A_AND_PTR')	or die ("$0: Could not set default 'dhcpmode': $host->{error}\n");
+$host->dnsstatus ('ENABLED'	or die ("$0: Could not set default 'dnsstatus': $host->{error}\n");
+
 # optional ones
 $host->dhcpmode ($opt_dhcpmode)		or die ("$0: Invalid value - $host->{error}\n") if (defined ($opt_dhcpmode));
 $host->dhcpstatus ($opt_dhcpstatus)	or die ("$0: Invalid value - $host->{error}\n") if (defined ($opt_dhcpstatus));
