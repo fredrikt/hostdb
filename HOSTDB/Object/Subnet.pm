@@ -237,7 +237,10 @@ sub subnet
 
 		$self->_debug_print ("setting subnet '$subnet'");
 
-		return undef if (! $self->is_valid_subnet ($subnet));
+		if (! $self->is_valid_subnet ($subnet)) {
+			$self->_set_error ("Invalid subnet '$subnet'");
+			return 0;
+		}
 	
 		my ($netaddr, $slash) = split ('/', $subnet);
 
@@ -273,7 +276,7 @@ sub id
 	my $self = shift;
 
 	if (@_) {
-		$self->_set_error ("this is a read-only function, it is a database auto increment");
+		$self->_set_error ('id is a read-only function, it is a database auto increment');
 		return undef;
 	}
 
@@ -292,7 +295,7 @@ sub ipver
 	my $self = shift;
 
 	if (@_) {
-		my $newvalue = shift;
+		my $newvalue = int (shift);
 	
 		if ($newvalue != 4 && $newvalue != 6) {
 			$self->_set_error ("IP version " . $self->ipver () . " invalid (let's keep to 4 or 6 please)");
@@ -321,7 +324,7 @@ sub netaddr
 	my $self = shift;
 
 	if (@_) {
-		$self->_set_error ("this is a read-only function, it gets set by subnet()");
+		$self->_set_error ('netaddr is a read-only function, it gets set by subnet()');
 		return undef;
 	}
 
@@ -342,7 +345,7 @@ sub slashnotation
 	my $self = shift;
 
 	if (@_) {
-		$self->_set_error ("this is a read-only function, it gets set by subnet()");
+		$self->_set_error ('slashnotation is a read-only function, it gets set by subnet()');
 		return undef;
 	}
 
@@ -363,7 +366,7 @@ sub netmask
 	my $self = shift;
 
 	if (@_) {
-		$self->_set_error ("this is a read-only function, it gets set by subnet()");
+		$self->_set_error ('netmask is a read-only function, it gets set by subnet()');
 		return undef;
 	}
 
@@ -384,7 +387,7 @@ sub broadcast
 	my $self = shift;
 
 	if (@_) {
-		$self->_set_error ("this is a read-only function, it gets set by subnet()");
+		$self->_set_error ('broadcast is a read-only function, it gets set by subnet()');
 		return undef;
 	}
 
@@ -405,7 +408,7 @@ sub addresses
 	my $self = shift;
 
 	if (@_) {
-		$self->_set_error ("this is a read-only function, it gets set by subnet()");
+		$self->_set_error ('addresses is a read-only function, it gets set by subnet()');
 		return undef;
 	}
 
@@ -429,6 +432,11 @@ sub description
 	if (@_) {
 		my $newvalue = shift;
 	
+		if (length ($newvalue) > 255) {
+			$self->_set_error ('Description too long (max 255 chars)');
+			return 0;
+		}
+
 		$self->{description} = $newvalue;
 		
 		return 1;
@@ -454,6 +462,11 @@ sub short_description
 	if (@_) {
 		my $newvalue = shift;
 	
+		if (length ($newvalue) > 255) {
+			$self->_set_error ('Short description too long (max 255 chars)');
+			return 0;
+		}
+
 		$self->{short_description} = $newvalue;
 		
 		return 1;
@@ -478,7 +491,7 @@ sub n_netaddr
 	my $self = shift;
 
 	if (@_) {
-		$self->_set_error ("this is a read-only function, it gets set by subnet()");
+		$self->_set_error ('n_netaddr is a read-only function, it gets set by subnet()');
 		return undef;
 	}
 
@@ -501,7 +514,7 @@ sub n_netmask
 	my $self = shift;
 
 	if (@_) {
-		$self->_set_error ("this is a read-only function, it gets set by subnet()");
+		$self->_set_error ('n_netmask is a read-only function, it gets set by subnet()');
 		return undef;
 	}
 
@@ -524,7 +537,7 @@ sub n_broadcast
 	my $self = shift;
 
 	if (@_) {
-		$self->_set_error ("this is a read-only function, it gets set by subnet()");
+		$self->_set_error ('n_broadcast is a read-only function, it gets set by subnet()');
 		return undef;
 	}
 
@@ -534,9 +547,9 @@ sub n_broadcast
 
 =head2 htmlcolor
 
-	Get or set htmlcolor. The database does not care what format you use. Use either
-	HTML format like #ff0000 for red, or put 'red' in the database and put mappings
-	of red -> #ff0000 in your hostdb.ini (section subnet_colors).
+	Get or set htmlcolor. The database itself does not care what format you use.
+	Use either HTML format like #ff0000 for red, or put 'red' in the database
+	and put mappings of red -> #ff0000 in your hostdb.ini (section subnet_colors).
 
 	printf "Old htmlcolor: %s\n", $subnet->htmlcolor ();
 	$subnet->htmlcolor ($new_color) or warn ("Failed setting value\n");
@@ -550,7 +563,11 @@ sub htmlcolor
 	if (@_) {
 		my $newvalue = lc (shift);
 	
-		return 0 unless ($self->is_valid_htmlcolor ($newvalue));
+		if ($self->is_valid_htmlcolor ($newvalue)) {
+			$self->_set_error ("Invalid htmlcolor '$newvalue'");
+			return 0;
+		}
+		
 		$self->{htmlcolor} = $newvalue;
 		
 		return 1;
@@ -575,7 +592,12 @@ sub dhcpconfig
 
 	if (@_) {
 		my $newvalue = shift;
-	
+
+		if (length ($newvalue) > 4096) {
+			$self->_set_error ('dhcpconfig too long (max 4096 chars)');
+			return 0;
+		}
+		
 		$self->{dhcpconfig} = $newvalue;
 		
 		return 1;
@@ -662,8 +684,14 @@ sub profilelist
 		}
 		$newlist{default} = 1;
 
-		$self->{profilelist} = join (',', sort keys %newlist);
+		my $newvalue = join (',', sort keys %newlist);
 
+		if (length ($newvalue) > 255) {
+			$self->_set_error ('profilelist too long (max 255 chars)');
+		}
+
+		$self->{profilelist} = $newvalue;
+		
 		return 1;
 	}
 

@@ -191,7 +191,10 @@ sub zonename
 	if (@_) {
 		my $zonename = shift;
 	
-		return 0 if (! $self->clean_domainname ($zonename));
+		if (! $self->clean_domainname ($zonename)) {
+			$self->_set_error ("Invalid zonename '$zonename'");
+			return 0;
+		}
 		$self->{zonename} = $zonename;
 		
 		return 1;
@@ -256,10 +259,14 @@ sub default_ttl
 	if (@_) {
 		my $newvalue = shift;
 
-		if ($newvalue eq "NULL") {
+		if ($newvalue eq 'NULL') {
 			$self->{default_ttl} = undef;
 		} else {
-			$self->{default_ttl} = int ($newvalue);
+			if (! $self->is_valid_nameserver_time ($newvalue)) {
+				$self->_set_error ("Invalid default_ttl '$newvalue'");
+				return 0;
+			}
+			$self->{default_ttl} = $newvalue;
 		}
 		
 		return 1;
@@ -313,8 +320,8 @@ sub mname
 	if (@_) {
 		my $newvalue = shift;
 
-		if ($newvalue eq "NULL") {
-			$self->{mname} = "NULL";
+		if ($newvalue eq 'NULL') {
+			$self->{mname} = 'NULL';
 		} else {
 			my $illegal_chars = $newvalue;
 			$illegal_chars =~ s/[a-zA-Z0-9\.\-]//og;
@@ -322,10 +329,10 @@ sub mname
 				$self->_set_error ("SOA mname '$newvalue' contains illegal characters ($illegal_chars)");
 				return 0;
 			}
+
+			$self->{mname} = $newvalue;
 		}
 
-		$self->{mname} = $newvalue;
-		
 		return 1;
 	}
 
@@ -346,8 +353,8 @@ sub rname
 	if (@_) {
 		my $newvalue = shift;
 
-		if ($newvalue eq "NULL") {
-			$self->{rname} = "NULL";
+		if ($newvalue eq 'NULL') {
+			$self->{rname} = 'NULL';
 		} else {
 			if ($newvalue =~ /@/) {
 				$self->_set_error ("SOA rname ($newvalue) should not contain '\@' signs.");
@@ -360,10 +367,10 @@ sub rname
 				$self->_set_error ("SOA rname ($newvalue) contains illegal characters ($illegal_chars)");
 				return 0;
 			}
+
+			$self->{rname} = $newvalue;
 		}
 
-		$self->{rname} = $newvalue;
-		
 		return 1;
 	}
 
@@ -384,10 +391,15 @@ sub refresh
 	if (@_) {
 		my $newvalue = shift;
 
-		if ($newvalue eq "NULL") {
-			$self->{refresh} = "NULL";
+		if ($newvalue eq 'NULL') {
+			$self->{refresh} = 'NULL';
 		} else {
-			$self->{refresh} = int ($newvalue);
+			if (! $self->is_valid_nameserver_time ($newvalue)) {
+				$self->_set_error ("Invalid refresh '$newvalue'");
+				return 0;
+			}
+
+			$self->{refresh} = $newvalue;
 		}
 		
 		return 1;
@@ -411,10 +423,15 @@ sub ttl
 	if (@_) {
 		my $newvalue = shift;
 
-		if ($newvalue eq "NULL") {
-			$self->{ttl} = "NULL";
+		if ($newvalue eq 'NULL') {
+			$self->{ttl} = 'NULL';
 		} else {
-			$self->{ttl} = int ($newvalue);
+			if (! $self->is_valid_nameserver_time ($newvalue)) {
+				$self->_set_error ("Invalid refresh '$newvalue'");
+				return 0;
+			}
+			
+			$self->{ttl} = $newvalue;
 		}
 		
 		return 1;
@@ -437,10 +454,15 @@ sub retry
 	if (@_) {
 		my $newvalue = shift;
 
-		if ($newvalue eq "NULL") {
-			$self->{retry} = "NULL";
+		if ($newvalue eq 'NULL') {
+			$self->{retry} = 'NULL';
 		} else {
-			$self->{retry} = int ($newvalue);
+			if (! $self->is_valid_nameserver_time ($newvalue)) {
+				$self->_set_error ("Invalid retry '$newvalue'");
+				return 0;
+			}
+			
+			$self->{retry} = $newvalue;
 		}
 		
 		return 1;
@@ -463,10 +485,15 @@ sub expiry
 	if (@_) {
 		my $newvalue = shift;
 
-		if ($newvalue eq "NULL") {
-			$self->{expiry} = "NULL";
+		if ($newvalue eq 'NULL') {
+			$self->{expiry} = 'NULL';
 		} else {
-			$self->{expiry} = int ($newvalue);
+			if (! $self->is_valid_nameserver_time ($newvalue)) {
+				$self->_set_error ("Invalid retry '$newvalue'");
+				return 0;
+			}
+			
+			$self->{expiry} = $newvalue;
 		}
 		
 		return 1;
@@ -489,10 +516,15 @@ sub minimum
 	if (@_) {
 		my $newvalue = shift;
 
-		if ($newvalue eq "NULL") {
-			$self->{minimum} = "NULL";
+		if ($newvalue eq 'NULL') {
+			$self->{minimum} = 'NULL';
 		} else {
-			$self->{minimum} = int ($newvalue);
+			if (! $self->is_valid_nameserver_time ($newvalue)) {
+				$self->_set_error ("Invalid retry '$newvalue'");
+				return 0;
+			}
+			
+			$self->{minimum} = $newvalue;
 		}
 		
 		return 1;
