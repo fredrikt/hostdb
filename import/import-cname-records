@@ -2,16 +2,16 @@
 #
 # $Id$
 #
-# script to read strictly formatted BIND9 zone files and put all A records
-# in our host database.
+# script to read strictly (or optionally fuzzy) formatted BIND9 zone
+# files and put all CNAME records in our host database.
 #
 
 use strict;
 use HOSTDB;
 use Getopt::Std;
-use vars qw ($opt_h $opt_o $opt_n $opt_d);
+use vars qw ($opt_h $opt_o $opt_n $opt_d $opt_F);
 
-getopts ('ho:nd');
+getopts ('ho:ndF');
 
 if (defined ($opt_h)) {
     die (<<EOT);
@@ -22,6 +22,7 @@ Syntax : $0 [options] zonefile ...
 	-d	debug
 	-n	hostdb dry run
 	-o fn	output zonefile name, works only with a single zone
+	-F	fuzzy mode
 
 EOT
 }
@@ -29,6 +30,7 @@ EOT
 my $debug = defined ($opt_d);
 my $db_dry_run = defined ($opt_n);
 my $output_filename = $opt_o || '';
+my $fuzzy = defined ($opt_F);
 
 my @files = @ARGV;
 my $default_ttl;
@@ -50,12 +52,15 @@ my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
 			      );
 
 my $exitstatus = 0;
+my %problems;
 
 foreach my $file (@files) {
     open (FIL, "< $file") or die ("Could not open $file for reading: $!\n");
 
     my $imported = 0;
     $default_ttl = 0;
+    my $origin = '.';
+
     my @delayed;
     while (my $rad = <FIL>) {
 	my $skip_copy = 0;
@@ -64,14 +69,35 @@ foreach my $file (@files) {
 	chomp ($rad);
 
 	$default_ttl = $1 if ($rad =~ /^\$TTL\s+(\d+)/);
+	
+	my ($aliasname, $ttl, $hostname) = ('', '', '');
 
 	if ($rad =~ /^(\S+?)\s+(\d+)\s+CNAME\s+(\S+?)\s*$/) {
-	    my ($aliasname, $ttl, $hostname) = ($1, $2, $3);
+	    ($aliasname, $ttl, $hostname) = ($1, $2, $3);
+	} elsif ($fuzzy) {
+	    # Fuzzy operations, handle $ORIGIN but don't do TTL
+	    if ($rad =~ /^(\S+?)\s+.*\sCNAME\s+(\S+?)\s*$/) {
+		($aliasname, $hostname) = ($1, $2);
+		$aliasname .= ".$origin" unless has_trailing_dot ($aliasname);
+		$hostname .= ".$origin" unless has_trailing_dot ($hostname);
+	    } elsif ($rad =~ /^\s*\$ORIGIN\s+(\S+)\s*$/) {
+		my $n = $1;
+		if (! has_trailing_dot ($n)) {
+		    # ORIGIN is foo, add it to the beginning of the existing origin
+		    $origin = "$n.$origin";
+		} else {
+		    $origin = "$n";
+		}
+		warn ("Set origin to '$origin' ($n)\n");
+	    }
+	}
 
+	if ($aliasname) {
 	    if (add_host ($hostdb, $aliasname, $ttl, $hostname, $debug, $db_dry_run)) {
 		$imported++;
 		$skip_copy = 1;
 	    } else {
+		$problems{$file} = 1;
 		$exitstatus = 1;
 	    }
 	}
@@ -89,6 +115,11 @@ foreach my $file (@files) {
 close (OUTFILE) if ($output_filename);
 print ("done\n");
 
+if ($#files != 0) {
+    my $p = join ("\n\t", sort keys (%problems));
+    print ("\n\nProblems encountered in the following files :\n\n\t$p\n\n");
+}
+
 exit ($exitstatus);
 
 sub add_host
@@ -96,53 +127,61 @@ sub add_host
     my ($hostdb, $aliasname, $ttl, $hostname, $debug, $dry_run) = @_;
 
     if (! $hostdb->clean_hostname ($aliasname)) {
-	warn ("$0: Aliasname '$aliasname' is not a clean hostname! Skipped.\n");
+	warn ("$0: ERROR: Aliasname '$aliasname' is not a clean hostname! Skipped.\n");
 	return 0;
     }
 
     if (! $hostdb->clean_hostname ($hostname)) {
-	warn ("$0: Hostname '$hostname' is not a clean hostname! Skipped.\n");
+	warn ("$0: ERROR: Hostname '$hostname' is not a clean hostname! Skipped.\n");
 	return 0;
     }
 
     my @hosts = $hostdb->findhost ('guess', $hostname);
     if (! @hosts) {
 	warn ("$0: Alias '$aliasname' skipped. No host named '$hostname' found in HOSTDB.\n");
-	return 0;
+	return 1;
     }
 
     if (0 + @hosts != 1) {
-	warn ("$0: Alias '$aliasname' skipped. More than one host matches '$hostname'.\n");
+	warn ("$0: ERROR: Alias '$aliasname' skipped. More than one host matches '$hostname'.\n");
 	return 0;
     }
 
     my $host = $hosts[0];
 
     my $z = $hostdb->findzonebyhostname ($aliasname);
-    warn ("$0: Could not find a suitable DNS zone for aliasname '$aliasname'\n"), return undef unless defined ($z);
+    warn ("$0: ERROR: Could not find a suitable DNS zone for aliasname '$aliasname'\n"), return undef unless defined ($z);
     my $dnszone = $z->zonename ();
 
     if ($dry_run) {
-	print ("dry-run skipping host '$aliasname $ttl $hostname' (dns zone '$dnszone')\n");
+	my $t = $ttl || '';
+	print ("dry-run skipping host '$aliasname $hostname' (dns zone '$dnszone')\n");
 	return 1;
     }
 
     my $alias = $host->create_hostalias ();
-    die ("$0: Could not create hostalias object: $host->{error}\n") unless ($alias);
+    die ("$0: ERROR: Could not create hostalias object: $host->{error}\n") unless ($alias);
 
-    my $host_ttl = $host->ttl () || 'NULL';
+    my $set_ttl = $host->ttl () || 'NULL';
+    $set_ttl = $ttl if (defined ($ttl));
     $alias->aliasname ($aliasname)	or die ("$0: Could not set 'aliasname': $alias->{error}\n");
     $alias->dnsstatus ('ENABLED')	or die ("$0: Could not set 'dnsstatus': $alias->{error}\n");
-    $alias->ttl ($host_ttl)		or die ("$0: Could not set 'ttl' (from host, '$host_ttl'): $alias->{error}\n");
+    $alias->ttl ($set_ttl)		or die ("$0: Could not set 'ttl' ('$set_ttl'): $alias->{error}\n");
     $alias->comment ('dns-import')	or die ("$0: Could not set 'comment': $alias->{error}\n");
     $alias->dnszone ($dnszone)		or die ("$0: Could not set 'dnszone': $alias->{error}\n");
 
     print ("add alias '$aliasname $ttl $hostname' (dns zone '$dnszone')\n") if ($debug);
 
     if (! $alias->commit()) {
-	warn ("Failed committing alias object : $alias->{error}\n");
+	warn ("$0: ERROR: Failed committing alias object : $alias->{error}\n");
 	return 0;
     }
 
     return 1;
+}
+
+sub has_trailing_dot
+{
+    my $in = shift;
+    return ($in =~ /\.$/);
 }
