@@ -44,6 +44,7 @@ Subnet object routines. A subnet object has the following attributes :
   htmlcolor		- this subnet's color in the graphic netplan
   dhcpconfig		- a BLOB containing free-format DHCP config for this subnet
   owner			- HOSTDB::Auth identifier that may modify hosts in this subnet
+  profilelist		- a comma-separated list of profiles for this subnet
 
 
 Supposed FAQ :
@@ -87,13 +88,13 @@ sub init
 		$self->{_new_subnet} = $hostdb->{_dbh}->prepare ("INSERT INTO $hostdb->{db}.subnet " .
 			"(ipver, netaddr, slashnotation, netmask, broadcast, addresses, description, " .
 			"short_description, n_netaddr, n_netmask, n_broadcast, htmlcolor, dhcpconfig, " .
-			"owner) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+			"owner, profilelist) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
 			or die "$DBI::errstr";
 		$self->{_update_subnet} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.subnet SET " .
 			"ipver = ?, netaddr = ?, slashnotation = ?, netmask = ?, broadcast = ?, " .
 			"addresses = ?, " .
 			"description = ?, short_description = ?, n_netaddr = ?, n_netmask = ?, " .
-			"n_broadcast = ?, htmlcolor = ?, dhcpconfig = ?, owner = ? WHERE id = ?")
+			"n_broadcast = ?, htmlcolor = ?, dhcpconfig = ?, owner = ?, profilelist = ? WHERE id = ?")
 			or die "$DBI::errstr";
 		$self->{_delete_subnet} = $hostdb->{_dbh}->prepare ("DELETE FROM $hostdb->{db}.subnet WHERE id = ?")
 			or die "$DBI::errstr";
@@ -134,7 +135,8 @@ sub commit
 			 $self->n_broadcast (),
 			 $self->htmlcolor (),
 			 $self->dhcpconfig (),
-			 $self->owner ()
+			 $self->owner (),
+			 $self->profilelist ()
 			);
 
 	my $sth;
@@ -581,6 +583,7 @@ sub dhcpconfig
 	return ($self->{dhcpconfig});
 }
 
+
 =head2 owner
 
 	Get or set owner.
@@ -603,6 +606,47 @@ sub owner
 	}
 
 	return ($self->{owner});
+}
+
+
+
+=head2 profilelist
+
+	Get or set list of profiles for this subnet. List should be comma-separated,
+	'default' is implicit.
+
+	printf "List: %s\n", join(', ', $subnet->profilelist ();
+	$subnet->profilelist ($new_list) or warn ("Failed setting value\n");
+
+
+=cut
+sub profilelist
+{
+	my $self = shift;
+
+	if (@_) {
+		my %newlist;
+		foreach my $tt (@_) {
+			my $t = $tt;
+			# remove spaces around commas
+			$t =~ s/\s*,\s*/,/o;
+			
+			foreach my $newvalue (split (',', $t)) {
+				if (! $self->is_valid_profilename ($newvalue)) {
+					$self->_set_error ("Invalid profilelist member '$newvalue'");
+					return 0;
+				}
+				$newlist{$newvalue} = 1;
+			}
+		}
+		$newlist{default} = 1;
+
+		$self->{profilelist} = join (',', sort keys %newlist);
+
+		return 1;
+	}
+
+	return ($self->{profilelist});
 }
 
 
