@@ -175,18 +175,27 @@ sub print_host_info
 	# HTML
 	my $me = $q->state_url();
 	my $id = $host->id ();
-	my $parent = $host->partof ()?$host->partof ():'-';
-	$parent = "<a HREF='$me;whoisdatatype=ID;whoisdata=$parent'>$parent</a>";
+	my $parent = '-';
 	my $ip = $host->ip ();
-	my $mac = $host->mac_address ();
-	my $hostname = $host->hostname ();
-	my $user = $host->user ();
+	my $mac = $host->mac_address () || 'NULL';
+	my $hostname = $host->hostname () || 'NULL';
+	my $user = $host->user () || 'NULL';
 	my $owner = $host->owner ();
 	
+	if ($host->partof ()) {
+		my @host_refs  = $hostdb->findhost ('id', $host->partof ());
+		if ($host_refs[0]) {
+			my $parent_name = $host_refs[0]->hostname ();
+			my $parent_id = $host_refs[0]->id ();
+			$parent = "<a HREF='$me;whoisdatatype=ID;whoisdata=$parent_id'>$parent_id</a>&nbsp;($parent_name)";
+		} else {
+			$parent = "$parent <font COLOR='red'><strong>Not found</strong></font>";
+		}
+	}
 	$q->print (<<EOH);
 	   <tr>
 		<td>ID</td>
-		<td><a HREF="$me;whoisdatatype=ID;whoisdata=$id">$id</a>&nbsp;[<a HREF="$modifyhost_path;id=$id">modify</a>]</td>
+		<td>$id&nbsp;[<a HREF="$modifyhost_path;id=$id">modify</a>]</td>
 	   </tr>	
 	   <tr>
 		<td>Parent</td>
@@ -197,7 +206,8 @@ EOH
 	my $t_host;
 	foreach $t_host ($hostdb->findhostbypartof ($id)) {
 		my $child = $t_host->id ()?$t_host->id ():'-';
-		$child = "<a HREF='$me;whoisdatatype=ID;whoisdata=$child'>$child</a>";
+		my $child_name = $t_host->hostname ();
+		$child = "<a HREF='$me;whoisdatatype=ID;whoisdata=$child'>$child</a>&nbsp;($child_name)";
 		
 		$q->print (<<EOH);
 			<tr>
