@@ -22,6 +22,19 @@ if ($#files == -1) {
 	die ("Syntax: $0 file\n");
 }
 
+if ($files[0] eq "-readfile") {
+	my $rf = shift (@files);
+	$rf = shift (@files);	# rf is now argument to -readfile
+
+	open (FIL, "< $rf") or die("Could not open file '$rf' for reading: $!\n");
+
+	my $line;
+	while ($line = <FIL>) {
+		push (@files, $line);
+	}
+	close (FIL);
+}
+
 my $hostdbini = Config::IniFiles->new (-file => '/usr/local/etc/hostdb.ini');
 
 my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
@@ -33,6 +46,9 @@ my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
 
 my ($set_count, $failed_count, %seen);
 foreach my $file (@files) {
+	$set_count = 0;
+	$failed_count = 0;
+
 	open (FIL, "< $file") or die ("Could not open $file for reading: $!\n");
 
 	while (my $rad = <FIL>) {
@@ -41,11 +57,12 @@ foreach my $file (@files) {
 		if ($rad =~ /^Internet\s+([0-9\.]+)\s+(\d|\-)+\s+([0-9a-f\.]+)\s+/) {
 			my ($ip, $mac) = ($1, $3);
 		
+			$hostdb->clean_mac_address ($mac);
+
 			# shortcut as early as possible if we've seen this ip and mac earlier this run
 			next if ($seen{"$ip;$mac"});
 			$seen{"$ip;$mac"} = 1;
 
-			$hostdb->clean_mac_address ($mac);
 			warn ("Invalid MAC address '$3' on $file:$.\n"), next unless ($hostdb->valid_mac_address ($mac));
 
 			#warn ("IP $ip MAC $mac\n");
