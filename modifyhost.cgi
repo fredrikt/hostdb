@@ -267,6 +267,8 @@ sub modify_host
 							my @host_refs = $hostdb->findhostbymac ($mac);
 
 							foreach my $t_host (@host_refs) {
+								next if (! defined ($t_host));
+
 								# skip if it is the same host object as we
 								# are currently modifying. should not happen
 								# since we only get here if $new_val not
