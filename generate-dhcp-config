@@ -1,0 +1,173 @@
+#!/usr/local/bin/perl -w
+#
+# $Id$
+#
+
+use strict;
+use Config::IniFiles;
+#use lib 'blib/lib';
+use HOSTDB;
+use Getopt::Std;
+use vars qw ($opt_h $opt_d $opt_o $opt_q);
+use FileHandle;
+
+getopts ('hdo:q');
+
+if ($opt_h) {
+	die (<<EOD);
+Syntax: $0 [options] subnet ...
+	subnet/slash is the subnet in slash notation (eg. 192.168.1.0/24)
+	
+	options :
+		-d		debug
+		-o dir		output to dir
+		-q 		quiet
+EOD
+}
+
+my $debug = defined ($opt_d);
+my $quiet = defined ($opt_q);
+my $output_dir = $opt_o || '.';
+$output_dir =~ s/\/$//o;	# remove trailing slash
+
+die ("$0: Output dir '$output_dir' is not a directory\n") if (! -d $output_dir);
+
+my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
+			      debug => $debug
+			     );
+
+my @subnets;
+foreach my $subnet_name (@ARGV) {
+	if ($subnet_name eq '*') {
+		push (@subnets, $hostdb->findallsubnets ());
+	} else {
+		push (@subnets, $hostdb->findsubnet ($subnet_name));
+	}
+}
+
+my $failed = 0;
+foreach my $subnet (@subnets) {
+	die ("$0: Empty subnet, oh no.\n") if (! $subnet);
+
+	$failed = 1 if (! print_dhcp_config ($hostdb, $subnet, $output_dir, $debug, $quiet));
+}
+
+exit ($failed);
+
+
+sub print_dhcp_config
+{
+	my $hostdb = shift;
+	my $subnet = shift;
+	my $output_dir = shift;
+	my $debug = shift;
+	my $quiet = shift;
+
+	my @subnet_profiles = split (',', $subnet->profilelist ());
+	my $subnet_name = $subnet->subnet ();
+
+	if (! grep (/^default$/, @subnet_profiles)) {
+		warn ("$0: No 'default' profile for subnet '$subnet_name', skipping subnet.\n");
+		return undef;
+	}
+
+	my (@ranges, $range_start, $range_end, %hosts);
+
+	foreach my $host ($hostdb->findhostbyiprange ($subnet->netaddr (), $subnet->broadcast ())) {
+		if ($host->dhcpmode () eq 'DYNAMIC') {
+			$range_start = $host->ip () if (! $range_start);
+			$range_end = $host->ip ();
+			next;
+		} else {
+			my $id = $host->id ();
+			my $ip = $host->ip ();
+			my $hostname = $host->hostname () || 'NULL';
+
+			if ($range_start) {
+				# ok, so it was a range
+				push (@ranges, "${range_start}	${range_end}");
+				$range_start = '';
+			}
+			
+			my $profile = $host->profile ();
+			if (! grep (/^$profile$/, @subnet_profiles)) {
+				warn ("$0: Host $id ($ip, $hostname) profile $profile not registered for subnet $subnet_name");
+			}
+			
+			if (! $hostdb->is_valid_profilename ($profile)) {
+				warn ("$0: Invalid profile name '$profile' for host $id ($ip, $hostname), skipping.\n");
+			} else {
+				push (@{$hosts{$profile}}, $host);
+			}
+		}
+
+	}
+	if ($range_start) {
+		# ok, so it was a range
+		push (@ranges, "${range_start}	${range_end}");
+		$range_start = '';
+	}
+
+	if (0 != @ranges) {
+		my $OUT = new FileHandle;
+		my $outfile = "${subnet_name}_ranges";
+		
+		$outfile =~ s#/#-#go;
+		print ("Building $outfile\n") unless ($quiet);
+		$outfile = "$output_dir/$outfile";
+	
+		open ($OUT, "> $outfile") or warn ("$0: Could not open outfile '$outfile' for writing: $!\n"), return undef;
+		
+		my $t;
+		foreach $t (@ranges) {
+			print ($OUT "	range $t;\n");
+		}
+		
+		close ($OUT);
+	}
+	
+	foreach my $profile (keys %hosts) {
+		my $outfile = "${subnet_name}-${profile}";
+
+		$outfile =~ s#/#-#go;
+		print ("Building $outfile\n") unless ($quiet);
+		$outfile = "$output_dir/$outfile";
+	
+		my $OUT = new FileHandle;
+		open ($OUT, "> $outfile") or warn ("$0: Could not open outfile '$outfile' for writing: $!\n"), return undef;
+
+		foreach my $host (@{$hosts{$profile}}) {
+			print_host ($OUT, $host);		
+		}
+
+		close ($OUT);
+	}
+	
+	return 1;
+}
+
+
+sub print_host
+{
+	my $OUT = shift;
+	my $host = shift;
+	
+	my $hostname = $host->hostname () || 'NULL';
+	my $ip = $host->ip ();
+	my $mac = $host->mac_address ();
+
+	my $prefix = '';
+	$prefix = '# ' if ($host->dhcpstatus () eq 'DISABLED');
+
+	if (! defined ($ip)) {
+		$prefix = '# NO IP ';
+		$ip = 'NULL';
+	} elsif (! defined ($mac)) {
+		$prefix = '# NO MAC ';
+		$mac = 'NULL';
+	}
+
+	print ($OUT <<EOD);
+	${prefix}host ${hostname}-${ip} { hardware ethernet $mac; fixed-address $ip; }
+EOD
+}
