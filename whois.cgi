@@ -672,7 +672,14 @@ sub print_host_info
 	foreach my $alias (@hostaliases) {
 	    my $a_id = $alias->id ();
 	    my $a_name = $alias->aliasname ();
-	    push (@a, "<a HREF='$me;type=aliasid;data=$a_id'>$a_name</a>");
+	    my $a_dnsstatus = html_color_disabled ($alias->dnsstatus ());
+
+	    if ($a_dnsstatus eq 'Enabled') {
+		$a_dnsstatus = '';
+	    } else {
+		$a_dnsstatus = "&nbsp;(dns $a_dnsstatus)";
+	    }
+	    push (@a, "<a HREF='$me;type=aliasid;data=$a_id'>$a_name</a>$a_dnsstatus");
 	}
 	my $aliases = join (",&nbsp", @a);
 	$aliases_tr = "\t<tr>\n\t\t$empty_td\n\t\t<td>Aliases</td>\n\t\t<td>$aliases</td>\n\t</tr>";
@@ -680,17 +687,8 @@ sub print_host_info
 
     # format some things...
 	
-    if ($dhcpstatus ne 'ENABLED') {
-	$dhcpstatus = "<font COLOR='red'><strong>$dhcpstatus</strong></font>";
-    } else {
-	$dhcpstatus = "Enabled";
-    }
-
-    if ($dnsstatus ne 'ENABLED') {
-	$dnsstatus = "<font COLOR='red'><strong>$dnsstatus</strong></font>";
-    } else {
-	$dnsstatus = "Enabled";
-    }
+    $dhcpstatus = html_color_disabled ($dhcpstatus);
+    $dnsstatus = html_color_disabled ($dnsstatus);
 	
     if ($dnsmode eq "A_AND_PTR") {
 	$dnsmode = "Both forward and reverse";
@@ -902,6 +900,7 @@ sub print_alias
     my $hostid = $alias->hostid ();
     my $comment = $alias->comment () || '';
     my $ttl = $alias->ttl () || 'default';
+    my $dnsstatus = html_color_disabled ($alias->dnsstatus ());
 
     my $hostname = 'NOT FOUND';
     my $hostlink = '';
@@ -940,13 +939,21 @@ sub print_alias
 			<tr>
 			   $empty_td
 			   <td>ID</td>
-			   <td>$id&nbsp;$modify_link&nbsp;$delete_link</td>
+			   <td>$id&nbsp;&nbsp;&nbsp;$modify_link&nbsp;$delete_link</td>
 			</td>
                         <tr>
                            $empty_td
                            <td>DNS TTL</td>
                            <td>$ttl</td>
                         </tr>
+                        <tr>
+                           $empty_td
+                           <td>DNS status</td>
+                           <td>$dnsstatus</td>
+                        </tr>
+			
+
+			$table_blank_line
                         <tr>
                            $empty_td
                            <td>Comment</td>
@@ -981,6 +988,17 @@ sub is_wildcard
     return 1 if ($in =~ /\*/);
 	
     return 0;
+}
+
+sub html_color_disabled
+{
+    my $val = shift;
+
+    if ($val ne 'ENABLED') {
+	return ("<font COLOR='red'><strong>$val</strong></font>");
+    } else {
+	return ("Enabled");
+    }
 }
 
 sub error_line
