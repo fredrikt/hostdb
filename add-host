@@ -97,7 +97,7 @@ $host->owner ($owner) or die ("$0: Invalid value - $host->{error}\n");
 $host->dhcpmode ('STATIC')	or die ("$0: Could not set default 'dhcpmode': $host->{error}\n");
 $host->dhcpstatus ('ENABLED')	or die ("$0: Could not set default 'dhcpstatus': $host->{error}\n");
 $host->dnsmode ('A_AND_PTR')	or die ("$0: Could not set default 'dhcpmode': $host->{error}\n");
-$host->dnsstatus ('ENABLED'	or die ("$0: Could not set default 'dnsstatus': $host->{error}\n");
+$host->dnsstatus ('ENABLED')	or die ("$0: Could not set default 'dnsstatus': $host->{error}\n");
 
 # optional ones
 $host->dhcpmode ($opt_dhcpmode)		or die ("$0: Invalid value - $host->{error}\n") if (defined ($opt_dhcpmode));
