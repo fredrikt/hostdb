@@ -394,7 +394,10 @@ sub hostname
 			return 1;
 		}
 	
-		return 0 if (! $self->clean_hostname ($newvalue));
+		if (! $self->clean_hostname ($newvalue)) {
+			$self->_set_error ("Invalid hostname '$newvalue'");
+			return 0;
+		}
 		$self->{hostname} = $newvalue;
 
 		return 1;
@@ -426,7 +429,10 @@ sub dnszone
 			return 1;
 		}
 	
-		return 0 if (! $self->clean_domainname ($newvalue));
+		if (! $self->clean_domainname ($newvalue)) {
+			$self->_set_error ("Invalid dnszone '$newvalue'");
+			return 0;
+		}
 		$self->{dnszone} = $newvalue;
 
 		return 1;
