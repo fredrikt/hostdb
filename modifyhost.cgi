@@ -106,7 +106,13 @@ SWITCH:
 	$action eq 'Search' and do
 	{
 		$host = get_host ($hostdb, 'ID', $q->param('id')) if $q->param('id');
-		$host = $hostdb->create_host () unless defined $host;
+		if (! defined ($host)) {
+			$host = $hostdb->create_host ();
+			# call modify_host but don't commit () afterwards to get
+			# ip and other stuff supplied to us as CGI parameters
+			# set on the host before we call host_form () below.
+			modify_host ($hostdb, $host, $q, $remote_user);
+		}
 
 	},last SWITCH;
 }
@@ -316,7 +322,6 @@ sub host_form
 	    $dnsmode, $dnsstatus, $dhcpmode, $dhcpstatus, $subnet,
 	    $profile);
 	
-
 	my $h_subnet = $hostdb->findsubnetclosestmatch ($host->ip ());
 
 	if (defined ($h_subnet)) {
@@ -334,8 +339,8 @@ sub host_form
         my $state_field = $q->state_field ();
 	my $commit = $q->submit ('action', 'Commit');
 
-	my %dnsmode_labels = ('A_AND_PTR' => 'Forward and reverse',
-			      'A'	  => 'Only forward');
+	my %dnsmode_labels = ('A_AND_PTR' => "Both 'A' and 'PTR'",
+			      'A'	  => "Only 'A'");
 	my %enabled_labels = ('ENABLED'	  => 'Enabled',
 			      'DISABLED'  => 'Disabled');
 	my %dhcpmode_labels = ('STATIC'	  => 'Static',
@@ -445,7 +450,7 @@ sub host_form
 		<tr>
 			$empty_td
 			$empty_td
-			<td>Profile</td>
+			<td>&nbsp;&nbsp;Profile</td>
 			<td>$profile</td>
 		</tr>
 		<tr>
