@@ -1,0 +1,220 @@
+#!/usr/local/bin/perl -w
+#
+# $Id$
+#
+
+use strict;
+use Config::IniFiles;
+#use lib 'blib/lib';
+use HOSTDB;
+use Getopt::Std;
+use vars qw ($opt_h $opt_d $opt_o $opt_q $opt_R);
+use FileHandle;
+
+getopts ('hdo:qR');
+
+sub usage
+{
+	die (<<EOD);
+Syntax: $0 [options] subnet ...
+	subnet is the subnet in slash notation (eg. 192.168.1.0/24)
+	
+	options :
+		-d		debug
+		-o dir		output to dir
+		-q 		quiet
+		-R		remove old files for subnet
+
+EOD
+}
+
+usage () if ($opt_h);
+
+my $debug = defined ($opt_d);
+my $quiet = defined ($opt_q);
+my $remove_old = defined ($opt_R);
+my $output_dir = $opt_o || '.';
+$output_dir =~ s/\/$//o;	# remove trailing slash
+
+die ("$0: Output dir '$output_dir' is not a directory\n") if (! -d $output_dir);
+
+my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
+			      debug => $debug
+			     );
+
+my @subnets;
+foreach my $subnet_name (@ARGV) {
+	if ($subnet_name eq '*') {
+		push (@subnets, $hostdb->findallsubnets ());
+	} else {
+		push (@subnets, $hostdb->findsubnet ($subnet_name));
+	}
+}
+
+usage () if (! @subnets);
+
+my $failed = 0;
+foreach my $subnet (@subnets) {
+	die ("$0: Empty subnet, oh no.\n") if (! $subnet);
+
+	my %generated_files;
+	
+	$failed = 1 if (! print_dhcp_subnet ($hostdb, $subnet, $output_dir, \%generated_files, $debug, $quiet));
+	$failed = 1 if (! remove_old_files ($subnet, $output_dir, \%generated_files, $remove_old, $debug, $quiet));
+}
+
+
+exit ($failed);
+
+
+sub print_dhcp_subnet
+{
+	my $hostdb = shift;
+	my $subnet = shift;
+	my $output_dir = shift;
+	my $generated_files_ref = shift;
+	my $debug = shift;
+	my $quiet = shift;
+
+	my @subnet_profiles = split (',', $subnet->profilelist ());
+	my $subnet_name = $subnet->subnet ();
+
+	if (! grep (/^default$/, @subnet_profiles)) {
+		warn ("$0: No 'default' profile for subnet '$subnet_name', skipping subnet.\n");
+		return undef;
+	}
+
+	my $subnetfn = $subnet_name . "_id" . $subnet->id () . ".conf";
+	$subnetfn =~ s#/#-#go;
+	my $subnetfile = "$output_dir/$subnetfn";
+	
+	if (-f $subnetfile) {
+		print ("$0: Not overwriting existing '$subnetfn'\n") unless ($quiet);
+		$generated_files_ref->{$subnetfn} = 1;
+		return 1;
+	}
+
+	my $SUBNET = new FileHandle;
+	open ($SUBNET, "> $subnetfile") or warn ("$0: Could not open outfile '$subnetfile' for writing: $!\n"), return undef;
+	
+	print ($SUBNET "# \$Id\$\n#\n# $subnet_name DHCP config generated at " . localtime () ."\n#\n");
+	
+	# interpolating
+	my $netaddr = $subnet->netaddr ();
+	my $netmask = $subnet->netmask ();
+	my $broadcast = $subnet->broadcast ();
+	my $routers = $hostdb->ntoa ($subnet->n_netaddr () + 1);
+
+	my $odd_or_even = 'odd';
+	if ($subnet_name =~ /.+[02468]\.\d{1,3}\/\d{1,2}/) {
+		# n in xxx.xxx.xxn.xxx/xx is an even digit
+		$odd_or_even = 'even';
+	}
+
+	print ($SUBNET <<EOD);
+subnet $netaddr	netmask	$netmask {
+	# hard-coded subnet parameters
+	default-lease-time		36000;
+	max-lease-time			180000;
+
+	# calculated options
+	option subnet-mask		$netmask;
+	option broadcast-address	$broadcast;
+	option routers			$routers;
+
+	include "generated/${subnetfn}_options";
+	include "thisserver/${odd_or_even}_subnet.conf";
+	
+EOD
+
+	foreach my $profile (@subnet_profiles) {
+
+		if ($profile eq 'default') {
+			print ($SUBNET <<EOD);
+
+	include "generated/${subnetfn}-default";			
+EOD
+		} else {
+			print ($SUBNET <<EOD);
+
+	group {
+		include "generated/${subnetfn}-${profile}";
+	}
+EOD
+		}
+	}
+
+	print ($SUBNET "}\n");
+	
+	close ($SUBNET);
+		
+	$generated_files_ref->{$subnetfile} = 1;
+	return 1;
+}
+
+
+sub remove_old_files
+{
+	my $subnet = shift;
+	my $output_dir = shift;
+	my $generated_files_ref = shift;
+	my $do_remove = shift;
+	my $debug = shift;
+	my $quiet = shift;
+
+	opendir (DIR, $output_dir) or warn ("$0: Could not opendir () '$output_dir': $!\n"), return 0;
+	
+	# Do NOT add the subnet id here, the whole point is to find old subnets with the same
+	# name and remove them since there is now a new subnet in the database
+	my $file_regexp = $subnet->subnet () . "_";
+	$file_regexp =~ s#/#-#go;
+	
+	my @files = grep { /^$file_regexp/ } readdir DIR;
+	close (DIR);
+	
+	foreach my $fn (@files) {
+		my $file = "$output_dir/$fn";
+		
+		next unless (-f $file);	# skip non-files
+		
+		if (! defined ($generated_files_ref->{$fn})) {
+			if ($do_remove) {
+				print ("Removing '$file'\n");
+				unlink ($file) or warn ("$0: Could not unlink () '$file': $!\n"), return 0;
+			} else {
+				print ("NOT removing stale file '$file' ($fn)\n") unless ($quiet);
+			}
+		}	
+	}
+	
+	return 1;
+}
+
+
+sub print_host
+{
+	my $OUT = shift;
+	my $host = shift;
+	
+	my $hostname = $host->hostname () || 'NULL';
+	my $id = $host->id ();
+	my $ip = $host->ip ();
+	my $mac = $host->mac_address ();
+
+	my $prefix = '';
+	$prefix = '# DHCP disabled ' if ($host->dhcpstatus () eq 'DISABLED');
+
+	if (! defined ($ip)) {
+		$prefix = '# NO IP ';
+		$ip = 'NULL';
+	} elsif (! defined ($mac)) {
+		$prefix = '# NO MAC ';
+		$mac = 'NULL';
+	}
+
+	print ($OUT <<EOD) or return undef;
+${prefix}host ${hostname}_${id} { hardware ethernet $mac; fixed-address $ip; option host-name \"$hostname\"; }
+EOD
+
+	return 1;
+}
