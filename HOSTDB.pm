@@ -696,6 +696,8 @@ sub init
 	}
 
 	$self->user (getpwuid("$<"));
+	
+	return 1;
 }
 
 sub DESTROY
@@ -1177,233 +1179,22 @@ sub init
 		$self->{_get_last_id} = $hostdb->{_dbh}->prepare ("SELECT LAST_INSERT_ID()")
 			or die "$DBI::errstr";
 	}
-}
-
-sub dynamic
-{
-	my $self = shift;
-
-	if (@_) {
-		my $newvalue = shift;
 	
-		if ($newvalue =~ /^y/i or $newvalue == 1) {
-			$self->{dynamic} = "Y";
-		} elsif ($newvalue =~ /^n/i or $newvalue == 1) {
-			$self->{dynamic} = "N";
-		} else {
-			$self->set_error ("Invalid dynamic format");
-			return 0;
-		}
-
-		return 1;
-	}
-
-	return ($self->{dynamic});
+	return 1;
 }
 
-sub mac_address
-{
-	my $self = shift;
+=head1 PACKAGE HOSTDB::Object::Host
 
-	if (@_) {
-		my $newvalue = shift;
-	
-		return 0 if (! $self->clean_mac_address ($newvalue));
-		$self->{mac} = $newvalue;
 
-		return 1;
-	}
+=head2 commit
 
-	return ($self->{mac});
-}
+	$host->commit () or die ("Could not commit host object: $host->{error}\n");
 
-sub hostname
-{
-	my $self = shift;
+	Commit this host object to database. Works on new host objects as well
+	as updated ones.
 
-	if (@_) {
-		my $newvalue = shift;
-	
-		return 0 if (! $self->clean_hostname ($newvalue));
-		$self->{hostname} = $newvalue;
 
-		return 1;
-	}
-
-	return ($self->{hostname});
-}
-
-sub ip
-{
-	my $self = shift;
-
-	if (@_) {
-		my $newvalue = shift;
-	
-		return 0 if (! $self->is_valid_ip ($newvalue));
-
-		# XXX CHECK IP
-		# check if IP is
-		#
-		# 127.0.0.0/8
-		# 0.0.0.0/8
-		# 255.0.0.0/8
-		# 172.16.0.0/12
-		# 224.0.0.0/4
-		#
-		# and ideally the assigned test networks too
-		#
-		# (10.0.0.0/8 are IP telephones and 192.168.0.0/16 is used)
-		#
-		
-		$self->{ip} = $newvalue;
-
-		# redundantly stored, but this enables us to do much simpler
-		# database querys (for hosts in ranges of IPs etc.)
-		$self->{n_ip} = $self->aton ($newvalue);
-	
-		return 1;
-	}
-
-	return ($self->{ip});
-}
-
-sub n_ip
-{
-	my $self = shift;
-
-	if (@_) {
-		$self->_set_error ("this is a read-only function, it gets set by ip()");
-		return undef;
-	}
-
-	return ($self->{n_ip});
-}
-
-sub ttl
-{
-	my $self = shift;
-
-	if (@_) {
-		my $newvalue = shift;
-
-		if ($newvalue eq "NULL") {
-			$self->{ttl} = "NULL";
-		} else {
-			$self->{ttl} = $newvalue;
-		}
-
-		return 1;
-	}
-
-	return ($self->{ttl});
-}
-
-sub user
-{
-	my $self = shift;
-
-	if (@_) {
-		my $newvalue = shift;
-
-		$self->{user} = $newvalue;
-	
-		return 1;
-	}
-
-	return ($self->{user});
-}
-
-sub owner
-{
-	my $self = shift;
-
-	if (@_) {
-		my $newvalue = shift;
-
-		$self->{user} = $newvalue;
-	
-		return 1;
-	}
-
-	return ($self->{user});
-}
-
-sub partof
-{
-	my $self = shift;
-
-	if (@_) {
-		my $newvalue = shift;
-	
-		if ((int($newvalue) == 0) and ($newvalue ne "0")) {
-			$self->set_error ("Invalid partof");
-			return 0;
-		}
-		$self->{partof} = int($newvalue);
-
-		return 1;
-	}
-
-	return ($self->{partof});
-}
-
-sub reverse
-{
-	my $self = shift;
-
-	if (@_) {
-		my $newvalue = shift;
-	
-		if ($newvalue =~ /^y/i or $newvalue == 1) {
-			$self->{reverse} = "Y";
-		} elsif ($newvalue =~ /^n/i or $newvalue == 1) {
-			$self->{reverse} = "N";
-		} else {
-			$self->set_error ("Invalid reverse format");
-			return 0;
-		}
-
-		return 1;
-	}
-
-	return ($self->{reverse});
-}
-
-sub id
-{
-	my $self = shift;
-
-	if (@_) {
-		$self->_set_error ("id is read only");
-		return 0;
-	}
-
-	return ($self->{id});
-}
-
-sub mac_address_ts
-{
-	my $self = shift;
-
-	if (@_) {
-		my $newvalue = shift;
-	
-		if ($newvalue =~ /^\d{2,4}-\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}:\d{1,2}$/) {
-			$self->{mac_address_ts} = $newvalue;
-		} elsif ($newvalue eq "NOW" or $newvalue eq "NOW()") {
-			$self->{mac_address_ts} = "NOW()";
-		} else {
-			$self->set_error ("Invalid mac_address timestamp format");
-			return 0;
-		}
-
-		return 1;
-	}
-
-	return ($self->{mac_address_ts});
-}
-
+=cut
 sub commit
 {
 	my $self = shift;
@@ -1458,6 +1249,407 @@ sub commit
 }
 
 
+=head2 dynamic
+
+	Toggle if this host is dynamic (meaning don't generate a static
+	DHCP host statement for it, but rather calculate a range) or not.
+
+
+	# set property
+	$host->dynamic ("Y");	# valid values are "Y" (or 1), "N" (or 0)
+
+	# when used to get the value, always returns "Y" or "N" so you
+	# can't just do 'if ($host->dynamic ()) ...'
+	#
+	print ("This is a dynamic entry\n") if ($host->dynamic () eq "Y");
+
+
+= cut
+sub dynamic
+{
+	my $self = shift;
+
+	if (@_) {
+		my $newvalue = shift;
+	
+		if ($newvalue =~ /^y/i or $newvalue == 1) {
+			$self->{dynamic} = "Y";
+		} elsif ($newvalue =~ /^n/i or $newvalue == 0) {
+			$self->{dynamic} = "N";
+		} else {
+			$self->set_error ("Invalid dynamic format");
+			return 0;
+		}
+
+		return 1;
+	}
+
+	return ($self->{dynamic});
+}
+
+
+=head2 mac_address
+
+	Get or set this hosts MAC address (hardware address).
+	Uses clean_mac_address () on supplied value.
+
+	print ("Old MAC address: " . $host->mac_address ());
+	$host->mac_address ($new_mac) or warn ("Failed setting value\n");
+
+
+=cut
+sub mac_address
+{
+	my $self = shift;
+
+	if (@_) {
+		my $newvalue = shift;
+	
+		return 0 if (! $self->clean_mac_address ($newvalue));
+		$self->{mac} = $newvalue;
+
+		return 1;
+	}
+
+	return ($self->{mac});
+}
+
+
+=head2 hostname
+
+	Get or set this hosts hostname.
+	Uses clean_hostname () on supplied value.
+
+	print ("Old hostname: " . $host->hostname ());
+	$host->hostname ($new_hostname) or warn ("Failed setting value\n");
+
+
+=cut
+sub hostname
+{
+	my $self = shift;
+
+	if (@_) {
+		my $newvalue = shift;
+	
+		return 0 if (! $self->clean_hostname ($newvalue));
+		$self->{hostname} = $newvalue;
+
+		return 1;
+	}
+
+	return ($self->{hostname});
+}
+
+
+=head2 ip
+
+	Get or set this hosts IP address. This function also updates the
+	numerical IP address field n_ip.
+
+	print ("Old IP: " . $host->ip ());
+	$host->ip ($new_ip) or warn ("Failed setting value\n");
+
+
+=cut
+sub ip
+{
+	my $self = shift;
+
+	if (@_) {
+		my $newvalue = shift;
+	
+		return 0 if (! $self->is_valid_ip ($newvalue));
+
+		# XXX CHECK IP
+		# check if IP is
+		#
+		# 127.0.0.0/8
+		# 0.0.0.0/8
+		# 255.0.0.0/8
+		# 172.16.0.0/12
+		# 224.0.0.0/4
+		#
+		# and ideally the assigned test networks too
+		#
+		# (10.0.0.0/8 are IP telephones and 192.168.0.0/16 is used)
+		#
+		
+		$self->{ip} = $newvalue;
+
+		# redundantly stored, but this enables us to do much simpler
+		# database querys (for hosts in ranges of IPs etc.)
+		$self->{n_ip} = $self->aton ($newvalue);
+	
+		return 1;
+	}
+
+	return ($self->{ip});
+}
+
+
+=head2 n_ip
+
+	Read only function that returns this hosts IP address in host order.
+
+
+=cut
+sub n_ip
+{
+	my $self = shift;
+
+	if (@_) {
+		$self->_set_error ("this is a read-only function, it gets set by ip()");
+		return undef;
+	}
+
+	return ($self->{n_ip});
+}
+
+
+=head2 ip
+
+	Get or set this hosts DNS records TTL value.
+	XXX it is not defined if this should be a number of seconds or
+	numerical IP address field n_ip.
+
+	If you want to use the default TTL value, set to "NULL".
+
+	print ("Old ttl: " . $host->ttl ());
+	$host->ttl ($new_ttl) or warn ("Failed setting value\n");
+
+
+=cut
+sub ttl
+{
+	my $self = shift;
+
+	if (@_) {
+		my $newvalue = shift;
+
+		if ($newvalue eq "NULL") {
+			$self->{ttl} = "NULL";
+		} else {
+			$self->{ttl} = $newvalue;
+		}
+
+		return 1;
+	}
+
+	return ($self->{ttl});
+}
+
+
+=head2 user
+
+	Get or set this hosts user. Just an informative field.
+	XXX this might be changed to a more generic comment field. XXX
+
+	print ("Old user: " . $host->user ());
+	$host->user ($new_user) or warn ("Failed setting value\n");
+
+
+=cut
+sub user
+{
+	my $self = shift;
+
+	if (@_) {
+		my $newvalue = shift;
+
+		$self->{user} = $newvalue;
+	
+		return 1;
+	}
+
+	return ($self->{user});
+}
+
+
+=head2 owner
+
+	Get or set this hosts owner. The thoughts for having a owner is
+	to control who can update this object.
+
+	print ("Old owner: " . $host->owner ());
+	$host->owner ($new_owner) or warn ("Failed setting value\n");
+
+
+=cut
+sub owner
+{
+	my $self = shift;
+
+	if (@_) {
+		my $newvalue = shift;
+
+		$self->{user} = $newvalue;
+	
+		return 1;
+	}
+
+	return ($self->{user});
+}
+
+
+=head2 id
+
+	Get object database ID number. This is read only.
+
+=cut
+sub id
+{
+	my $self = shift;
+
+	if (@_) {
+		$self->_set_error ("id is read only");
+		return 0;
+	}
+
+	return ($self->{id});
+}
+
+
+=head2 partof
+
+	Get or set which other host object this host object is to be
+	considered a part of. A host with multiple network interface
+	cards (meaning multiple MAC addresses and possibly multiple
+	DNS records) will have a primary host id object and one or
+	more other host objects which has partof () set to the primary
+	host objects id ().
+
+	print ("Old partof: " . $host->partof ());
+	$parent = $hostdb->findhostbyname ("server.example.com");
+	die ("Failed fetching parent host object\n") unless ($parent);
+	$host->partof ($parent->id ()) or warn ("Failed setting value\n");
+
+
+=cut
+sub partof
+{
+	my $self = shift;
+
+	if (@_) {
+		my $newvalue = shift;
+	
+		if ((int($newvalue) == 0) and ($newvalue ne "0")) {
+			$self->set_error ("Invalid partof");
+			return 0;
+		}
+		$self->{partof} = int($newvalue);
+
+		return 1;
+	}
+
+	return ($self->{partof});
+}
+
+
+=head2 reverse
+
+	Toggle if a reverse DNS entry (PTR) should be generated or not.
+
+
+	# set property
+	$host->reverse ("Y");	# valid values are "Y" (or 1), "N" (or 0)
+
+	# when used to get the value, always returns "Y" or "N" so you
+	# can't just do 'if ($host->reverse ()) ...'
+	#
+	print ("Will generate reverse\n") if ($host->reverse () eq "Y");
+
+
+= cut
+sub reverse
+{
+	my $self = shift;
+
+	if (@_) {
+		my $newvalue = shift;
+	
+		if ($newvalue =~ /^y/i or $newvalue == 1) {
+			$self->{reverse} = "Y";
+		} elsif ($newvalue =~ /^n/i or $newvalue == 0) {
+			$self->{reverse} = "N";
+		} else {
+			$self->set_error ("Invalid reverse format");
+			return 0;
+		}
+
+		return 1;
+	}
+
+	return ($self->{reverse});
+}
+
+
+=head2 mac_address_ts
+
+	Get or set the MAC address timestamp field of this host object.
+	This is intended to be a timestamp of what the time was when this
+	hosts IP was seen using this MAC address on the network. This is
+	good because it let's network administrators see what IP addresses
+	are actually being used and not.
+
+	Valid formats for setting are: yyyy-mm-dd hh:mm:ss
+				       NOW
+				       unixtime:nnnnnnnnnn
+=cut
+sub mac_address_ts
+{
+	my $self = shift;
+
+	if (@_) {
+		my $newvalue = shift;
+	
+		if ($newvalue =~ /^\d{2,4}-\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}:\d{1,2}$/o) {
+			$self->{mac_address_ts} = $newvalue;
+		} elsif ($newvalue eq "NOW" or $newvalue eq "NOW()") {
+			$self->{mac_address_ts} = $self->unixtime_to_datetime (time ());
+		} elsif ($newvalue =~ /^unixtime:(\d+)$/oi) {
+			$self->{mac_address_ts} = $self->unixtime_to_datetime ($1);
+		} else {
+			$self->set_error ("Invalid mac_address timestamp format");
+			return 0;
+		}
+
+		return 1;
+	}
+
+	return ($self->{mac_address_ts});
+}
+
+
+=head1 PACKAGE HOSTDB::DB::Object::Host PRIVATE FUNCTIONS
+
+	These functions should NEVER be called by a program using this class,
+	but are documented here as well just for the sake of documentation.
+
+
+=head2 unixtime_to_datetime
+
+	Convert a unix time stamp to localtime () format yyyy-mm-dd hh:mm:ss
+
+	$now_as_string = $self->unixtime_to_datetime (time ());
+	
+	
+=cut
+sub unixtime_to_datetime
+{
+	my $self = shift;
+	my $time = shift;
+
+	my ($sec, $min, $hour, $mday, $mon, $year, $yday, $isdst) = localtime ($time);
+	
+	$year += 1900;	# yes, this is Y2K safe (why do you even bother? this was written
+			# in the year of 2002)
+	
+	return (sprintf ("%.4d-%.2d-%.2d %.2d:%.2d:%.2d",
+		$year, $mon, $mday, $hour, $min, $sec));
+}
+
+
 ##################################################################
 
 package HOSTDB::Object::Zone;
@@ -1487,6 +1679,68 @@ sub init
 	return 1;
 }
 
+=head1 PACKAGE HOSTDB::Object::Zone
+
+
+=head2 commit
+
+	$zone->commit () or die ("Could not commit zone object: $zone->{error}\n");
+
+	Commit this zone object to database. Works on new zone objects as well
+	as updated ones.
+
+
+=cut
+sub commit
+{
+	my $self = shift;
+
+	# if any of these values are 0, set it to NULL (undef) to use default values
+	$self->{default_ttl} = undef if (defined ($self->{default_ttl}) and $self->{default_ttl} < 0);
+	$self->{ttl} = undef if (defined ($self->{ttl}) and $self->{ttl} < 0);
+	$self->{mname} = undef if (defined ($self->{mname}) and $self->{mname} eq "NULL");
+	$self->{rname} = undef if (defined ($self->{rname}) and $self->{rname} eq "NULL");
+	$self->{refresh} = undef if (defined ($self->{refresh}) and $self->{refresh} <= 0);
+	$self->{retry} = undef if (defined ($self->{retry}) and $self->{retry} <= 0);
+	$self->{expiry} = undef if (defined ($self->{expiry}) and $self->{expiry} <= 0);
+	$self->{minimum} = undef if (defined ($self->{minimum}) and $self->{minimum} <= 0);
+
+	# fields in database order
+	my @db_values = ($self->{zonename},
+			 $self->{delegated},
+			 $self->{default_ttl},
+			 $self->{ttl},
+			 $self->{mname},
+			 $self->{rname},
+			 $self->{serial},
+			 $self->{refresh},
+			 $self->{retry},
+			 $self->{expiry},
+			 $self->{minimum},
+			 $self->{owner}
+			);
+
+	my $sth;
+	if (defined ($self->{in_db}) and $self->{in_db} >= 1) {
+		$sth = $self->{_update_zone};
+		$sth->execute (@db_values, $self->{zonename})
+			or die "$DBI::errstr";
+		
+		# XXX check number of rows affected?
+
+		$sth->finish();
+	} else {
+		# this is a new entry
+
+		$sth = $self->{_new_zone};
+		$sth->execute (@db_values) or die "$DBI::errstr";
+
+		$sth->finish ();
+	}	
+
+	return 1;
+}
+
 sub zonename
 {
 	my $self = shift;
@@ -1503,6 +1757,25 @@ sub zonename
 	return ($self->{zonename});
 }
 
+
+=head2 delegated
+
+	Indicate that this is a delegated zone. The reason to have delegated
+	zones in your database is that if it is a subzone of one of your
+	non-delegated zones you do not want to put host DNS data into your
+	non-delegated zone which belongs to the delegated one. Clear? ;)
+
+
+	# set property
+	$zone->delegated ("Y");	# valid values are "Y" (or 1), "N" (or 0)
+
+	# when used to get the value, always returns "Y" or "N" so you
+	# can't just do 'if ($zone->delegated ()) ...'
+	#
+	print ("Zone is delegated\n") if ($zone->delegated () eq "Y");
+
+
+= cut
 sub delegated
 {
 	my $self = shift;
@@ -1512,7 +1785,7 @@ sub delegated
 	
 		if ($newvalue =~ /^y/i or $newvalue == 1) {
 			$self->{delegated} = "Y";
-		} elsif ($newvalue =~ /^n/i or $newvalue == 1) {
+		} elsif ($newvalue =~ /^n/i or $newvalue == 0) {
 			$self->{delegated} = "N";
 		} else {
 			$self->set_error ("Invalid delegated format");
@@ -1737,56 +2010,6 @@ sub owner
 	return ($self->{owner});
 }
 
-sub commit
-{
-	my $self = shift;
-
-	# if any of these values are 0, set it to NULL (undef) to use default values
-	$self->{default_ttl} = undef if (defined ($self->{default_ttl}) and $self->{default_ttl} < 0);
-	$self->{ttl} = undef if (defined ($self->{ttl}) and $self->{ttl} < 0);
-	$self->{mname} = undef if (defined ($self->{mname}) and $self->{mname} eq "NULL");
-	$self->{rname} = undef if (defined ($self->{rname}) and $self->{rname} eq "NULL");
-	$self->{refresh} = undef if (defined ($self->{refresh}) and $self->{refresh} <= 0);
-	$self->{retry} = undef if (defined ($self->{retry}) and $self->{retry} <= 0);
-	$self->{expiry} = undef if (defined ($self->{expiry}) and $self->{expiry} <= 0);
-	$self->{minimum} = undef if (defined ($self->{minimum}) and $self->{minimum} <= 0);
-
-	# fields in database order
-	my @db_values = ($self->{zonename},
-			 $self->{delegated},
-			 $self->{default_ttl},
-			 $self->{ttl},
-			 $self->{mname},
-			 $self->{rname},
-			 $self->{serial},
-			 $self->{refresh},
-			 $self->{retry},
-			 $self->{expiry},
-			 $self->{minimum},
-			 $self->{owner}
-			);
-
-	my $sth;
-	if (defined ($self->{in_db}) and $self->{in_db} >= 1) {
-		$sth = $self->{_update_zone};
-		$sth->execute (@db_values, $self->{zonename})
-			or die "$DBI::errstr";
-		
-		# XXX check number of rows affected?
-
-		$sth->finish();
-	} else {
-		# this is a new entry
-
-		$sth = $self->{_new_zone};
-		$sth->execute (@db_values) or die "$DBI::errstr";
-
-		$sth->finish ();
-	}	
-
-	return 1;
-}
-
 
 ##################################################################
 
@@ -1835,7 +2058,99 @@ sub init
 		$hostdb->_debug_print ("NOT preparing database stuff");
 	}
 
-	return ($self);
+	return 1;
+}
+
+=head1 PACKAGE HOSTDB::Object::Subnet
+
+
+=head2 commit
+
+	$subnet->commit () or die ("Could not commit subnet object: $subnet->{error}\n");
+
+	Commit this subnet object to database. Works on new subnet objects as well
+	as updated ones.
+
+
+=cut
+sub commit
+{
+	my $self = shift;
+
+	# fields in database order
+	my @db_values = ($self->ipver (),
+			 $self->netaddr (),
+			 $self->slashnotation (),
+			 $self->netmask (),
+			 $self->broadcast (),
+			 $self->addresses (),
+			 $self->description (),
+			 $self->short_description (),
+			 $self->n_netaddr (),
+			 $self->n_netmask (),
+			 $self->n_broadcast (),
+			 $self->htmlcolor (),
+			 $self->dhcpconfig ()
+			);
+
+	my $sth;
+	if (defined ($self->{id})) {
+		$sth = $self->{_update_subnet};
+		$sth->execute (@db_values, $self->id ()) or die "$DBI::errstr";
+		
+		# XXX check number of rows affected?
+
+		$sth->finish();
+	} else {
+		# this is a new entry, first check that it does not overlap
+		# with something already in the database
+
+		my $hostdb = $self->{hostdb};
+		my @subnets = $hostdb->findsubnetlongerprefix ($self->subnet ());
+		
+		if ($#subnets != -1) {
+			my ($t, @names);
+			
+			foreach $t (@subnets) {
+				push (@names, $t->subnet ());
+			}
+			
+			$self->_set_error ($self->subnet () . " overlaps with subnet(s) " .
+					   join (", ", @names));
+					   
+			return 0;
+		}
+
+		$sth = $self->{_new_subnet};
+		$sth->execute (@db_values) or die "$DBI::errstr";
+
+		$sth->finish ();
+	}	
+
+	return 1;
+}
+
+sub delete
+{
+	my $self = shift;
+	my $check = shift;
+
+	return 0 if ($check ne "YES");
+
+	my $sth;
+	if (defined ($self->{id})) {
+		$sth = $self->{_delete};
+		$sth->execute ($self->id ()) or die "$DBI::errstr";
+		
+		# XXX check number of rows affected?
+
+		$sth->finish();
+	} else {
+		$self->_set_error ("Subnet not in database");
+		return 0;
+	}
+
+	return 1;
 }
 
 sub subnet
@@ -2059,87 +2374,6 @@ sub dhcpconfig
 	return ($self->{dhcpconfig});
 }
 
-
-sub commit
-{
-	my $self = shift;
-
-	# fields in database order
-	my @db_values = ($self->ipver (),
-			 $self->netaddr (),
-			 $self->slashnotation (),
-			 $self->netmask (),
-			 $self->broadcast (),
-			 $self->addresses (),
-			 $self->description (),
-			 $self->short_description (),
-			 $self->n_netaddr (),
-			 $self->n_netmask (),
-			 $self->n_broadcast (),
-			 $self->htmlcolor (),
-			 $self->dhcpconfig ()
-			);
-
-	my $sth;
-	if (defined ($self->{id})) {
-		$sth = $self->{_update_subnet};
-		$sth->execute (@db_values, $self->id ()) or die "$DBI::errstr";
-		
-		# XXX check number of rows affected?
-
-		$sth->finish();
-	} else {
-		# this is a new entry, first check that it does not overlap
-		# with something already in the database
-
-		my $hostdb = $self->{hostdb};
-		my @subnets = $hostdb->findsubnetlongerprefix ($self->subnet ());
-		
-		if ($#subnets != -1) {
-			my ($t, @names);
-			
-			foreach $t (@subnets) {
-				push (@names, $t->subnet ());
-			}
-			
-			$self->_set_error ($self->subnet () . " overlaps with subnet(s) " .
-					   join (", ", @names));
-					   
-			return 0;
-		}
-
-		$sth = $self->{_new_subnet};
-		$sth->execute (@db_values) or die "$DBI::errstr";
-
-		$sth->finish ();
-	}	
-
-	return 1;
-}
-
-
-sub delete
-{
-	my $self = shift;
-	my $check = shift;
-
-	return 0 if ($check ne "YES");
-
-	my $sth;
-	if (defined ($self->{id})) {
-		$sth = $self->{_delete};
-		$sth->execute ($self->id ()) or die "$DBI::errstr";
-		
-		# XXX check number of rows affected?
-
-		$sth->finish();
-	} else {
-		$self->_set_error ("Subnet not in database");
-		return 0;
-	}
-
-	return 1;
-}
 
 ##################################################################
 
