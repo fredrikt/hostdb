@@ -22,6 +22,8 @@ my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
 			      debug => $debug
 			     );
 
+my $hostdbini = $hostdb->inifile ();
+
 my $sucgi_ini;
 if (-f $hostdbini->val ('sucgi', 'cfgfile')) {
 	$sucgi_ini = Config::IniFiles->new (-file => $hostdbini->val ('sucgi', 'cfgfile'));
