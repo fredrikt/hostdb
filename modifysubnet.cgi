@@ -34,7 +34,6 @@ if (-f $hostdbini->val ('sucgi', 'cfgfile')) {
 my $q = SUCGI->new ($sucgi_ini);
 
 my $showsubnet_path = $q->state_url ($hostdbini->val ('subnet', 'showsubnet_uri'));
-my $whois_path = $q->state_url ($hostdbini->val ('subnet', 'whois_uri'));
 
 my %colors = load_colors ($hostdbini);
 
@@ -260,7 +259,7 @@ sub subnet_form
 	my $subnet_link;
 
 	if (defined ($id)) {
-		$subnet_link = "<a HREF='$whois_path;whoisdatatype=subnet;whoisdata=$subnet_name'>$subnet_name</a>";
+		$subnet_link = "<a HREF='$showsubnet_path;subnet=$subnet_name'>$subnet_name</a>";
 	} else {
 		$subnet_link = "not in database";
 	}
