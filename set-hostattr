@@ -57,10 +57,14 @@ if (@host_refs) {
 		my @hl;
 
 		foreach my $host (@host_refs) {
-			push (@hl, sprintf ("%s %s %s %s\n", $host->id, $host->ip, $host->hostname, $host->mac_address));
+			my $id = $host->id ();
+			my $ip = $host->ip () || 'no ip';
+			my $hn = $host->hostname () || 'no hostname';
+			my $mac = $host->mac_address () || 'no mac address';
+			push (@hl, "id $id, $ip, $hn, $mac");
 		}
 
-		die ("$0: Host match pattern '$searchfor' is ambigous. Hosts matching :\n@hl\n");
+		die ("$0: Host match pattern '$searchfor' is ambigous. Hosts matching :\n	" . join ("\n	", @hl) . "\n");
 	}
 
 	my $host = shift @host_refs;
