@@ -1,0 +1,158 @@
+#!/usr/local/bin/perl
+#
+# $Id$
+#
+# script to delete hosts from the database
+#
+
+use strict;
+use Config::IniFiles;
+#use lib 'blib/lib';
+use HOSTDB;
+use Getopt::Long;
+use vars qw ($opt_id $opt_ip $opt_hostname $opt_mac_address $opt_debug $opt_force $opt_quiet);
+
+my %o = ();
+my $res = GetOptions (
+	    "id=i",
+	    "ip=s",
+	    "hostname=s",
+	    "mac_address=s",
+	    "debug",
+	    "force",
+	    "quiet"
+	   );
+
+#die ("$0: Parsing options failed\n") if ($res);
+
+my ($search_for, $datatype);
+
+my $debug = defined ($opt_debug);
+
+if (defined ($opt_id)) {
+	$datatype = "ID";
+	$search_for = $opt_id;
+}
+if (defined ($opt_ip)) {
+	die ("$0: Can't specify more than one search criteria at once (IP)\n") if ($search_for);
+	$datatype = "IP";
+	$search_for = $opt_ip;
+}
+if (defined ($opt_hostname)) {
+	die ("$0: Can't specify more than one search criteria at once (hostname)\n") if ($search_for);
+	$datatype = "FQDN";
+	$search_for = $opt_hostname;
+}
+if (defined ($opt_mac_address)) {
+	die ("$0: Can't specify more than one search criteria at once (mac address)\n") if ($search_for);
+	$datatype = "MAC";
+	$search_for = $opt_mac_address;
+}
+
+usage("") if (! $search_for);
+
+my $hostdbini = Config::IniFiles->new (-file => HOSTDB::get_inifile ());
+
+my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
+			  db => $hostdbini->val ('db', 'database'),
+			  user => $hostdbini->val ('db', 'user'),
+			  password => $hostdbini->val ('db', 'password'),
+			  debug => $debug
+			 );
+
+my $host = get_host ($search_for, $datatype);
+
+die ("$0: Could not find host object\n") unless ($host);
+
+if (! $opt_quiet) {
+	printf "%-7s %-7s %-16s %s\n", "id", "partof", "ip", "hostname";
+	printf "%-7s %-7s %-16s %s\n", $host->id (),
+		defined ($host->partof ())?$host->partof ():"-",
+		$host->ip (), $host->hostname ();
+}
+
+if (! $opt_force) {
+	die ("$0: Dying, you have to delete with --force\n");
+}
+
+$host->delete ($opt_force?"YES":"WELL, UHH") or die ("$0: Could not delete host object - $host->{error}\n");
+
+print ("Host object deleted\n") if (! $quiet);
+
+exit (0);
+
+
+sub usage
+{
+	my $msg = shift;
+	# interpolation
+	
+	die(<<EOT);
+${msg}Syntax: $0 datatype search_for
+	options:
+		--debug		debug
+		--force		well, force
+		--quiet		quiet
+	datatypes:
+		--id		host id
+		--ip		IP
+		--hostname	FQDN
+		--mac_address	MAC address
+
+EOT
+}
+
+sub get_host
+{
+	my $search_for = shift;
+	my $datatype = shift;
+	my @host_refs;
+
+	if ($datatype eq "IP") {
+		if ($hostdb->is_valid_ip ($search_for)) {
+			@host_refs = $hostdb->findhostbyip ($search_for);
+		} else {
+			warn ("Search failed: '$search_for' is not a valid IP address");
+			return undef;
+		}
+	} elsif ($datatype eq "FQDN") {
+		if ($hostdb->is_valid_fqdn ($search_for)) {
+			@host_refs = $hostdb->findhostbyname ($search_for);
+		} else {
+			warn ("Search failed: '$search_for' is not a valid FQDN");
+			return undef;
+		}
+	} elsif ($datatype eq "MAC") {
+		my $t = $search_for;
+		if ($hostdb->clean_mac_address ($t)) {
+			$search_for = $t;
+			@host_refs = $hostdb->findhostbymac ($search_for);
+		} else {
+			warn ("Search failed: '$search_for' is not a valid MAC address");
+			return undef;
+		}
+	} elsif ($datatype eq "ID") {
+		if ($search_for =~ /^\d+$/) { 
+			@host_refs = $hostdb->findhostbyid ($search_for);
+		} else {
+			warn ("Search failed: '$search_for' is not a valid ID");
+			return undef;
+		}
+	} else {
+		warn ("Search failed: don't recognize datatype '$datatype'");
+		return undef;
+	}
+
+	if ($#host_refs == -1) {
+		warn ("$0: Search for '$search_for' (type '$datatype') failed - no match\n");
+		return undef;
+	}
+	if ($#host_refs == -1) {
+		my $count = $#host_refs + 1;
+		warn ("$0: Search for '$search_for' (type '$datatype') failed - more than one ($count) match\n");
+		return undef;
+	}
+	
+	return $host_refs[0];
+}
+
