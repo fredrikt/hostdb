@@ -125,6 +125,7 @@ sub clean_hostname
 	return 0 unless $new;
 
 	$new =~ s/\.+$//o;	# strip trailing dots
+	$new =~ s/^\s*(\S+)\s*$/$1/o;	# trim spaces
 
 	$valid = $self->is_valid_fqdn ($new) || $self->is_valid_domainname ($new);
 
@@ -160,6 +161,7 @@ sub clean_domainname
 	return 0 unless $new;
 
 	$new =~ s/\.+$//o;	# strip trailing dots
+	$new =~ s/^\s*(\S+)\s*$/$1/o;	# trim spaces
 
 	$valid = $self->is_valid_domainname ("$new");
 	
@@ -317,6 +319,7 @@ sub clean_mac_address
 	my $valid;
 
 	$new =~ s/[\.\-]/:/og;	# replace dots and dashes with colons
+	$new =~ s/^\s*(\S+)\s*$/$1/o;	# trim spaces
 	
 	if ($new =~ /^([\da-f]+):([\da-f]+):([\da-f]+)$/o) {
 		# handle 0002.b39a.89df
