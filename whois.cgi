@@ -672,7 +672,7 @@ sub print_host_info
 	    }
 	    push (@a, "<a HREF='$me;type=aliasid;data=$a_id'>$a_name</a>$a_dnsstatus");
 	}
-	my $aliases = join (",&nbsp", @a);
+	my $aliases = join (", ", @a);
 	$aliases_tr = "\t<tr>\n\t\t$empty_td\n\t\t<td>Aliases</td>\n\t\t<td>$aliases</td>\n\t</tr>";
     }
 
