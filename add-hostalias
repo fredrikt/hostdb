@@ -76,7 +76,7 @@ $alias->aliasname ($aliasname) or die ("$0: Invalid value - $alias->{error}\n");
 # defaults, set before checking if they are supplied
 my $host_ttl = $host->ttl () || 'NULL';
 $alias->dnsstatus ('ENABLED')	or die ("$0: Could not set default 'dnsstatus': $alias->{error}\n");
-$alias->ttl($host_ttl)	or die ("$0: Could not set default 'ttl' (from host, '$host_ttl'): $alias->{error}\n");
+$alias->ttl ($host_ttl)	or die ("$0: Could not set default 'ttl' (from host, '$host_ttl'): $alias->{error}\n");
 
 # optional ones
 $alias->dnsstatus ($opt_dnsstatus)		or die ("$0: Invalid dnsstatus - $alias->{error}\n") if (defined ($opt_dnsstatus));
