@@ -7,54 +7,20 @@
 
 use strict;
 use HOSTDB;
-use SUCGI2;
 
-my $table_blank_line = "<tr><td COLSPAN='4'>&nbsp;</td></tr>\n";
-my $table_hr_line = "<tr><td COLSPAN='4'><hr></td></tr>\n";
+my $table_cols = 4;
 
-my $debug = 0;
-if (defined($ARGV[0]) and $ARGV[0] eq "-d") {
-    shift (@ARGV);
-    $debug = 1;
-}
-
-my $hostdbini = Config::IniFiles->new (-file => HOSTDB::get_inifile ());
-my $sucgi_ini;
-if (-f $hostdbini->val ('sucgi', 'cfgfile')) {
-    $sucgi_ini = Config::IniFiles->new (-file => $hostdbini->val ('sucgi', 'cfgfile'));
-} else {
-    warn ("No SUCGI config-file ('" . $hostdbini->val ('sucgi', 'cfgfile') . "')");
-}
-my $q = SUCGI2->new ($sucgi_ini, 'hostdb');
-$q->begin (title => 'Modify/Add Host');
+## Generic Stockholm university HOSTDB CGI initialization
+my ($table_blank_line, $table_hr_line, $empty_td) = HOSTDB::StdCGI::get_table_variables ($table_cols);
+my $debug = HOSTDB::StdCGI::parse_debug_arg (@ARGV);
+my ($hostdbini, $hostdb, $q, $remote_user) = HOSTDB::StdCGI::get_hostdb_and_sucgi ('Modify/Add Host', $debug);
+my (%links, $is_admin, $is_helpdesk, $me);
+HOSTDB::StdCGI::get_cgi_common_variables ($q, $hostdb, $remote_user, \%links, \$is_admin, \$is_helpdesk, \$me);
+## end generic initialization
 
 my $t = $hostdbini->val ('modifyhost', 'readwrite_attributes') || 'ALL';
 $t =~ s/\s+//og;
 my @readwrite_attributes = split (',', $t);
-
-my $hostdb = eval {
-    HOSTDB::DB->new (ini => $hostdbini, debug => $debug);
-};
-
-if ($@) {
-    my $e = $@;
-    $q->print ("&nbsp;<p><ul><font COLOR='red' SIZE='3'><strong>Could not create HOSTDB object: $e</strong></font></ul>\n\n");
-    $q->end ();
-    die ("$0: Could not create HOSTDB object: '$e'");
-}
-
-my $me = $q->state_url ();
-my %links = $hostdb->html_links ($q);
-
-my $remote_user = $q->user();
-unless ($remote_user) {
-    $q->print ("&nbsp;<p><ul><font COLOR='red' SIZE='3'><strong>You are not logged in.</strong></font></ul>\n\n");
-    $q->end ();
-    die ("$0: Invalid REMOTE_USER environment variable '$ENV{REMOTE_USER}'");
-}
-my $is_admin = $hostdb->auth->is_admin ($remote_user);
-my $is_helpdesk = $hostdb->auth->is_helpdesk ($remote_user);
-
 
 my $host;
 
@@ -82,30 +48,13 @@ if (! defined ($host)) {
 }
 
 
+## Generic Stockholm university HOSTDB CGI header
+my (@l);
+push (@l, "[<a HREF='$links{home}'>home</a>]") if ($links{home});
+push (@l, "[<a HREF='$links{whois}'>whois</a>]") if ($links{whois});
+HOSTDB::StdCGI::print_cgi_header ($q, 'Add/Modify Host', $is_admin, $is_helpdesk, \%links, \@l);
+## end generic header
 
-my (@links, @admin_links);
-push (@admin_links, "[<a HREF='$links{netplan}'>netplan</a>]") if ($links{netplan});
-push (@links, "[<a HREF='$links{home}'>home</a>]") if ($links{home});
-push (@links, "[<a HREF='$links{whois}'>whois</a>]") if ($links{whois});
-
-my $l = '';
-if (@links or @admin_links) {
-    $l = join(' ', @links, @admin_links);
-}
-
-
-$q->print (<<EOH);
-	<form ACTION='$me' METHOD='post'>
-	<table BORDER='0' CELLPADDING='0' CELLSPACING='3' WIDTH='100%'>
-		$table_blank_line
-		<tr>
-			<td COLSPAN='3' ALIGN='center'>
-				<h3>HOSTDB: Add/Modify Host</h3>
-			</td>
-			<td ALIGN='right'>$l</td>
-		</tr>
-		$table_blank_line
-EOH
 
 my $action = lc ($q->param('action'));
 $action = 'search' unless $action;
@@ -146,7 +95,7 @@ if (defined ($host)) {
 
 END:
 $q->print (<<EOH);
-	</table></form>
+	</table>
 EOH
 
 $q->end();
@@ -208,7 +157,7 @@ sub modify_host
 
 	# check which fields we should allow changes to
 	foreach my $t (keys %changer) {
-	    delete($changer{$t}) if (! check_alloewd_readwrite ($t, $readwrite_attributes, $remote_user, $is_admin, $is_helpdesk));
+	    delete($changer{$t}) if (! check_allowed_readwrite ($t, $readwrite_attributes, $remote_user, $is_admin, $is_helpdesk));
 	}
 
 	foreach my $name (keys %changer) {
@@ -539,8 +488,6 @@ sub host_form
     $dnsmode = $dnsmode_labels{$dnsmode} || $dnsmode;
     $dnsstatus = $enabled_labels{$dnsstatus} || $dnsstatus;
 
-    my $empty_td = '<td>&nbsp;</td>';
-
     my $required = "<font COLOR='red'>*</font>";
 
     my $delete = "[delete]";
@@ -558,40 +505,64 @@ sub host_form
     }
 
     $q->print (<<EOH);
+        <form ACTION='$me' METHOD='post'>
+	    <table BORDER='0' CELLPADDING='0' CELLSPACING='0' WIDTH='100%'>
+
 		$state_field
                 $id_if_any
+
+		<!-- table width disposition tds -->
+		<tr>
+			<td WIDTH='15%'>&nbsp;</td>
+			<td WIDTH='35%'>&nbsp;</td>
+			<td WIDTH='10%'>&nbsp;</td>
+			<td WIDTH='40%'>&nbsp;</td>
+		</tr>
+
 		<tr>
 			<td>ID</td>
 			<td>$host_id</td>
 			$empty_td
 			$empty_td
 		</tr>
+
+
 		<tr>
 			<td>Subnet</td>
 			<td>$subnet</td>
 			$empty_td
 			$empty_td
 		</tr>
+
+
 		<tr>
 			<td>DNS zone</td>
 			<td>$dnszone</td>
 			$empty_td
 			$empty_td
 		</tr>
+
+
 		<tr>
 			<td ALIGN='center' COLSPAN='2'>---</td>
 			<td ALIGN='center' COLSPAN='2'>---</td>
 		</tr>
+
+
 		<tr>
 			<td>Parent</td>
 			<td>$partof</td>
 			$empty_td
 			$empty_td
 		</tr>
+
+
 		<tr>
 			<td>Comment</td>
 			<td COLSPAN='3'>$comment</td>
 		</tr>
+
+
 		<tr>
 			<td>Owner $required</td>
 			<td>$owner</td>
@@ -607,18 +578,23 @@ sub host_form
 			$empty_td
 			$empty_td
 		</tr>
+
+
 		<tr>
 			<td>IP address $required</td>
 			<td><strong>$ip</strong></td>
 			$empty_td
 			$empty_td
 		</tr>
+
+
 		<tr>
 			<td>Hostname $required</td>
 			<td><strong>$hostname</strong></td>
 			$empty_td
 			$empty_td
 		</tr>
+
 
 		<tr>
 			<td>DNS mode</td>
@@ -635,24 +611,32 @@ sub host_form
 			$empty_td
 			$empty_td
 		</tr>
+
+
 		<tr>
 			<td>MAC Address</td>
 			<td>$mac_address</td>
 			$empty_td
 			$empty_td
 		</tr>
+
+
+		<tr>
 			<td>DHCP mode</td>
 			<td>$dhcpmode</td>
 			<td>&nbsp;&nbsp;Profile</td>
 			<td>$profile</td>
 		</tr>
+
+
 		<tr>
 			<td COLSPAN='2' ALIGN='left'>$commit</td>
 			<td COLSPAN='2' ALIGN='right'>$delete</td>
 		</tr>
 
 		$table_blank_line
-
+	    </table>
+	</form>
 EOH
 
     return 1;
@@ -693,7 +677,7 @@ sub error_line
     chomp ($error);
     $q->print (<<EOH);
 	   <tr>
-		<td COLSPAN='4'>
+		<td COLSPAN='$table_cols'>
 		   <font COLOR='red'>
 			<strong>$error</strong>
 		   </font>

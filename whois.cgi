@@ -7,83 +7,28 @@
 
 use strict;
 use HOSTDB;
-use SUCGI2;
 
-my $table_blank_line = "<tr><td COLSPAN='4'>&nbsp;</td></tr>\n";
-my $table_hr_line = "<tr><td COLSPAN='4'><hr></td></tr>\n";
-my $empty_td = "<td>&nbsp;</td>\n";
+my $table_cols = 4;
 
-my $debug = 0;
-if (defined ($ARGV[0]) and ($ARGV[0] eq "-d")) {
-    shift (@ARGV);
-    $debug = 1;
-}
+## Generic Stockholm university HOSTDB CGI initialization
+my ($table_blank_line, $table_hr_line, $empty_td) = HOSTDB::StdCGI::get_table_variables ($table_cols);
+my $debug = HOSTDB::StdCGI::parse_debug_arg (@ARGV);
+my ($hostdbini, $hostdb, $q, $remote_user) = HOSTDB::StdCGI::get_hostdb_and_sucgi ('Whois', $debug);
+my (%links, $is_admin, $is_helpdesk, $me);
+HOSTDB::StdCGI::get_cgi_common_variables ($q, $hostdb, $remote_user, \%links, \$is_admin, \$is_helpdesk, $me);
+## end generic initialization
 
-my $hostdbini = Config::IniFiles->new (-file => HOSTDB::get_inifile ());
-my $sucgi_ini;
-if (-f $hostdbini->val ('sucgi', 'cfgfile')) {
-    $sucgi_ini = Config::IniFiles->new (-file => $hostdbini->val ('sucgi', 'cfgfile'));
-} else {
-    warn ("No SUCGI config-file ('" . $hostdbini->val ('sucgi', 'cfgfile') . "')");
-}
-my $q = SUCGI2->new ($sucgi_ini, 'hostdb');
-$q->begin (title => 'Whois');
-
-my $hostdb = eval {
-    HOSTDB::DB->new (ini => $hostdbini, debug => $debug);
-};
-
-if ($@) {
-    my $e = $@;
-    $q->print ("&nbsp;<p><ul><font COLOR='red' SIZE='3'><strong>Could not create HOSTDB object: $e</strong></font></ul>\n\n");
-    $q->end ();
-    die ("$0: Could not create HOSTDB object: '$e'");
-}
-
-my %links = $hostdb->html_links ($q);
-
-my $static_flag_days = $hostdbini->val ('subnet', 'static_flag_days');
-my $dynamic_flag_days = $hostdbini->val ('subnet', 'static_flag_days');
-
-my $remote_user = $q->user();
-unless ($remote_user) {
-    $q->print ("&nbsp;<p><ul><font COLOR='red' SIZE='3'><strong>You are not logged in.</strong></font></ul>\n\n");
-    $q->end ();
-    die ("$0: Invalid REMOTE_USER environment variable '$ENV{REMOTE_USER}'");
-}
-my $is_admin = $hostdb->auth->is_admin ($remote_user);
-my $is_helpdesk = $hostdb->auth->is_helpdesk ($remote_user);
-
-
-my (@links, @admin_links);
-push (@admin_links, "[<a HREF='$links{netplan}'>netplan</a>]") if (($is_admin or $is_helpdesk) and $links{netplan});
-push (@links, "[<a HREF='$links{home}'>home</a>]") if ($links{home});
-
-my $l = '';
-if (@links or @admin_links) {
-    $l = join(' ', @links, @admin_links);
-}
-
-$q->print (<<EOH);
-	<table BORDER='0' CELLPADDING='0' CELLSPACING='0' WIDTH='100%'>
-		$table_blank_line
-		<tr>
-			<td COLSPAN='3' ALIGN='center'><h3>HOSTDB: Search</h3></td>
-			<td ALIGN='right'>$l</td>
-		</tr>
-		$table_blank_line
-EOH
+## Generic Stockholm university HOSTDB CGI header
+my (@l);
+push (@l, "[<a HREF='$links{home}'>home</a>]") if ($links{home});
+HOSTDB::StdCGI::print_cgi_header ($q, 'Search', $is_admin, $is_helpdesk, \%links, \@l);
+## end generic header
 
 whois_form ($q);
 
-$q->print ($table_hr_line);
-
-
+my $static_flag_days = $hostdbini->val ('subnet', 'static_flag_days');
+my $dynamic_flag_days = $hostdbini->val ('subnet', 'static_flag_days');
 perform_search ($hostdb, $q, $remote_user, $is_admin, $is_helpdesk, $static_flag_days, $dynamic_flag_days);
-
-$q->print (<<EOH);
-	</table>
-EOH
 
 $q->end ();
 
@@ -119,6 +64,7 @@ sub whois_form
     my $submit = $q->submit (-name => 'Search', -class => 'button');
 
     $q->print (<<EOH);
+    	<table BORDER='0' CELLPADDING='0' CELLSPACING='0' WIDTH='100%'>
 		<tr>
 		   <td COLSPAN='4' ALIGN='center'>
 			<form ACTION='$me' METHOD='post'>
@@ -131,6 +77,7 @@ sub whois_form
 		   </td>
 		</tr>
 		$table_blank_line
+	</table>
 EOH
     return 1;
 }
@@ -147,6 +94,8 @@ sub perform_search
 
     my $whoisdata = $q->param ('whoisdata') || $q->param ('data') || '';
     if ($whoisdata) {
+	$q->print ("\t\t<table BORDER='0' CELLPADDING='0' CELLSPACING='0' WIDTH='100%'>\n");
+
 	my $search_for = lc ($whoisdata);
 	my $t = $q->param ('whoisdatatype') || $q->param ('datatype') || $q->param ('type') || '';
 	my $whoisdatatype = lc ($t);
@@ -291,6 +240,7 @@ EOH
 	    }
 	}
 	
+	$q->print ("\n\t\t</table>\n");
 	return 0;
     } else {
 	$q->print ("<!-- no whoisdata, not searching -->\n");
