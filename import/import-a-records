@@ -41,6 +41,10 @@ if ($output_filename and $#files != 0) {
     die ("$0: You can't specify output filename when you have more than one input zone\n");
 }
 
+if ($output_filename) {
+    open (OUTFILE, "> $output_filename") or die ("Could not open '$output_filename' for writing: $!\n");
+}
+
 my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
 			      debug => $debug
 			      );
@@ -50,6 +54,8 @@ foreach my $file (@files) {
     my $imported = 0;
     $default_ttl = 0;
     my @delayed;
+    my $skip_copy = 0;
+
     while (my $rad = <FIL>) {
 	chomp ($rad);
 
@@ -73,10 +79,18 @@ foreach my $file (@files) {
 	    if ($delay) {
 		my @info = ($name, $ttl, $ip);
 		push (@delayed, \@info);
+		$skip_copy++;
 		next;
 	    }
 
-	    $imported++ if (add_host ($hostdb, 0, $name, $ttl, $ip, $debug, $db_dry_run));
+	    if (add_host ($hostdb, 0, $name, $ttl, $ip, $debug, $db_dry_run)) {
+		$imported++;
+		$skip_copy = 1;
+	    }
+	}
+
+	if (! $skip_copy and $output_filename) {
+	    print (OUTFILE "$rad\n");
 	}
     }
 
@@ -91,7 +105,9 @@ foreach my $file (@files) {
     close (FIL);
 }
 
+close (OUTFILE) if ($output_filename);
 print ("done\n");
+
 
 sub add_host
 {
@@ -108,19 +124,30 @@ sub add_host
 
     if ($dry_run) {
 	print ("dry-run skipping host '$name $ttl $ip'\n");
-	return 0;
+	return 1;
     }
-
-    print ("add host '$name $ttl $ip'\n") if ($debug);
 
     $host = $hostdb->create_host();
 
     die ("$0: Could not create host object: $hostdb->{error}\n") unless ($host);
 
     if ($findparent) {
-	my $super_host = $hostdb->findhostbyip ($ip);
-	$host->partof ($super_host->id ()) if (defined ($super_host) and $super_host->id ());
-	undef ($super_host);
+	my $s = $hostdb->findhostbyip ($ip);
+	my $parent_id;
+	$parent_id = $s->id () if defined ($s);
+	my $parent_hostname = $s->hostname() if (defined ($s));
+	$host->partof ($s) if ($parent_id);
+	undef ($s);
+
+	if ($debug) {
+	    if ($parent_id) {
+		print ("add host '$name $ttl $ip', parent $parent_id ($parent_hostname)\n");
+	    }
+	} else {
+	    print ("add host '$name $ttl $ip'\n");
+	}
+    } else {
+	print ("add host '$name $ttl $ip'\n") if ($debug);
     }
 
     my $valid = 1;
