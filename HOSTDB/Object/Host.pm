@@ -785,15 +785,16 @@ sub mac_address_ts
 
 	if (@_) {
 		my $newvalue = shift;
-	
-		if ($newvalue =~ /^\d{2,4}-\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}:\d{1,2}$/o) {
-			$self->{mac_address_ts} = $newvalue;
-		} elsif ($newvalue eq "NOW" or $newvalue eq "NOW()") {
-			$self->{mac_address_ts} = $self->unixtime_to_datetime (time ());
-		} elsif ($newvalue =~ /^unixtime:(\d+)$/oi) {
-			$self->{mac_address_ts} = $self->unixtime_to_datetime ($1);
-		} elsif ($newvalue eq "NULL") {
-			$self->{mac_address_ts} = undef;
+
+		my $fmtvalue = $self->_format_datetime ($newvalue);
+		if (defined ($fmtvalue)) {
+			if ($fmtvalue eq 'NULL') {
+				$self->{mac_address_ts} = undef;
+			} else {
+				$self->{mac_address_ts} = $fmtvalue;
+			}
+
+			return 1;
 		} else {
 			$self->_set_error ("Invalid mac_address timestamp format");
 			return 0;
@@ -837,29 +838,6 @@ sub unix_mac_address_ts
 	These functions should NEVER be called by a program using this class,
 	but are documented here as well just for the sake of documentation.
 
-
-=head2 unixtime_to_datetime
-
-	Convert a unix time stamp to localtime () format yyyy-mm-dd hh:mm:ss
-
-	$now_as_string = $self->unixtime_to_datetime (time ());
-
-
-=cut
-sub unixtime_to_datetime
-{
-	my $self = shift;
-	my $time = shift;
-
-	my ($sec, $min, $hour, $mday, $mon, $year, $yday, $isdst) = localtime ($time);
-	
-	$year += 1900;	# yes, this is Y2K safe (why do you even bother? this was written
-			# in the year of 2002)
-	$mon++;
-	
-	return (sprintf ("%.4d-%.2d-%.2d %.2d:%.2d:%.2d",
-		$year, $mon, $mday, $hour, $min, $sec));
-}
 
 
 

@@ -691,40 +691,6 @@ sub is_valid_username
 }
 
 
-sub _nameserver_time_to_seconds
-{
-	my $self = shift;
-	my $in = shift;
-
-	# check for BIND9 time like 1w2d3h4m5s
-	my $seconds = 0;
-	if ($in =~ /^(\d+)w(.*)$/) {
-		$seconds += int ($1) * (86400 * 7);
-		$in = $2;
-	}
-	if ($in =~ /^(\d+)d(.*)$/) {
-		$seconds += int ($1) * 86400;
-		$in = $2;
-	}
-	if ($in =~ /^(\d+)h(.*)$/) {
-		$seconds += int ($1) * 3600;
-		$in = $2;
-	}
-	if ($in =~ /^(\d+)m(.*)$/) {
-		$seconds += int ($1) * 60;
-		$in = $2;
-	}
-	if ($in =~ /^\d+$/) {
-		$seconds += int ($in);
-		$in = '';
-	}
-	
-	return -1 if ($in);
-
-	return $seconds;
-}
-
-
 =head2 is_valid_nameserver_time
 
 	Checks if the specified value is either a positive integer
@@ -894,6 +860,102 @@ sub _debug_print
 	}
 
 	return undef;
+}
+
+
+=head2 _nameserver_time_to_seconds
+
+	$self->_nameserver_time_to_seconds ("1w2d3h4m5s");
+
+	Returns number of seconds.
+
+=cut
+sub _nameserver_time_to_seconds
+{
+	my $self = shift;
+	my $in = shift;
+
+	# check for BIND9 time like 1w2d3h4m5s
+	my $seconds = 0;
+	if ($in =~ /^(\d+)w(.*)$/) {
+		$seconds += int ($1) * (86400 * 7);
+		$in = $2;
+	}
+	if ($in =~ /^(\d+)d(.*)$/) {
+		$seconds += int ($1) * 86400;
+		$in = $2;
+	}
+	if ($in =~ /^(\d+)h(.*)$/) {
+		$seconds += int ($1) * 3600;
+		$in = $2;
+	}
+	if ($in =~ /^(\d+)m(.*)$/) {
+		$seconds += int ($1) * 60;
+		$in = $2;
+	}
+	if ($in =~ /^\d+$/) {
+		$seconds += int ($in);
+		$in = '';
+	}
+	
+	return -1 if ($in);
+
+	return $seconds;
+}
+
+
+=head2 _format_datetime
+
+	$self->_format_datetime ($string);
+
+	Valid formats for setting are: yyyy-mm-dd hh:mm:ss
+				       NOW
+				       unixtime:nnnnnnnnnn
+
+	Returns time in yyyy-mm-dd hh:mm:ss format. Suitable for
+	mysql DATETIME columns.
+
+
+=cut
+sub _format_datetime
+{
+	my $self = shift;
+	my $in = shift;
+
+	if ($in =~ /^\d{2,4}-\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}:\d{1,2}$/o) {
+		return ($in);
+	} elsif ($in eq "NOW" or $in eq "NOW()") {
+		retrurn ($self->_unixtime_to_datetime (time ()));
+	} elsif ($in =~ /^unixtime:(\d+)$/oi) {
+		return ($self->_unixtime_to_datetime ($1));
+	} elsif ($in eq 'NULL') {
+		return ('NULL');
+	}
+
+	return undef;
+}
+
+=head2 _unixtime_to_datetime
+
+	Convert a unix time stamp to localtime () format yyyy-mm-dd hh:mm:ss
+
+	$now_as_string = $self->_unixtime_to_datetime (time ());
+
+
+=cut
+sub _unixtime_to_datetime
+{
+	my $self = shift;
+	my $time = shift;
+
+	my ($sec, $min, $hour, $mday, $mon, $year, $yday, $isdst) = localtime ($time);
+	
+	$year += 1900;	# yes, this is Y2K safe (why do you even bother? this was written
+			# in the year of 2002)
+	$mon++;
+	
+	return (sprintf ("%.4d-%.2d-%.2d %.2d:%.2d:%.2d",
+		$year, $mon, $mday, $hour, $min, $sec));
 }
 
 
