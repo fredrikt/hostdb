@@ -1151,9 +1151,9 @@ sub init
 	$self->_debug_print ("creating object");
 
 	if ($hostdb->{_dbh}) {
-		$self->{_new_host} = $hostdb->{_dbh}->prepare ("INSERT INTO $hostdb->{db}.config (mac, hostname, ip, n_ip, owner, ttl, user, partof, reverse) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+		$self->{_new_host} = $hostdb->{_dbh}->prepare ("INSERT INTO $hostdb->{db}.config (mac, hostname, ip, n_ip, owner, ttl, user, partof, reverse, last_modified_ts, mac_address_ts) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)")
 			or die "$DBI::errstr";
-		$self->{_update_host} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.config SET mac = ?, hostname = ?, ip = ?, n_ip = ?, owner = ?, ttl = ?, user = ?, partof = ?, reverse = ? WHERE id = ?")
+		$self->{_update_host} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.config SET mac = ?, hostname = ?, ip = ?, n_ip = ?, owner = ?, ttl = ?, user = ?, partof = ?, reverse = ?, last_modified_ts = NOW(), mac_address_ts = ?, WHERE id = ?")
 			or die "$DBI::errstr";
 
 		$self->{_get_last_id} = $hostdb->{_dbh}->prepare ("SELECT LAST_INSERT_ID()")
@@ -1166,10 +1166,10 @@ sub mac_address
 	my $self = shift;
 
 	if (@_) {
-		my $mac = shift;
+		my $newvalue = shift;
 	
-		return 0 if (! $self->clean_mac_address ($mac));
-		$self->{mac} = $mac;
+		return 0 if (! $self->clean_mac_address ($newvalue));
+		$self->{mac} = $newvalue;
 
 		return 1;
 	}
@@ -1182,10 +1182,10 @@ sub hostname
 	my $self = shift;
 
 	if (@_) {
-		my $hostname = shift;
+		my $newvalue = shift;
 	
-		return 0 if (! $self->clean_hostname ($hostname));
-		$self->{hostname} = $hostname;
+		return 0 if (! $self->clean_hostname ($newvalue));
+		$self->{hostname} = $newvalue;
 
 		return 1;
 	}
@@ -1198,9 +1198,9 @@ sub ip
 	my $self = shift;
 
 	if (@_) {
-		my $ip = shift;
+		my $newvalue = shift;
 	
-		return 0 if (! $self->check_valid_ip ($ip));
+		return 0 if (! $self->check_valid_ip ($newvalue));
 
 		# XXX CHECK IP
 		# check if IP is
@@ -1216,11 +1216,11 @@ sub ip
 		# (10.0.0.0/8 are IP telephones and 192.168.0.0/16 is used)
 		#
 		
-		$self->{ip} = $ip;
+		$self->{ip} = $newvalue;
 
 		# redundantly stored, but this enables us to do much simpler
 		# database querys (for hosts in ranges of IPs etc.)
-		$self->{n_ip} = $self->aton ($ip);
+		$self->{n_ip} = $self->aton ($newvalue);
 	
 		return 1;
 	}
@@ -1245,12 +1245,12 @@ sub ttl
 	my $self = shift;
 
 	if (@_) {
-		my $ttl = shift;
+		my $newvalue = shift;
 
-		if ($ttl eq "NULL") {
+		if ($newvalue eq "NULL") {
 			$self->{ttl} = "NULL";
 		} else {
-			$self->{ttl} = int ($ttl);
+			$self->{ttl} = $newvalue;
 		}
 
 		return 1;
@@ -1264,9 +1264,9 @@ sub user
 	my $self = shift;
 
 	if (@_) {
-		my $user = shift;
+		my $newvalue = shift;
 
-		$self->{user} = $user;
+		$self->{user} = $newvalue;
 	
 		return 1;
 	}
@@ -1279,9 +1279,9 @@ sub owner
 	my $self = shift;
 
 	if (@_) {
-		my $owner = shift;
+		my $newvalue = shift;
 
-		$self->{user} = $owner;
+		$self->{user} = $newvalue;
 	
 		return 1;
 	}
@@ -1294,13 +1294,13 @@ sub partof
 	my $self = shift;
 
 	if (@_) {
-		my $partof = shift;
+		my $newvalue = shift;
 	
-		if ((int($partof) == 0) and ($partof ne "0")) {
+		if ((int($newvalue) == 0) and ($newvalue ne "0")) {
 			$self->set_error ("Invalid partof");
 			return 0;
 		}
-		$self->{partof} = int($partof);
+		$self->{partof} = int($newvalue);
 
 		return 1;
 	}
@@ -1313,11 +1313,11 @@ sub reverse
 	my $self = shift;
 
 	if (@_) {
-		my $reverse = shift;
+		my $newvalue = shift;
 	
-		if ($reverse =~ /^y/i or $reverse == 1) {
+		if ($newvalue =~ /^y/i or $newvalue == 1) {
 			$self->{reverse} = "Y";
-		} elsif ($reverse =~ /^n/i or $reverse == 1) {
+		} elsif ($newvalue =~ /^n/i or $newvalue == 1) {
 			$self->{reverse} = "N";
 		} else {
 			$self->set_error ("Invalid reverse format");
@@ -1342,6 +1342,28 @@ sub id
 	return ($self->{id});
 }
 
+sub mac_address_ts
+{
+	my $self = shift;
+
+	if (@_) {
+		my $newvalue = shift;
+	
+		if ($newvalue =~ /^\d{2,4}-\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}:\d{1,2}$/) {
+			$self->{mac_address_ts} = $newvalue;
+		} elsif ($newvalue eq "NOW" or $newvalue eq "NOW()") {
+			$self->{mac_address_ts} = "NOW()";
+		} else {
+			$self->set_error ("Invalid mac_address timestamp format");
+			return 0;
+		}
+
+		return 1;
+	}
+
+	return $self->{mac_address_ts};
+}
+
 sub commit
 {
 	my $self = shift;
@@ -1355,13 +1377,22 @@ sub commit
 
 	$self->{partof} = undef if (defined ($self->{partof}) and $self->{partof} <= 0);
 
+	# fields in database order
+	my @db_values = ($self->mac_address (),
+			 $self->hostname (),
+			 $self->ip (),
+			 $self->n_ip (),
+			 $self->owner (),
+			 $self->ttl (),
+			 $self->user (),
+			 $self->partof (),
+			 $self->reverse (),
+			 $self->mac_address_ts ()
+			);
 	my $sth;
 	if (defined ($self->id ()) and $self->id () >= 0) {
 		$sth = $self->{_update_host};
-		$sth->execute ($self->mac_address (), $self->hostname (), $self->ip (),
-			       $self->n_ip (), $self->owner(),
-			       $self->ttl (), $self->user (), $self->partof (),
-			       $self->reverse (), $self->id ())
+		$sth->execute (@db_values, $self->id ())
 			or die "$DBI::errstr";
 		
 		# XXX check number of rows affected?
@@ -1371,11 +1402,7 @@ sub commit
 		# this is a new entry
 
 		$sth = $self->{_new_host};
-		$sth->execute ($self->mac (), $self->hostname (), $self->ip (),
-			       $self->n_ip (), $self->owner(),
-			       $self->ttl (), $self->user (), $self->partof (),
-			       $self->reverse ())
-			or die "$DBI::errstr";
+		$sth->execute (@db_values) or die "$DBI::errstr";
 
 		$sth->finish ();
 
@@ -1404,9 +1431,9 @@ sub init
 	$self->_debug_print ("creating object");
 
 	if ($hostdb->{_dbh}) {
-		$self->{_new_zone} = $hostdb->{_dbh}->prepare ("INSERT INTO $hostdb->{db}.zone (zonename, delegated, serial, refresh, retry, expiry, minimum, owner) VALUES (?, ?, ?, ?, ?, ?, ?)")
+		$self->{_new_zone} = $hostdb->{_dbh}->prepare ("INSERT INTO $hostdb->{db}.zone (zonename, delegated, ttl, mname, rname, serial, refresh, retry, expiry, minimum, owner) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
 			or die "$DBI::errstr";
-		$self->{_update_zone} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.zone SET zonename = ?, delegated = ?, serial = ?, refresh = ?, retry = ?, expiry = ?, minimum = ?, owner = ? WHERE zonename = ?")
+		$self->{_update_zone} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.zone SET zonename = ?, delegated = ?, ttl = ?, mname = ?, rname = ?, serial = ?, refresh = ?, retry = ?, expiry = ?, minimum = ?, owner = ? WHERE zonename = ?")
 			or die "$DBI::errstr";
 
 		#$self->{_get_last_id} = $hostdb->{_dbh}->prepare ("SELECT LAST_INSERT_ID()")
@@ -1451,8 +1478,14 @@ sub delegated
 	if (@_) {
 		my $newvalue = shift;
 	
-		return 0 if ($newvalue ne "Y" and $newvalue ne "N");
-		$self->{delegated} = $newvalue;
+		if ($newvalue =~ /^y/i or $newvalue == 1) {
+			$self->{delegated} = "Y";
+		} elsif ($newvalue =~ /^n/i or $newvalue == 1) {
+			$self->{delegated} = "N";
+		} else {
+			$self->set_error ("Invalid delegated format");
+			return 0;
+		}
 		
 		return 1;
 	}
@@ -1460,22 +1493,42 @@ sub delegated
 	return ($self->{delegated});
 }
 
+# this is the zone default ttl ($TTL)
+sub default_ttl
+{
+	my $self = shift;
+
+	if (@_) {
+		my $newvalue = shift;
+
+		if ($newvalue eq "NULL") {
+			$self->{default_ttl} = "NULL";
+		} else {
+			$self->{default_ttl} = int ($newvalue);
+		}
+		
+		return 1;
+	}
+
+	return $self->{default_ttl};
+}
+
 sub serial
 {
 	my $self = shift;
 	if (@_) {
-		my $serial = shift;
+		my $newvalue = shift;
 
-		$self->_debug_print ("Setting SOA serial '$serial'");
+		$self->_debug_print ("Setting SOA serial '$newvalue'");
 
-		if ($serial eq "NULL") {
+		if ($newvalue eq "NULL") {
 			$self->{serial} = "NULL";
 		} else {
-			if ($serial !~ /^\d{10,10}$/) {
+			if ($newvalue !~ /^\d{10,10}$/) {
 				$self->_set_error("Invalid serial number (should be 10 digits, todays date and two incrementing)");
 				return 0;
 			}
-			$self->{serial} = int ($serial);
+			$self->{serial} = int ($newvalue);
 		}
 		
 		return 1;
@@ -1484,17 +1537,74 @@ sub serial
 	return $self->{serial};
 }
 
+sub mname
+{
+	my $self = shift;
+
+	if (@_) {
+		my $newvalue = shift;
+
+		if ($newvalue eq "NULL") {
+			$self->{mname} = "NULL";
+		} else {
+			my $illegal_chars = $newvalue;
+			$illegal_chars =~ s/[a-zA-Z0-9\.\-]//og;
+			if ($illegal_chars) {
+				$self->_set_error ("SOA mname '$newvalue' contains illegal characters ($illegal_chars)");
+				return 0;
+			}
+		}
+
+		$self->{mname} = $newvalue;
+		
+		return 1;
+	}
+
+	return $self->{mname};
+}
+
+sub rname
+{
+	my $self = shift;
+
+	if (@_) {
+		my $newvalue = shift;
+
+		if ($newvalue eq "NULL") {
+			$self->{rname} = "NULL";
+		} else {
+			if ($newvalue =~ /@/) {
+				$self->_set_error ("SOA rname ($newvalue) should not contain '\@' signs.");
+				return 0;
+			}
+
+			my $illegal_chars = $newvalue;
+			$illegal_chars =~ s/[a-zA-Z0-9\.\-]//og;
+			if ($illegal_chars) {
+				$self->_set_error ("SOA rname ($newvalue) contains illegal characters ($illegal_chars)");
+				return 0;
+			}
+		}
+
+		$self->{rname} = $newvalue;
+		
+		return 1;
+	}
+
+	return $self->{mname};
+}
+
 sub refresh
 {
 	my $self = shift;
 
 	if (@_) {
-		my $refresh = shift;
+		my $newvalue = shift;
 
-		if ($refresh eq "NULL") {
+		if ($newvalue eq "NULL") {
 			$self->{refresh} = "NULL";
 		} else {
-			$self->{refresh} = int ($refresh);
+			$self->{refresh} = int ($newvalue);
 		}
 		
 		return 1;
@@ -1503,17 +1613,37 @@ sub refresh
 	return $self->{refresh};
 }
 
+# this is the SOA record itselfs TTL
+sub ttl
+{
+	my $self = shift;
+
+	if (@_) {
+		my $newvalue = shift;
+
+		if ($newvalue eq "NULL") {
+			$self->{ttl} = "NULL";
+		} else {
+			$self->{ttl} = int ($newvalue);
+		}
+		
+		return 1;
+	}
+
+	return $self->{ttl};
+}
+
 sub retry
 {
 	my $self = shift;
 
 	if (@_) {
-		my $retry = shift;
+		my $newvalue = shift;
 
-		if ($retry eq "NULL") {
+		if ($newvalue eq "NULL") {
 			$self->{retry} = "NULL";
 		} else {
-			$self->{retry} = int ($retry);
+			$self->{retry} = int ($newvalue);
 		}
 		
 		return 1;
@@ -1527,12 +1657,12 @@ sub expiry
 	my $self = shift;
 	
 	if (@_) {
-		my $expiry = shift;
+		my $newvalue = shift;
 
-		if ($expiry eq "NULL") {
+		if ($newvalue eq "NULL") {
 			$self->{expiry} = "NULL";
 		} else {
-			$self->{expiry} = int ($expiry);
+			$self->{expiry} = int ($newvalue);
 		}
 		
 		return 1;
@@ -1546,12 +1676,12 @@ sub minimum
 	my $self = shift;
 
 	if (@_) {
-		my $minimum = shift;
+		my $newvalue = shift;
 
-		if ($minimum eq "NULL") {
+		if ($newvalue eq "NULL") {
 			$self->{minimum} = "NULL";
 		} else {
-			$self->{minimum} = int ($minimum);
+			$self->{minimum} = int ($newvalue);
 		}
 		
 		return 1;
@@ -1565,9 +1695,9 @@ sub owner
 	my $self = shift;
 
 	if (@_) {
-		my $owner = shift;
+		my $newvalue = shift;
 
-		$self->{owner} = $owner;
+		$self->{owner} = $newvalue;
 		
 		return 1;
 	}
@@ -1580,18 +1710,34 @@ sub commit
 	my $self = shift;
 
 	# if any of these values are 0, set it to NULL (undef) to use default values
+	$self->{default_ttl} = undef if (defined ($self->{default_ttl}) and $self->{default_ttl} < 0);
+	$self->{ttl} = undef if (defined ($self->{ttl}) and $self->{ttl} < 0);
+	$self->{mname} = undef if (defined ($self->{mname}) and $self->{mname} eq "NULL");
+	$self->{rname} = undef if (defined ($self->{rname}) and $self->{rname} eq "NULL");
 	$self->{refresh} = undef if (defined ($self->{refresh}) and $self->{refresh} <= 0);
 	$self->{retry} = undef if (defined ($self->{retry}) and $self->{retry} <= 0);
 	$self->{expiry} = undef if (defined ($self->{expiry}) and $self->{expiry} <= 0);
 	$self->{minimum} = undef if (defined ($self->{minimum}) and $self->{minimum} <= 0);
 
+	# fields in database order
+	my @db_values = ($self->{zonename},
+			 $self->{delegated},
+			 $self->{default_ttl},
+			 $self->{ttl},
+			 $self->{mname},
+			 $self->{rname},
+			 $self->{serial},
+			 $self->{refresh},
+			 $self->{retry},
+			 $self->{expiry},
+			 $self->{minimum},
+			 $self->{owner}
+			);
+
 	my $sth;
 	if (defined ($self->{in_db}) and $self->{in_db} >= 1) {
 		$sth = $self->{_update_zone};
-		$sth->execute ($self->{zonename}, $self->{delegated}, $self->{serial},
-			       $self->{refresh}, $self->{retry}, $self->{expiry},
-			       $self->{minimum}, $self->{owner},
-			       $self->{zonename})
+		$sth->execute (@db_values, $self->{zonename})
 			or die "$DBI::errstr";
 		
 		# XXX check number of rows affected?
@@ -1601,10 +1747,7 @@ sub commit
 		# this is a new entry
 
 		$sth = $self->{_new_zone};
-		$sth->execute ($self->{zonename}, $self->{delegated}, $self->{serial},
-			       $self->{refresh}, $self->{retry}, $self->{expiry},
-			       $self->{minimum}, $self->{owner})
-			or die "$DBI::errstr";
+		$sth->execute (@db_values) or die "$DBI::errstr";
 
 		$sth->finish ();
 	}	
@@ -1889,18 +2032,26 @@ sub commit
 {
 	my $self = shift;
 
+	# fields in database order
+	my @db_values = ($self->ipver (),
+			 $self->netaddr (),
+			 $self->slashnotation (),
+			 $self->netmask (),
+			 $self->broadcast (),
+			 $self->addresses (),
+			 $self->description (),
+			 $self->short_description (),
+			 $self->n_netaddr (),
+			 $self->n_netmask (),
+			 $self->n_broadcast (),
+			 $self->htmlcolor (),
+			 $self->dhcpconfig ()
+			);
+
 	my $sth;
 	if (defined ($self->{id})) {
 		$sth = $self->{_update_subnet};
-		$sth->execute ($self->ipver (), $self->netaddr (), $self->slashnotation (),
-			       $self->netmask (), $self->broadcast (), $self->addresses (),
-			       $self->description (), $self->short_description (),
-			       $self->n_netaddr (), $self->n_netmask (), $self->n_broadcast (),
-			       $self->htmlcolor (), $self->dhcpconfig (),
-			       # specifiers
-			       $self->id ()
-			      )
-			or die "$DBI::errstr";
+		$sth->execute (@db_values, $self->id ()) or die "$DBI::errstr";
 		
 		# XXX check number of rows affected?
 
@@ -1926,13 +2077,7 @@ sub commit
 		}
 
 		$sth = $self->{_new_subnet};
-		$sth->execute ($self->ipver (), $self->netaddr (), $self->slashnotation (),
-			       $self->netmask (), $self->broadcast (), $self->addresses(),
-			       $self->description (), $self->short_description (),
-			       $self->n_netaddr (), $self->n_netmask (), $self->n_broadcast (),
-			       $self->htmlcolor (), $self->dhcpconfig ()
-			      )
-			or die "$DBI::errstr";
+		$sth->execute (@db_values) or die "$DBI::errstr";
 
 		$sth->finish ();
 	}	
