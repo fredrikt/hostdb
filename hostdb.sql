@@ -37,7 +37,7 @@ CREATE TABLE zone (
 	retry INT,
 	expiry INT,
 	minimum INT,
-	owner VARCHAR(255),
+	owner VARCHAR(255) NOT NULL,
 	PRIMARY KEY (id)
 );
 
@@ -59,6 +59,7 @@ CREATE TABLE subnet (
 	n_broadcast INT UNSIGNED NOT NULL,
 	htmlcolor CHAR(20),
 	dhcpconfig MEDIUMBLOB,
+	owner VARCHAR(255) NOT NULL,
 	PRIMARY KEY (id)
 );
 
