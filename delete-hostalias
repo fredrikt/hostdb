@@ -1,0 +1,117 @@
+#!/usr/local/bin/perl -w
+#
+# $Id$
+#
+# script to delete host aliases from the database
+#
+
+use strict;
+use HOSTDB;
+use Getopt::Long;
+
+my %opt = ();
+my $res = GetOptions (\%opt,
+	    'id=i',
+	    'aliasname=s',
+	    'debug',
+	    'force',
+	    'quiet'
+	   );
+
+#die ("$0: Parsing options failed\n") if ($res);
+
+my ($search_for, $datatype);
+
+my $debug = defined ($opt{debug});
+
+my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
+			      debug => $debug
+			      );
+
+if (defined ($opt{id})) {
+    $datatype = 'ID';
+    $search_for = $opt{id};
+}
+if (defined ($opt{aliasname})) {
+    die ("$0: Can't specify more than one search criteria at once (aliasname)\n") if ($search_for);
+    $datatype = 'FQDN';
+    $search_for = $opt{aliasname};
+    
+    if (! $hostdb->clean_hostname ($search_for)) {
+	die ("$0: Invalid hostname '$search_for'\n");
+    }
+}
+
+usage('') if (! $search_for);
+
+my $alias = get_alias ($hostdb, $search_for, $datatype);
+
+die ("$0: Could not find alias object\n") unless ($alias);
+
+if (! $opt{quiet}) {
+    printf "   %-7s %-25s %s\n", 'id', 'aliasname', 'hostname';
+    my $h = $hostdb->findhostbyid ($alias->hostid ());
+    my $hostname = 'NOT FOUND';
+    if ($h) {
+	$hostname = $h->hostname () . ' (id ' . $h->id () . ')';
+    }
+    printf "   %-7s %-25s %s\n", $alias->id (), $alias->aliasname (), $hostname;
+}
+
+if (! $opt{force}) {
+    die ("$0: Dying, you have to delete with --force\n");
+}
+
+$alias->delete ($opt{force}?'YES':'WELL, UHH') or die ("$0: Could not delete host object - $alias->{error}\n");
+
+print ("Host object deleted\n") if (! $opt{quiet});
+
+exit (0);
+
+
+sub usage
+{
+    my $msg = shift;
+    # interpolation
+	
+    die(<<EOT);
+${msg}Syntax: $0 datatype search_for
+	options:
+		--debug		debug
+		--force		well, force
+		--quiet		quiet
+	datatypes:
+		--id		alias id
+		--aliasname	FQDN
+
+EOT
+}
+
+sub get_alias
+{
+    my $hostdb = shift;
+    my $search_for = shift;
+    my $datatype = shift;
+
+    my @alias_refs;
+
+    if ($datatype eq 'ID') {
+	@alias_refs = $hostdb->findhostaliasbyid ($search_for);
+    } elsif ($datatype eq 'FQDN') {
+	@alias_refs = $hostdb->findhostaliasbyname ($search_for);
+    } else {
+	die ("$0: Invalid datatype passed to get_alias () : $datatype\n");
+    }
+
+    if (! @alias_refs) {
+	warn ("$0: Search for '$search_for' failed - no match\n");
+	return undef;
+    }
+    if (0 + @alias_refs != 1) {
+	my $count = 0 + @alias_refs;
+	warn ("$0: Search for '$search_for' failed - more than one ($count) match\n");
+	return undef;
+    }
+
+    return $alias_refs[0];
+}
