@@ -319,14 +319,21 @@ sub print_host
 	$$static_in_use_ref += $in_use;
     }
 
-    my $ts_font = '';
-    my $ts_font_end = '';
+    my $flag_color = '#dd0000'; # bright red
 
-    my $ts_flag_color = '#dd0000'; # bright red
-
+    # Show timestamp in bright red if not seen recently
     if (! $in_use) {
-	$ts_font = "<font COLOR='$ts_flag_color'>";
-	$ts_font_end = '</font>';
+	$mac_ts = "<font COLOR='$flag_color'>$mac_ts</font>";
+    }
+
+    # Show hostname in bright red if DNS-status is disabled
+    if ($host->dnsstatus() eq 'DISABLED') {
+	$hostname = "<font COLOR='$flag_color'>$hostname</font>";
+    }
+
+    # Show mac address in bright red if DHCP-status is disabled
+    if ($host->dhcpstatus() eq 'DISABLED') {
+	$mac = "<font COLOR='$flag_color'>$mac</font>";
     }
 
     push (@$o, <<EOH);
@@ -334,7 +341,7 @@ sub print_host
 		   <td ALIGN='$ip_align'>$ip</td>
 		   <td>$hostname</td>
 		   <td>$mac</td>
-		   <td NOWRAP>${ts_font}${mac_ts}${ts_font_end}</td>
+		   <td NOWRAP>$mac_ts</td>
 		</tr>
 EOH
 
