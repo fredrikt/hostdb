@@ -99,7 +99,10 @@ sub _set_or_get_attribute
 	if ($validator_ref) {
 	    my $res = &$validator_ref ($self, $key, $newvalue);
 	    if ($res) {
-		$self->_set_error ("Can't set attribute '$key' to '$saved_value' : $res");
+		my $k = $key || 'undef';
+		my $sv = $saved_value || 'undef';
+		my $r = $res || 'undef';
+		$self->_set_error ("Can't set attribute '$k' to '$sv' : $r");
 		return 0;
 	    }
 	}
@@ -158,7 +161,7 @@ sub _validate_clean_hostname_or_null
     if (uc ($newvalue) eq 'NULL') {
 	$_[0] = undef;
     } elsif (! $self->clean_hostname ($_[0])) {
-	return ("Invalid hostname");
+	return ('Invalid hostname');
     }
 
     return 0;
@@ -178,20 +181,21 @@ sub _validate_clean_hostname
     my $newvalue = $_[0];
 
     if (! $self->clean_hostname ($_[0])) {
-	return ("Invalid hostname");
+	return ('Invalid hostname');
     }
 
     return 0;
 }
 
-=head2 _validate_ttl
+=head2 _validate_nameserver_time_or_null
 
-    Check that input is a valid TTL. That means it is either a number of seconds, or a string
-    of the format that BIND9 understands (e.g. 1w2d3h4m5s).
+    Check that input is a valid TTL. That means it is either NULL,
+    a number of seconds, or a string of the format that BIND9
+    understands (e.g. 1w2d3h4m5s).
 
 
 =cut
-sub _validate_ttl
+sub _validate_nameserver_time_or_null
 {
     my $self = shift;
     my $key = shift;
@@ -200,7 +204,7 @@ sub _validate_ttl
     if ($newvalue eq 'null') {
 	$_[0] = undef;
     } elsif (! $self->is_valid_nameserver_time ($newvalue)) {
-	return ("Invalid TTL time value");
+	return ('Invalid TTL time value');
     }
 
     $_[0] = $self->_nameserver_time_to_seconds ($newvalue);
@@ -224,7 +228,7 @@ sub _validate_clean_domainname_or_null
     if (uc ($newvalue) eq 'NULL') {
 	$_[0] = undef;
     } elsif (! $self->clean_domainname ($_[0])) {
-	return ("Invalid domainname");
+	return ('Invalid domainname');
     }
 
     return 0;
@@ -243,7 +247,7 @@ sub _validate_clean_domainname
     my $newvalue = $_[0];
 
     if (! $self->clean_domainname ($_[0])) {
-	return ("Invalid domainname");
+	return ('Invalid domainname');
     }
 
     return 0;
@@ -262,10 +266,38 @@ sub _validate_enabled_or_disabled
     my $newvalue = uc ($_[0]);
 
     if ($newvalue ne 'ENABLED' and $newvalue ne 'DISABLED') {
-	return ("Value is neither ENABLED nor DISABLED");
+	return ('Value is neither ENABLED nor DISABLED');
     }
 
     # write back to $_[0] if our uc () changed the value
+    $_[0] = $newvalue if ($newvalue ne $_[0]);
+
+    return 0;
+}
+
+
+=head2 _validate_y_or_n
+
+    Check that input is either 'Y' or 'N'. Uses a regexp and
+    checks if input matches /^y/i or /^n/i.
+
+
+=cut
+sub _validate_y_or_n
+{
+    my $self = shift;
+    my $key = shift;
+    my $newvalue = $_[0];
+
+    if ($newvalue =~ /^y/oi) {
+	$newvalue = 'Y';
+    } elsif ($newvalue =~ /^n/oi) {
+	$newvalue = 'N';
+    } else {
+	return ('Value is neither Y, Yes, N nor No');
+    }
+
+    # write back to $_[0] if we changed the value
     $_[0] = $newvalue if ($newvalue ne $_[0]);
 
     return 0;
@@ -284,7 +316,7 @@ sub _validate_string_comment
     my $newvalue = shift;
 
     if (length ($newvalue) > 255) {
-	return ("Too long (max 255 chars)");
+	return ('Too long (max 255 chars)');
     }
 
     return 0;
@@ -311,12 +343,52 @@ sub _validate_datetime
 	    $_[0] = $fmtvalue;
 	}
     } else {
-	return ("Invalid datetime");
+	return ('Invalid datetime');
     }
 
     return 0;
 }
 
+
+=type2 _validate_list_of_usernames
+
+    Check that input is a list of syncatically valid usernames. Removes whitespace,
+    splits on comma, checks each element using is_valid_username and then makes
+    up a new list without duplicates.
+
+
+=cut
+sub _validate_list_of_usernames
+{
+    my $self = shift;
+    my $key = shift;
+    my $in = shift;
+
+    return ('Empty username') if (! $in);
+
+    my %newlist;
+    # remove spaces around commas
+    $in =~ s/\s*,\s*/,/o;
+    # remove duplicate commas
+    $in =~ s/,+/,/o;
+	
+    foreach my $elem (split (',', $in)) {
+	if (! $self->is_valid_username ($elem)) {
+	    return ("Invalid owner list member '$elem'");
+	}
+	$newlist{$elem} = 1;
+    }
+
+    my $newvalue = join (',', sort keys %newlist);
+    
+    if (length ($newvalue) > 255) {
+	return ('Owner too long (max 255 chars)');
+    }
+
+    $_[0] = $newvalue;
+
+    return 0;
+}
 
 1;
 __END__
