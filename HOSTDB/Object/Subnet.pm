@@ -106,7 +106,8 @@ sub init
 			"description = ?, short_description = ?, n_netaddr = ?, n_netmask = ?, " .
 			"n_broadcast = ?, htmlcolor = ?, dhcpconfig = ? WHERE id = ?")
 			or die "$DBI::errstr";
-		$self->{_delete} = $hostdb->{_dbh}->prepare ("DELETE FROM $hostdb->{db}.subnet WHERE id = ?");
+		$self->{_delete_subnet} = $hostdb->{_dbh}->prepare ("DELETE FROM $hostdb->{db}.subnet WHERE id = ?")
+			or die "$DBI::errstr";
 	} else {
 		$hostdb->_debug_print ("NOT preparing database stuff");
 	}
@@ -199,7 +200,7 @@ sub delete
 
 	my $sth;
 	if (defined ($self->{id})) {
-		$sth = $self->{_delete};
+		$sth = $self->{_delete_subnet};
 		$sth->execute ($self->id ()) or die "$DBI::errstr";
 		
 		# XXX check number of rows affected?
