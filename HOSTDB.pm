@@ -767,11 +767,41 @@ sub is_valid_nameserver_time
 	return 0;
 }
 
+
+=head2 html_links
+
+	%links = $hostdb->html_links ($q);
+
+	Fetches a bunch of links from the inifile of $hostdb.
+	$q is a SUCGI object you have created.
+
+
+=cut
+sub html_links
+{
+	my $self = shift;
+	my $q = shift;
+
+	my $ini = $self->inifile ();
+	my  %res;
+
+	if (defined ($ini)) {
+		foreach my $name ('showsubnet', 'deletehost', 'whois', 'home', 'netplan',
+				  'modifyzone', 'modifysubnet', 'modifyhost') {
+			$res{$name} = $q->state_url ($ini->val ('subnet', "${name}_uri")) if ($ini->val ('subnet', "${name}_uri"));
+		}
+	}
+	
+	return %res;
+}
+
+
 =head2 dump
 
 	$hostdb->dump();
 	
 	Dumps all variables of the $hostdb object. Only for debugging.
+
 
 =cut
 sub dump
