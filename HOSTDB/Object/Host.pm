@@ -166,7 +166,7 @@ sub commit
 		my @t = $sth->fetchrow_array ();
 		$self->{id} = $t[0];
 		$sth->finish ();
-	}	
+	}
 
 	return 1;
 }
