@@ -146,7 +146,8 @@ sub modify_host
 				die ("You do not have sufficient access to subnet '" . $subnet->subnet () . "'");
 			}
 
-			if (! defined ($zone) or ! $hostdb->auth->is_allowed_write ($zone, $remote_user)) {
+			# if there is no zone, only base desicion on subnet rights
+			if (defined ($zone) and ! $hostdb->auth->is_allowed_write ($zone, $remote_user)) {
 				die ("You do not have sufficient access to zone '" . $zone->zone () . "'");
 			}
 		}
