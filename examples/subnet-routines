@@ -1,0 +1,30 @@
+#!/usr/bin/perl
+#
+# $Id$
+#
+# A small compilation of tests to show how to use different functions in HOSTDB
+#
+
+use strict;
+#use lib 'blib/lib';
+use HOSTDB;
+
+my $hostdb = HOSTDB::DB->new (debug => 1);
+
+my $n = $hostdb->aton("130.237.162.7");
+my $a = $hostdb->ntoa($n);
+
+print("n = '$n', a(n) = '$a'\n");
+
+my $i;
+foreach $i (0..32) {
+	my $netmask = $hostdb->slashtonetmask($i);
+
+	my $slash = $hostdb->netmasktoslash($netmask);
+
+	printf("%-3i %-20s %-20s %i\n", $i, $netmask, $slash, $hostdb->get_addresses ($slash));
+}
+
+print("\n");
+print("netaddr of 130.237.162.7/29 is " . $hostdb->get_netaddr ("130.237.162.7/29") . "\n");
+print("broadcast of 130.237.162.7/29 is " . $hostdb->get_broadcast ("130.237.162.7/29") . "\n");
