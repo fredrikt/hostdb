@@ -224,6 +224,9 @@ sub ipv4_ptr_rr
 	foreach my $host ($hostdb->findhostbyiprange ($first_ip, $last_ip)) {
 		warn ("$0: Invalid search results: $hostdb->{error}\n"), next unless ($host);
 
+		next if ($host->dnsstatus () eq "DISABLED");
+		next if ($host->dnsmode () eq "A");
+
 		my $hostname = $host->hostname ();
 		my $hostip = $host->ip ();
 		my $rr_ttl = $host->ttl ();
@@ -270,6 +273,10 @@ sub a_rr
 	unshift (@hostlist, $host) if (defined ($host));
 
 	foreach my $host (@hostlist) {
+		warn ("$0: Invalid search results: $hostdb->{error}\n"), next unless ($host);
+
+		next if ($host->dnsstatus () eq "DISABLED");
+
 		my $hostname = $host->hostname ();
 		my $hostip = $host->ip ();
 			
