@@ -10,6 +10,7 @@ use vars qw($VERSION @ISA @EXPORT @EXPORT_OK);
 
 use HOSTDB::Db;
 use HOSTDB::Auth;
+use HOSTDB::StdCGI;
 use HOSTDB::Object::Host;
 use HOSTDB::Object::HostAttribute;
 use HOSTDB::Object::HostAlias;
