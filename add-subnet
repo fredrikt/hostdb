@@ -11,6 +11,10 @@ use Config::IniFiles;
 use HOSTDB;
 
 my $debug = 0;
+if ($ARGV[0] eq "-d") {
+	shift (@ARGV);
+	$debug = 1;
+}
 
 if ($#ARGV != 2) {
 	die("Syntax: $0 subnet short-desc long-desc\n");
