@@ -912,6 +912,11 @@ sub findzonebyhostname
 
 	my $checkzone = $hostname;
 
+	if (! defined ($hostname)) {
+		$self->_set_error ("findzonebyhostname: hostname cannot be undefined");
+		return undef;
+	}
+
 	if (! $self->clean_hostname ($hostname)) {
 		$self->_set_error ("findzonebyhostname: '$hostname' is not a valid hostname");
 		return undef;
