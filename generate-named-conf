@@ -37,10 +37,25 @@ foreach my $zone ($hostdb->findallzones ()) {
 	
 	my $z = tab_format (4, "zone \"$zonename\"");
 
+	my $options = '';
+
+	# XXX make this a configuration file thingy instead
+	if ($zonename =~ /\.e164\.sunet\.se$/ or
+	    $zonename =~ /\.e164\.arpa$/) {
+		$options = 'allow-transfer { any; }; ';
+	}
+
+	if ($zonename =~ /\.168\.192\.in-addr\.arpa$/ or
+	    $zonename =~ /\.10\.in-addr\.arpa$/ or
+	    $zonename =~ /\.(16|17|18|19|2\d|31|32)\.172\.in-addr\.arpa$/ or
+	    $zonename =~ /\.local\.su\.se$/ or $zonename eq 'local.su.se') {
+		$options = 'allow-query { rfc1918-query-acl; }; ';
+	}
+
 	if ($gen_master) {
-		print ("$z	{ type master; file \"/approved/$zonename..ZONE\"; };\n");
+		print ("$z	{ type master; file \"/approved/$zonename..ZONE\"; $options};\n");
 	} else {
-		print ("$z	{ type slave; masters { $opt_s; }; file \"/slave/$zonename..DUMP\"; };\n");
+		print ("$z	{ type slave; masters { $opt_s; }; file \"/slave/$zonename..DUMP\"; $options};\n");
 	}
 }
 
