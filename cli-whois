@@ -66,7 +66,7 @@ while (@searchfor) {
 	    if (@aliases) {
 		my @a = ("\n\tAliases :");
 		foreach my $alias (sort aliassort @aliases) {
-		    my $a_name = $alias->hostname ();
+		    my $a_name = $alias->aliasname ();
 		    my $a_ttl = $alias->ttl ();
 		    push (@a, sprintf ("\t  %-30s TTL %s seconds", $a_name, $a_ttl));
 		}
@@ -179,10 +179,10 @@ sub attributesort
 
 sub aliassort
 {
-    my $a_hostname = $a->hostname ();
-    my $b_hostname = $b->hostname ();
+    my $a_name = $a->aliasname ();
+    my $b_name = $b->aliasname ();
 
-    $a_hostname cmp $b_hostname;
+    $a_name cmp $b_name;
 }
 
 sub is_wildcard

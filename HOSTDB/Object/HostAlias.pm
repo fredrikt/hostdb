@@ -55,9 +55,9 @@ sub init
 	}
 
 	if ($hostdb->{_dbh}) {
-		$self->{_new_hostalias} = $hostdb->{_dbh}->prepare ("INSERT INTO $hostdb->{db}.hostalias (hostid, hostname, ttl, dnszone, lastmodified, lastupdated, comment) VALUES (?, ?, ?, ?, ?, ?, ?)")
+		$self->{_new_hostalias} = $hostdb->{_dbh}->prepare ("INSERT INTO $hostdb->{db}.hostalias (hostid, aliasname, ttl, dnszone, lastmodified, lastupdated, comment) VALUES (?, ?, ?, ?, ?, ?, ?)")
 			or die ("$DBI::errstr");
-		$self->{_update_hostattribute} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.hostalias SET hostid = ?, hostname = ?, ttl = ?, dnszone = ?, lastmodified = ?, lastupdated = ?, comment = ? WHERE id = ?")
+		$self->{_update_hostattribute} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.hostalias SET hostid = ?, aliasname = ?, ttl = ?, dnszone = ?, lastmodified = ?, lastupdated = ?, comment = ? WHERE id = ?")
 			or die ("$DBI::errstr");
 		$self->{_delete_hostattribute} = $hostdb->{_dbh}->prepare ("DELETE FROM $hostdb->{db}.hostalias WHERE id = ?")
 			or die ("$DBI::errstr");
@@ -88,7 +88,7 @@ sub commit
 
 	# fields in database order
 	my @db_values = ($self->hostid (),
-			 $self->hostname (),
+			 $self->aliasname (),
 			 $self->ttl (),
 			 $self->dnszone (),
 			 $self->lastmodified (),
@@ -200,17 +200,17 @@ sub hostid
 }
 
 
-=head2 hostname
+=head2 aliasname
 
-	Get or set this hosts hostname.
+	Get or set this aliases name.
 	Uses clean_hostname () on supplied value.
 
-	print ("Old hostname: " . $host->hostname ());
-	$host->hostname ($new_hostname) or warn ("Failed setting value\n");
+	print ("Old alias name : " . $alias->aliasname ());
+	$host->aliasname ($new_aliasname) or warn ("Failed setting value\n");
 
 
 =cut
-sub hostname
+sub aliasname
 {
 	my $self = shift;
 
@@ -218,7 +218,7 @@ sub hostname
 		my $newvalue = shift;
 
 		if ($newvalue eq 'NULL') {
-			$self->{hostname} = undef;
+			$self->{aliasname} = undef;
 			return 1;
 		}
 	
@@ -226,12 +226,12 @@ sub hostname
 			$self->_set_error ("Invalid hostname '$newvalue'");
 			return 0;
 		}
-		$self->{hostname} = $newvalue;
+		$self->{aliasname} = $newvalue;
 
 		return 1;
 	}
 
-	return ($self->{hostname});
+	return ($self->{aliasname});
 }
 
 

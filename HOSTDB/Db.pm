@@ -104,12 +104,12 @@ sub init
 		$self->{_hostattributesbyhostid} =	$self->{_dbh}->prepare ("$SELECT_hostattr WHERE hostid = ? ORDER BY v_section, v_key")	or die "$DBI::errstr";
 
 		my $SELECT_hostalias = "SELECT *, UNIX_TIMESTAMP(lastmodified) AS unix_lastmodified, UNIX_TIMESTAMP(lastupdated) AS unix_lastupdated FROM $self->{db}.hostalias";
-		$self->{_hostaliasbyid} =	$self->{_dbh}->prepare ("$SELECT_hostalias WHERE id = ? ORDER BY id")		or die "$DBI::errstr";
-		$self->{_hostaliasesbyhostid} =	$self->{_dbh}->prepare ("$SELECT_hostalias WHERE hostid = ? ORDER BY hostname")	or die "$DBI::errstr";
+		$self->{_hostaliasbyid} =	$self->{_dbh}->prepare ("$SELECT_hostalias WHERE id = ? ORDER BY id") or die "$DBI::errstr";
+		$self->{_hostaliasesbyhostid} =	$self->{_dbh}->prepare ("$SELECT_hostalias WHERE hostid = ? ORDER BY aliasname") or die "$DBI::errstr";
 
 		my $SELECT_hostwithalias = "SELECT host.*, UNIX_TIMESTAMP(host.mac_address_ts) AS unix_mac_address_ts FROM $self->{db}.host, $self->{db}.hostalias WHERE host.id = hostalias.hostid";
-		$self->{_hostswithaliasname} = $self->{_dbh}->prepare ("$SELECT_hostwithalias AND hostalias.hostname = ? ORDER BY host.hostname, hostalias.hostname");
-		$self->{_hostswithaliaswildcardname} = $self->{_dbh}->prepare ("$SELECT_hostwithalias AND hostalias.hostname LIKE ? ORDER BY host.hostname, hostalias.hostname");
+		$self->{_hostswithaliasname} = $self->{_dbh}->prepare ("$SELECT_hostwithalias AND hostalias.aliasname = ? ORDER BY host.hostname, hostalias.aliasname");
+		$self->{_hostswithaliaswildcardname} = $self->{_dbh}->prepare ("$SELECT_hostwithalias AND hostalias.aliasname LIKE ? ORDER BY host.hostname, hostalias.aliasname");
 
 		my $SELECT_zone = "SELECT * FROM $self->{db}.zone";
 		$self->{_zonebyname} =		$self->{_dbh}->prepare ("$SELECT_zone WHERE zonename = ? ORDER BY zonename")		or die "$DBI::errstr";
