@@ -208,7 +208,7 @@ sub modify_host
 
 	# check which fields we should allow changes to
 	foreach my $t (keys %changer) {
-	    delete($changer{$t}) if (! check_readwrite ($t, $readwrite_attributes, $remote_user, $is_admin, $is_helpdesk));
+	    delete($changer{$t}) if (! check_alloewd_readwrite ($t, $readwrite_attributes, $remote_user, $is_admin, $is_helpdesk));
 	}
 
 	foreach my $name (keys %changer) {
@@ -446,7 +446,7 @@ sub create_datafield
 
     my $curr = $host->$attribute () || '';
 
-    if (check_readwrite ($attribute, $readwrite_attributes, $remote_user, $is_admin, $is_helpdesk)) {
+    if (check_allowed_readwrite ($attribute, $readwrite_attributes, $remote_user, $is_admin, $is_helpdesk)) {
 	if (defined (%paramhash)) {
 	    return ($q->$func (-name => $attribute, -default => $curr, %paramhash));
 	} else {
@@ -658,7 +658,7 @@ EOH
     return 1;
 }
 
-sub check_readwrite
+sub check_allowed_readwrite
 {
     my $attribute = shift;
     my $list_ref = shift;
@@ -679,10 +679,11 @@ sub check_readwrite
     return 1 if (defined ($l[0]) and $l[0] eq 'ALL');
 
     if (! grep (/^$attribute$/, @l)) {
-	return 1;
+	# attribute not found in list of allowed read-write attributes
+	return 0;
     }
 
-    return 0;
+    return 1;
 }
 
 sub error_line
