@@ -73,8 +73,6 @@ sub new
 sub init
 {
 	my $self = shift;
-
-	warn ("IN TOP LEVEL HOSTDB init()\n");
 }
 
 =head2 get_inifile
@@ -314,7 +312,7 @@ sub clean_mac_address
 		$new = sprintf("%.2x:%.2x:%.2x:%.2x:%.2x:%.2x", hex ($1), hex ($2), hex ($3), hex ($4), hex ($5), hex ($6));
 	}
 
-	$valid = $self->is_valid_mac_address ("$new");
+	$valid = $self->is_valid_mac_address ($new);
 	
 	if ($valid and ($new ne $_[0])) {
 		$self->_debug_print ("changed '$_[0]' into '$new'");
