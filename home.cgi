@@ -168,8 +168,10 @@ EOH
 		#}
 		next if (! defined ($zone) or ! $hostdb->auth->is_owner ($zone, $remote_user));
 
-		# interpolation
 		my $zone_name = $zone->zonename ();
+		next if (! $is_admin and $zone_name =~ /\.in-addr\.arpa$/);
+
+		# interpolation
 		my $serial = $zone->serial ();
 		my $id = $zone->id();
 		
