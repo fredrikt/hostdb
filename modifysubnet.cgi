@@ -7,49 +7,18 @@
 
 use strict;
 use HOSTDB;
-use SUCGI2;
 
-my $table_blank_line = "<tr><td COLSPAN='4'>&nbsp;</td></tr>\n";
-my $table_hr_line = "<tr><td COLSPAN='4'><hr></td></tr>\n";
+my $table_cols = 4;
 
-my $debug = 0;
-if (defined($ARGV[0]) and $ARGV[0] eq "-d") {
-	shift (@ARGV);
-	$debug = 1;
-}
-
-my $hostdbini = Config::IniFiles->new (-file => HOSTDB::get_inifile ());
-my $sucgi_ini;
-if (-f $hostdbini->val ('sucgi', 'cfgfile')) {
-	$sucgi_ini = Config::IniFiles->new (-file => $hostdbini->val ('sucgi', 'cfgfile'));
-} else {
-	warn ("No SUCGI config-file ('" . $hostdbini->val ('sucgi', 'cfgfile') . "')");
-}
-my $q = SUCGI2->new ($sucgi_ini, 'hostdb');
-$q->begin (title => 'Modify Subnet');
-
-my $hostdb = eval {
-	HOSTDB::DB->new (ini => $hostdbini, debug => $debug);
-};
-
-if ($@) {
-	my $e = $@;
-	$q->print ("&nbsp;<p><ul><font COLOR='red' SIZE='3'><strong>Could not create HOSTDB object: $e</strong></font></ul>\n\n");
-	$q->end ();
-	die ("$0: Could not create HOSTDB object: '$e'");
-}
-
-my $me = $q->state_url ();
-my %links = $hostdb->html_links ($q);
+## Generic Stockholm university HOSTDB CGI initialization
+my ($table_blank_line, $table_hr_line, $empty_td) = HOSTDB::StdCGI::get_table_variables ($table_cols);
+my $debug = HOSTDB::StdCGI::parse_debug_arg (@ARGV);
+my ($hostdbini, $hostdb, $q, $remote_user) = HOSTDB::StdCGI::get_hostdb_and_sucgi ('Modify Subnet', $debug);
+my (%links, $is_admin, $is_helpdesk, $me);
+HOSTDB::StdCGI::get_cgi_common_variables ($q, $hostdb, $remote_user, \%links, \$is_admin, \$is_helpdesk, $me);
+## end generic initialization
 
 my %colors = load_colors ($hostdbini);
-
-my $remote_user = $q->user();
-unless ($remote_user) {
-        $q->print ("&nbsp;<p><ul><font COLOR='red' SIZE='3'><strong>You are not logged in.</strong></font></ul>\n\n");
-        $q->end ();
-        die ("$0: Invalid REMOTE_USER environment variable '$ENV{REMOTE_USER}'");
-}
 
 if (! $hostdb->auth->is_admin ($remote_user)) {
 	$q->print ("&nbsp;<p><ul><font COLOR='red' SIZE='3'><strong>You are not authorized to change subnets.</strong></font></ul>\n\n");
@@ -77,29 +46,15 @@ if (! defined ($subnet)) {
 	die ("$0: Could not get/create subnet (hostdb error: $hostdb->{error})");
 }
 
-my (@links, @admin_links);
-push (@admin_links, "[<a HREF='$links{netplan}'>netplan</a>]") if ($links{netplan});
-push (@links, "[<a HREF='$links{home}'>home</a>]") if ($links{home});
-push (@links, "[<a HREF='$links{whois}'>whois</a>]") if ($links{whois});
+## Generic Stockholm university HOSTDB CGI header
+my (@l);
+push (@l, "[<a HREF='$links{home}'>home</a>]") if ($links{home});
+push (@l, "[<a HREF='$links{whois}'>whois</a>]") if ($links{whois});
+HOSTDB::StdCGI::print_cgi_header ($q, 'Modify Subnet', $is_admin, $is_helpdesk, \%links, \@l);
+## end generic header
 
-my $l = '';
-if (@links or @admin_links) {
-	$l = join(' ', @links, @admin_links);
-}
-
-
-$q->print (<<EOH);
-	<form ACTION='$me' METHOD='post'>
-	<table BORDER='0' CELLPADDING='0' CELLSPACING='3' WIDTH='100%'>
-		$table_blank_line
-		<tr>
-			<td COLSPAN='3' ALIGN='center'>
-				<h3>HOSTDB: Modify Subnet</h3>
-			</td>
-			<td ALIGN='right'>$l</td>
-		</tr>
-		$table_blank_line
-EOH
+$q->print ("\t\t<form ACTION='$me' METHOD='post'>\n" .
+	   "\t\t\t<table BORDER='0' CELLPADDING='0' CELLSPACING='0' WIDTH='100%'>\n");
 
 my $action = lc ($q->param('action'));
 $action = 'search' unless $action;
@@ -244,11 +199,11 @@ sub subnet_form
 	$id = $subnet->id ();
 	$description = $q->textfield (-name => 'description',
 				  -default => $subnet->description () || '',
-				  -size => 65,
+				  -size => 85,
 				  -maxlength => 255);
 	$short_description = $q->textfield (-name => 'short_description',
 				  -default => $subnet->short_description () || '',
-				  -size => 65,
+				  -size => 85,
 				  -maxlength => 255);
 	$htmlcolor = $q->popup_menu (-name => 'htmlcolor',
 				     -values => [sort keys %{$colors_ref}],
@@ -256,7 +211,7 @@ sub subnet_form
 	$owner = $q->textfield ('owner', $subnet->owner () || $remote_user);
 	$profilelist = $q->textfield (-name => 'profilelist',
 				  -default => $subnet->profilelist () || '',
-				  -size => 65,
+				  -size => 85,
 				  -maxlength => 255);
 
 	my $empty_td = '<td>&nbsp;</td>';
@@ -278,6 +233,12 @@ sub subnet_form
 	}
 	
 	$q->print (<<EOH);
+	        <!-- table width disposition tds -->
+		<tr>
+			<td WIDTH='25%'>&nbsp;</td>
+			<td COLSPAN='3' WIDTH='75%'>&nbsp;</td>
+		</tr>
+			
 		$state_field
                 $id_if_any
 		<tr>
@@ -286,10 +247,9 @@ sub subnet_form
 			$empty_td
 			$empty_td
 		</tr>	
-		<tr>
-			<td ALIGN='center' COLSPAN='2'>---</td>
-			<td ALIGN='center' COLSPAN='2'>---</td>
-		</tr>
+
+		$table_blank_line
+
 		<tr>
 			<td>Short description</td>
 			<td COLSPAN='3'>$short_description</td>
