@@ -364,6 +364,26 @@ sub check_valid_subnet
 	return 1;
 }
 
+sub check_valid_ip
+{
+	my $self = shift;
+	my $ip = shift;
+	
+	$self->_debug_print ("ip '$ip'");
+
+	if ($ip =~ /^(\d)\.(\d)\.(\d)\.(\d)$/) {
+		my @ip = ($1, $2, $3, $4);
+
+		return 0 if (int($ip[0]) < 1 or int($ip[0]) > 254);
+		return 0 if (int($ip[1]) < 0 or int($ip[1]) > 255);
+		return 0 if (int($ip[2]) < 1 or int($ip[2]) > 255);
+		return 0 if (int($ip[3]) < 1 or int($ip[3]) > 255);
+		#return 0 if ("$1.$2" eq "192.168");
+	}
+
+	return 1;
+}
+
 =head2 aton
 
 	$n_ip = $hostdb->ntoa($ip);
@@ -615,7 +635,7 @@ sub init
 
 		$self->{_subnet} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.subnet WHERE netaddr = ? AND slashnotation = ? ORDER BY n_netaddr");
 		$self->{_subnet_longer_prefix} =	$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.subnet WHERE n_netaddr >= ? AND n_netaddr <= ? ORDER BY n_netaddr");
-		$self->{_subnet_closest_match} =	$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.subnet WHERE n_netaddr <= ? ORDER BY n_netaddr LIMIT 1");
+		$self->{_subnet_closest_match} =	$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.subnet WHERE n_netaddr <= ? ORDER BY n_netaddr DESC LIMIT 1");
 	} else {
 		$self->_debug_print ("DSN not provided, not connecting to database.");
 	}
@@ -794,7 +814,7 @@ sub findhostbyname
 =head2 findhostbyip
 
 	foreach my $host ($hostdb->findhostbyip ($searchhost)) {
-		print ("$host->{ip}	$host->{hostname}\n");
+		printf ("%-20s %s\n, $host->ip (), $host->hostname ());
 	}
 
 
@@ -806,6 +826,25 @@ sub findhostbyip
 	$self->_debug_print ("Find host with IP '$_[0]'");
 	
 	$self->_find(_hostbyip => 'HOSTDB::Object::Host', $_[0]);
+}
+
+
+=head2 findhostbymac
+
+	foreach my $host ($hostdb->findhostbymac ($searchhost)) {
+		printf ("%-20s %-20s %s\n, $host->mac(), $host->ip (),
+			$host->hostname ());
+	}
+
+
+=cut
+sub findhostbymac
+{
+	my $self = shift;
+
+	$self->_debug_print ("Find host with MAC address '$_[0]'");
+	
+	$self->_find(_hostbymac => 'HOSTDB::Object::Host', $_[0]);
 }
 
 
@@ -907,7 +946,7 @@ sub findsubnetclosestmatch
 
 	$self->_debug_print ("Find subnet for IP '$_[0]'");
 
-	$self->_find(_subnet_closest_match => 'HOSTDB::Object::Subnet', $_[0]);
+	$self->_find(_subnet_closest_match => 'HOSTDB::Object::Subnet', $self->aton ($_[0]));
 }
 
 
@@ -1022,34 +1061,14 @@ sub init
 	$self->_debug_print ("creating object");
 
 	if ($hostdb->{_dbh}) {
-		$self->{_new_host} = $hostdb->{_dbh}->prepare ("INSERT INTO $hostdb->{db}.config (mac, hostname, ip, ttl, user, partof, reverse) VALUES (?, ?, ?, ?, ?, ?, ?)")
+		$self->{_new_host} = $hostdb->{_dbh}->prepare ("INSERT INTO $hostdb->{db}.config (mac, hostname, ip, n_ip, owner, ttl, user, partof, reverse) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
 			or die "$DBI::errstr";
-		$self->{_update_host} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.config SET mac = ?, hostname = ?, ip = ?, ttl = ?, user = ?, partof = ?, reverse = ? WHERE id = ?")
+		$self->{_update_host} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.config SET mac = ?, hostname = ?, ip = ?, n_ip = ?, owner = ?, ttl = ?, user = ?, partof = ?, reverse = ? WHERE id = ?")
 			or die "$DBI::errstr";
 
 		$self->{_get_last_id} = $hostdb->{_dbh}->prepare ("SELECT LAST_INSERT_ID()")
 			or die "$DBI::errstr";
 	}
-}
-
-sub check_valid_ip
-{
-	my $self = shift;
-	my $ip = shift;
-	
-	$self->_debug_print ("ip '$ip'");
-
-	if ($ip =~ /^(\d)\.(\d)\.(\d)\.(\d)$/) {
-		my @ip = ($1, $2, $3, $4);
-
-		return 0 if (int($ip[0]) < 1 or int($ip[0]) > 254);
-		return 0 if (int($ip[1]) < 0 or int($ip[1]) > 255);
-		return 0 if (int($ip[2]) < 1 or int($ip[2]) > 255);
-		return 0 if (int($ip[3]) < 1 or int($ip[3]) > 255);
-		#return 0 if ("$1.$2" eq "192.168");
-	}
-
-	return 0;
 }
 
 sub mac_address
@@ -1115,6 +1134,18 @@ sub ip
 	return ($self->{ip});
 }
 
+sub n_ip
+{
+	my $self = shift;
+
+	if (@_) {
+		$self->_set_error ("this is a read-only function, it gets set by ip()");
+		return undef;
+	}
+
+	return ($self->{n_ip});
+}
+
 sub ttl
 {
 	my $self = shift;
@@ -1142,6 +1173,21 @@ sub user
 		my $user = shift;
 
 		$self->{user} = $user;
+	
+		return 1;
+	}
+
+	return ($self->{user});
+}
+
+sub owner
+{
+	my $self = shift;
+
+	if (@_) {
+		my $owner = shift;
+
+		$self->{user} = $owner;
 	
 		return 1;
 	}
@@ -1219,6 +1265,7 @@ sub commit
 	if (defined ($self->id ()) and $self->id () >= 0) {
 		$sth = $self->{_update_host};
 		$sth->execute ($self->mac (), $self->hostname (), $self->ip (),
+			       $self->n_ip (), $self->owner(),
 			       $self->ttl (), $self->user (), $self->partof (),
 			       $self->reverse (), $self->id ())
 			or die "$DBI::errstr";
@@ -1231,6 +1278,7 @@ sub commit
 
 		$sth = $self->{_new_host};
 		$sth->execute ($self->mac (), $self->hostname (), $self->ip (),
+			       $self->n_ip (), $self->owner(),
 			       $self->ttl (), $self->user (), $self->partof (),
 			       $self->reverse ())
 			or die "$DBI::errstr";
@@ -1623,13 +1671,11 @@ sub description
 	if (@_) {
 		my $newvalue = shift;
 	
-		$self->_debug_print ("SETTING DESC '$newvalue'");
 		$self->{description} = $newvalue;
 		
 		return 1;
 	}
 
-	$self->_debug_print ("RETURNING DESCRIPTION '$self->{description}'");
 	return ($self->{description});
 }
 
