@@ -631,7 +631,9 @@ sub init
 		$self->{_hostbypartof} =	$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.config WHERE partof = ? ORDER BY id") or die "$DBI::errstr";
 		$self->{_hostbymac} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.config WHERE mac = ? ORDER BY mac") or die "$DBI::errstr";
 		$self->{_hostbyname} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.config WHERE hostname = ? ORDER BY hostname") or die "$DBI::errstr";
-		$self->{_hostbyip} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.config WHERE ip = ? ORDER BY ip") or die "$DBI::errstr";
+		$self->{_hostbyip} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.config WHERE ip = ? ORDER BY n_ip") or die "$DBI::errstr";
+		$self->{_hostbyiprange} =	$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.config WHERE n_ip >= ? AND n_ip <= ? ORDER BY n_ip") or die "$DBI::errstr";
+		$self->{_allhosts} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.config ORDER BY id") or die "$DBI::errstr";
 
 		$self->{_zonebyname} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.zone WHERE zonename = ? ORDER BY zonename") or die "$DBI::errstr";
 		$self->{_allzones} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.zone ORDER BY zonename") or die "$DBI::errstr";
@@ -880,6 +882,41 @@ sub findhostbypartof
 	$self->_debug_print ("Find host partof '$_[0]'");
 	
 	$self->_find(_hostbypartof => 'HOSTDB::Object::Host', $_[0]);
+}
+
+
+=head2 findhostbyiprange
+
+	@hosts = $hostdb->findhostbyiprange ($subnet->netaddr (), $subnet->broadcast ());
+
+	Returns all hosts in a subnet
+
+
+=cut
+sub findhostbyiprange
+{
+	my $self = shift;
+
+	$self->_debug_print ("Find host by IP range '$_[0]' -> '$_[1]'");
+	
+	$self->_find(_hostbyiprange => 'HOSTDB::Object::Host',
+			$self->aton ($_[0]), $self->aton ($_[1]));
+}
+
+
+=head2 findallhosts
+
+	@hosts = $hostdb->findallhosts ();
+
+
+=cut
+sub findallhosts
+{
+	my $self = shift;
+
+	$self->_debug_print ("Find all hosts");
+	
+	$self->_find(_allhosts => 'HOSTDB::Object::Host');
 }
 
 
@@ -1271,7 +1308,7 @@ sub commit
 	my $sth;
 	if (defined ($self->id ()) and $self->id () >= 0) {
 		$sth = $self->{_update_host};
-		$sth->execute ($self->mac (), $self->hostname (), $self->ip (),
+		$sth->execute ($self->mac_address (), $self->hostname (), $self->ip (),
 			       $self->n_ip (), $self->owner(),
 			       $self->ttl (), $self->user (), $self->partof (),
 			       $self->reverse (), $self->id ())
