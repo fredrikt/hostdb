@@ -76,9 +76,12 @@ sub init
 	my $self = shift;
 	my $hostdb = $self->{hostdb};
 
-	$hostdb->_debug_print ("creating object (IPv$self->{ipver} subnet '$self->{netaddr}/$self->{slashnotation}')");
 
-	return undef if (! $self->subnet ("$self->{netaddr}/$self->{slashnotation}"));
+	if (! defined ($self->{netaddr}) and defined ($self->{subnet})) {
+		$self->subnet ($self->{subnet});
+	} else {
+		$hostdb->_debug_print ("creating object (IPv$self->{ipver} subnet '$self->{netaddr}/$self->{slashnotation}')");
+	}
 	
 	if ($hostdb->{_dbh}) {
 		$self->{_new_subnet} = $hostdb->{_dbh}->prepare ("INSERT INTO $hostdb->{db}.subnet " .
