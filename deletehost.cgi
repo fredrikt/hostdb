@@ -32,10 +32,7 @@ if (-f $hostdbini->val ('sucgi', 'cfgfile')) {
 }
 
 my $q = SUCGI->new ($sucgi_ini);
-
-my $showsubnet_path = $q->state_url ($hostdbini->val('subnet','showsubnet_uri')) if ($hostdbini->val('subnet','showsubnet_uri'));
-my $modifyhost_path = $q->state_url ($hostdbini->val('subnet','modifyhost_uri')) if ($hostdbini->val('subnet','modifyhost_uri'));
-my $netplan_uri = $hostdbini->val('subnet', 'netplan_uri');
+my %links = $hostdb->html_links ($q);
 
 $q->begin (title => 'Delete Host');
 my $remote_user = '';
@@ -49,20 +46,30 @@ if (defined ($ENV{REMOTE_USER}) and $ENV{REMOTE_USER} =~ /^[a-z0-9]{,50}$/) {
 	# XXX JUST FOR DEBUGGING UNTIL PUBCOOKIE IS FINISHED
 	$remote_user = 'ft';
 }
+my $is_admin = $hostdb->auth->is_admin ($remote_user);
+
+my (@links, @admin_links);
+push (@admin_links, "[<a HREF='$links{netplan}'>netplan</a>]") if ($is_admin and $links{netplan});
+push (@links, "[<a HREF='$links{home}'>home</a>]") if ($links{home});
+push (@links, "[<a HREF='$links{whois}'>whois</a>]") if ($links{whois});
+
+my $l = '';
+if (@links or @admin_links) {
+	$l = join(' ', @links, @admin_links);
+}
 
 
 $q->print (<<EOH);
 	<table BORDER='0' CELLPADDING='0' CELLSPACING='3' WIDTH='600'>
 		$table_blank_line
 		<tr>
-			<td COLSPAN='2' ALIGN='center'>
+			<td ALIGN='center'>
 				<h3>HOSTDB: Delete Host</h3>
 			</td>
+			<td ALIGN='right'>$l</td>
 		</tr>
 		$table_blank_line
 EOH
-
-
 
 
 
@@ -89,7 +96,6 @@ SWITCH:
 		# check that user is allowed to edit both zone and subnet
 		my $authorized = 1;
 
-		my $is_admin = $hostdb->auth->is_admin ($remote_user);
 		if (! $is_admin) {
 			if (! defined ($subnet) or ! $hostdb->auth->is_allowed_write ($subnet, $remote_user)) {
 				error_line ($q, "You do not have sufficient access to subnet '" . $subnet->subnet () . "'");
@@ -116,10 +122,10 @@ SWITCH:
 						<td COLSPAN='2'><strong><font COLOR='red'>Host deleted</font></strong></td>
 					</tr>
 EOH
-				if (defined ($subnet) and $showsubnet_path) {
+				if (defined ($subnet) and $links{showsubnet}) {
 					my $s = $subnet->subnet ();
 			
-					my $link = "<a HREF='$showsubnet_path;subnet=$s'>Show subnet</a>";
+					my $link = "<a HREF='$links{showsubnet};subnet=$s'>Show subnet</a>";
 				
 					push (@links, <<EOH);
 						<tr>
@@ -128,8 +134,8 @@ EOH
 EOH
 				}
 		
-				if ($modifyhost_path) {
-					$ip = "<a HREF='$modifyhost_path;ip=$ip'>New host</a> with IP $ip";
+				if ($links{modifyhost}) {
+					$ip = "<a HREF='$links{modifyhost};ip=$ip'>New host</a> with IP $ip";
 
 					push (@links, <<EOH);
 						<tr>
@@ -138,16 +144,6 @@ EOH
 EOH
 				}
 
-				if ($is_admin and $netplan_uri) {
-					my $link = "<a HREF='$netplan_uri'>Netplan</a>";
-
-					push (@links, <<EOH);
-						<tr>
-							<td COLSPAN='2'>&nbsp;&nbsp;[$link]</td>
-						</tr>
-EOH
-				}
-				
 				if (@links) {
 					$q->print (<<EOH);
 
@@ -247,17 +243,23 @@ sub print_host_info
 	my $me = $q->state_url();
 	my $id = $host->id ();
 	my $parent = $host->partof ()?$host->partof ():'-';
-	$parent = "<a href='$me;whoisdatatype=ID;whoisdata=$parent'>$parent</a>";
+	$parent = "<a href='$links{whois};whoisdatatype=ID;whoisdata=$parent'>$parent</a>" if ($parent ne '-' and $links{whois});
 	my $ip = $host->ip ();
 	my $mac = $host->mac_address () || '';
 	my $hostname = $host->hostname ();
 	my $comment = $host->comment () || '';
 	my $owner = $host->owner ();
+
+	# get subnet
+	my $subnet = $hostdb->findsubnetbyip ($host->ip () || $q->param ('ip'));
+	my $subnet_link = $subnet->subnet ();
+	$subnet_link = "<a HREF='$links{showsubnet};subnet=$subnet_link'>$subnet_link</a>" if ($links{showsubnet});
+
 	
 	$q->print (<<EOH);
 	   <tr>
 		<td>ID</td>
-		<td><a HREF="$me;whoisdatatype=ID;whoisdata=$id">$id</a>&nbsp;</td>
+		<td><a HREF="$links{whois};whoisdatatype=ID;whoisdata=$id">$id</a>&nbsp;</td>
 	   </tr>	
 	   <tr>
 		<td>Parent</td>
@@ -286,6 +288,10 @@ EOH
 	   <tr>
 		<td>IP address</td>
 		<td><strong>$ip</strong></td>
+	   </tr>	
+	   <tr>
+		<td>Subnet</td>
+		<td>$subnet_link</td>
 	   </tr>	
 	   <tr>
 		<td>MAC Address</td>

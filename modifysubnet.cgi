@@ -32,8 +32,8 @@ if (-f $hostdbini->val ('sucgi', 'cfgfile')) {
 }
 
 my $q = SUCGI->new ($sucgi_ini);
-
-my $showsubnet_path = $q->state_url ($hostdbini->val ('subnet', 'showsubnet_uri')) if ($hostdbini->val ('subnet', 'showsubnet_uri'));
+my $me = $q->state_url ();
+my %links = $hostdb->html_links ($q);
 
 my %colors = load_colors ($hostdbini);
 
@@ -76,19 +76,26 @@ if (! defined ($subnet)) {
 	die ("$0: Could not get/create subnet (hostdb error: $hostdb->{error})");
 }
 
+my (@links, @admin_links);
+push (@admin_links, "[<a HREF='$links{netplan}'>netplan</a>]") if ($links{netplan});
+push (@links, "[<a HREF='$links{home}'>home</a>]") if ($links{home});
+push (@links, "[<a HREF='$links{whois}'>whois</a>]") if ($links{whois});
 
-my $me = $q->state_url ();
+my $l = '';
+if (@links or @admin_links) {
+	$l = join(' ', @links, @admin_links);
+}
+
 
 $q->print (<<EOH);
 	<form ACTION='$me' METHOD='post'>
 	<table BORDER='0' CELLPADDING='0' CELLSPACING='3' WIDTH='600'>
 		$table_blank_line
 		<tr>
-			<td COLSPAN='2' ALIGN='center'>
+			<td COLSPAN='3' ALIGN='center'>
 				<h3>HOSTDB: Modify Subnet</h3>
 			</td>
-			<td>&nbsp;</td>
-			<td>&nbsp;</td>
+			<td ALIGN='right'>$l</td>
 		</tr>
 		$table_blank_line
 EOH
@@ -256,15 +263,15 @@ sub subnet_form
 	my $required = "<font COLOR='red'>*</font>";
 
 	my $delete = "[delete]";
-	#$delete = "[<a HREF='$deletesubnet_path;id=$id'>delete</a>]" if (defined ($id));
+	$delete = "[<a HREF='$links{deletesubnet};id=$id'>delete</a>]" if (defined ($id) and $links{deletesubnet});
 
 	my $id_if_any = '';
 	$id_if_any = "<input TYPE='hidden' NAME='id' VALUE='$id'>" if (defined ($id) and ($id ne ''));
 
-	my $subnet_link;
+	my $subnet_link = $subnet_name;
 
 	if (defined ($id)) {
-		$subnet_link = "<a HREF='$showsubnet_path;subnet=$subnet_name'>$subnet_name</a>";
+		$subnet_link = "<a HREF='$links{showsubnet};subnet=$subnet_name'>$subnet_name</a>" if ($links{showsubnet});
 	} else {
 		$subnet_link = "not in database";
 	}

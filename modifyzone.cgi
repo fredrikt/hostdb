@@ -42,8 +42,8 @@ $zone_defaults{soa_expiry} = $hostdbini->val ('zone', 'default_soa_expiry');
 $zone_defaults{soa_minimum} = $hostdbini->val ('zone', 'default_soa_minimum');
 
 my $q = SUCGI->new ($sucgi_ini);
-
-my $whois_path = $q->state_url ($hostdbini->val ('subnet', 'whois_uri')) if ($hostdbini->val ('subnet', 'whois_uri'));
+my $me = $q->state_url ();
+my %links = $hostdb->html_links ($q);
 
 $q->begin (title => 'Modify Zone');
 my $remote_user = '';
@@ -85,18 +85,26 @@ if (! defined ($zone)) {
 }
 
 
-my $me = $q->state_url ();
+my (@links, @admin_links);
+push (@admin_links, "[<a HREF='$links{netplan}'>netplan</a>]") if ($links{netplan});
+push (@links, "[<a HREF='$links{home}'>home</a>]") if ($links{home});
+push (@links, "[<a HREF='$links{whois}'>whois</a>]") if ($links{whois});
+
+my $l = '';
+if (@links or @admin_links) {
+	$l = join(' ', @links, @admin_links);
+}
+
 
 $q->print (<<EOH);
 	<form ACTION='$me' METHOD='post'>
 	<table BORDER='0' CELLPADDING='0' CELLSPACING='3' WIDTH='600'>
 		$table_blank_line
 		<tr>
-			<td COLSPAN='2' ALIGN='center'>
+			<td COLSPAN='3' ALIGN='center'>
 				<h3>HOSTDB: Modify Zone</h3>
 			</td>
-			<td>&nbsp;</td>
-			<td>&nbsp;</td>
+			<td ALIGN='right'>$l</td>
 		</tr>
 		$table_blank_line
 EOH
@@ -281,7 +289,7 @@ sub zone_form
 	my $required = "<font COLOR='red'>*</font>";
 
 	my $delete = "[delete]";
-	#$delete = "[<a HREF='$deletezone_path;id=$id'>delete</a>]" if (defined ($id));
+	$delete = "[<a HREF='$links{deletezone};id=$id'>delete</a>]" if (defined ($id) and $links{deletezone});
 
 	my $id_if_any = '';
 	$id_if_any = "<input TYPE='hidden' NAME='id' VALUE='$id'>" if (defined ($id) and ($id ne ''));
@@ -289,7 +297,7 @@ sub zone_form
 	my $zone_link;
 
 	if (defined ($id)) {
-		$zone_link = "<a HREF='$whois_path;whoisdatatype=zone;whoisdata=$zonename'>$zonename</a>";
+		$zone_link = "<a HREF='$links{whois};whoisdatatype=zone;whoisdata=$zonename'>$zonename</a>" if ($links{whois});
 	} else {
 		$zone_link = "not in database";
 	}

@@ -32,10 +32,8 @@ if (-f $hostdbini->val ('sucgi', 'cfgfile')) {
 }
 
 my $q = SUCGI->new ($sucgi_ini);
-
-my $showsubnet_path = $q->state_url ($hostdbini->val ('subnet', 'showsubnet_uri')) if ($hostdbini->val ('subnet', 'showsubnet_uri'));
-my $deletehost_path = $q->state_url ($hostdbini->val ('subnet', 'deletehost_uri')) if ($hostdbini->val ('subnet', 'deletehost_uri'));
-my $whois_path = $q->state_url ($hostdbini->val ('subnet', 'whois_uri')) if ($hostdbini->val ('subnet', 'whois_uri'));
+my $me = $q->state_url ();
+my %links = $hostdb->html_links ($q);
 
 $q->begin (title => 'Modify/Add Host');
 my $remote_user = '';
@@ -49,6 +47,8 @@ if (defined ($ENV{REMOTE_USER}) and $ENV{REMOTE_USER} =~ /^[a-z0-9]{,50}$/) {
 	# XXX JUST FOR DEBUGGING UNTIL PUBCOOKIE IS FINISHED
 	$remote_user = 'ft';
 }
+my $is_admin = $hostdb->auth->is_admin ($remote_user);
+
 
 my $host;
 
@@ -71,18 +71,27 @@ if (! defined ($host)) {
 }
 
 
-my $me = $q->state_url ();
+
+my (@links, @admin_links);
+push (@admin_links, "[<a HREF='$links{netplan}'>netplan</a>]") if ($links{netplan});
+push (@links, "[<a HREF='$links{home}'>home</a>]") if ($links{home});
+push (@links, "[<a HREF='$links{whois}'>whois</a>]") if ($links{whois});
+
+my $l = '';
+if (@links or @admin_links) {
+	$l = join(' ', @links, @admin_links);
+}
+
 
 $q->print (<<EOH);
 	<form ACTION='$me' METHOD='post'>
 	<table BORDER='0' CELLPADDING='0' CELLSPACING='3' WIDTH='600'>
 		$table_blank_line
 		<tr>
-			<td COLSPAN='2' ALIGN='center'>
+			<td COLSPAN='3' ALIGN='center'>
 				<h3>HOSTDB: Add/Modify Host</h3>
 			</td>
-			<td>&nbsp;</td>
-			<td>&nbsp;</td>
+			<td ALIGN='right'>$l</td>
 		</tr>
 		$table_blank_line
 EOH
@@ -91,7 +100,7 @@ my $action = lc ($q->param('action'));
 $action = 'search' unless $action;
 
 if ($action eq 'commit') {
-	if (modify_host ($hostdb, $host, $q, $remote_user)) {
+	if (modify_host ($hostdb, $host, $q, $remote_user, $is_admin)) {
 		my $i = localtime () . " modifyhost.cgi[$$]";
 		eval
 		{
@@ -112,7 +121,7 @@ if ($action eq 'commit') {
 	# call modify_host but don't commit () afterwards to get
 	# ip and other stuff supplied to us as CGI parameters
 	# set on the host before we call host_form () below.
-	modify_host ($hostdb, $host, $q, $remote_user);
+	modify_host ($hostdb, $host, $q, $remote_user, $is_admin);
 } else {
 	error_line ($q, 'Unknown action');
 	$host = undef;
@@ -137,6 +146,7 @@ sub modify_host
 	my $host = shift;
 	my $q = shift;
 	my $remote_user = shift;
+	my $is_admin = shift;
 	
 	my (@changelog, @warning);
 	
@@ -153,7 +163,7 @@ sub modify_host
 
 		# check that user is allowed to edit both current zone and subnet
 
-		if (! $hostdb->auth->is_admin ($remote_user)) {
+		if (! $is_admin) {
 			if (! defined ($subnet) or ! $hostdb->auth->is_allowed_write ($subnet, $remote_user)) {
 				die ("You do not have sufficient access to subnet '" . $subnet->subnet () . "'");
 			}
@@ -372,8 +382,8 @@ sub host_form
 	if (defined ($h_subnet)) {
 		$subnet = $h_subnet->subnet ();
 
-		if ($showsubnet_path) {
-			$subnet = "<a HREF='$showsubnet_path;subnet=$subnet'>$subnet</a>";
+		if ($links{showsubnet}) {
+			$subnet = "<a HREF='$links{showsubnet};subnet=$subnet'>$subnet</a>";
 		}
 	} else {
 		$subnet = "not in database";
@@ -431,15 +441,15 @@ sub host_form
 	my $required = "<font COLOR='red'>*</font>";
 
 	my $delete = "[delete]";
-	$delete = "[<a HREF='$deletehost_path;id=$id'>delete</a>]" if (defined ($id));
+	$delete = "[<a HREF='$links{deletehost};id=$id'>delete</a>]" if (defined ($id) and $links{deletehost});
 
 	my $id_if_any = '';
 	$id_if_any = "<input TYPE='hidden' NAME='id' VALUE='$id'>" if (defined ($id) and ($id ne ''));
 
-	my $host_id;
+	my $host_id = $id;
 
 	if (defined ($id)) {
-		$host_id = "<a HREF='$whois_path;whoisdatatype=id;whoisdata=$id'>$id</a>";
+		$host_id = "<a HREF='$links{whois};whoisdatatype=id;whoisdata=$id'>$id</a>" if ($links{whois});
 	} else {
 		$host_id = "not in database";
 	}

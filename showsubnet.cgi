@@ -33,6 +33,8 @@ if (-f $hostdbini->val ('sucgi', 'cfgfile')) {
 }
 
 my $q = SUCGI->new ($sucgi_ini);
+my %links = $hostdb->html_links ($q);
+
 $q->begin (title => "Subnet details");
 my $remote_user = '';
 if (defined ($ENV{REMOTE_USER}) and $ENV{REMOTE_USER} =~ /^[a-z0-9]{,50}$/) {
@@ -45,6 +47,8 @@ if (defined ($ENV{REMOTE_USER}) and $ENV{REMOTE_USER} =~ /^[a-z0-9]{,50}$/) {
 	# XXX JUST FOR DEBUGGING UNTIL PUBCOOKIE IS FINISHED
 	$remote_user = 'ft';
 }
+my $is_admin = $hostdb->auth->is_admin ($remote_user);
+
 
 my $subnet;
 if (defined ($q->param ('id'))) {
@@ -79,25 +83,31 @@ if (! $subnet) {
 	die ("No subnet found\n");
 }
 
-my $whois_path = $q->state_url ($hostdbini->val ('subnet', 'whois_uri')) if ($hostdbini->val ('subnet', 'whois_uri'));
-my $modifyhost_path = $q->state_url ($hostdbini->val ('subnet', 'modifyhost_uri')) if ($hostdbini->val ('subnet', 'modifyhost_uri'));
-my $modifysubnet_path = $q->state_url ($hostdbini->val ('subnet', 'modifysubnet_uri')) if ($hostdbini->val ('subnet', 'modifysubnet_uri'));
-my $netplan_uri = $q->state_url ($hostdbini->val('subnet', 'netplan_uri')) if ($hostdbini->val('subnet', 'netplan_uri'));
-
 my $subnetname = $subnet->subnet ();
+
+my (@links, @admin_links);
+push (@admin_links, "[<a HREF='$links{netplan}'>netplan</a>]") if ($is_admin and $links{netplan});
+push (@links, "[<a HREF='$links{home}'>home</a>]") if ($links{home});
+push (@links, "[<a HREF='$links{whois}'>whois</a>]") if ($links{whois});
+
+my $l = '';
+if (@links or @admin_links) {
+	$l = join(' ', @links, @admin_links);
+}
 
 $q->print (<<EOH);
 	<table BORDER='0' CELLPADDING='0' CELLSPACING='3' WIDTH='600'>
 		$table_blank_line
 		<tr>
-			<td COLSPAN='4' ALIGN='center'><h3>HOSTDB: Subnet $subnetname</h3></td>
+			<td COLSPAN='3' ALIGN='center'><h3>HOSTDB: Subnet $subnetname</h3></td>
+			<td ALIGN='right'>$l</td>
 		</tr>
 		$table_blank_line
 EOH
 
 my $static_flag_days = $hostdbini->val ('subnet', 'static_flag_days');
 my $dynamic_flag_days = $hostdbini->val ('subnet', 'static_flag_days');
-list_subnet ($hostdb, $q, $subnet, $static_flag_days, $dynamic_flag_days);
+list_subnet ($hostdb, $q, $subnet, $remote_user, $is_admin, $static_flag_days, $dynamic_flag_days);
 
 $q->print (<<EOH);
 	</table>
@@ -110,6 +120,8 @@ sub list_subnet
 	my $hostdb = shift;
 	my $q = shift;
 	my $subnet = shift;
+	my $remote_user = shift;
+	my $is_admin = shift;
 	my $static_flag_days = shift;
 	my $dynamic_flag_days = shift;
 
@@ -121,8 +133,6 @@ sub list_subnet
 	my $dynamic_hosts = 0;
 
 	# check that user is allowed to list subnet
-
-	my $is_admin = $hostdb->auth->is_admin ($remote_user);
 	if (! $is_admin) {
 		if (! defined ($subnet) or ! $hostdb->auth->is_allowed_write ($subnet, $remote_user)) {
 			error_line ($q, "You do not have sufficient access to subnet '" . $subnet->subnet () . "'");
@@ -136,13 +146,11 @@ sub list_subnet
 	my $id = $subnet->id ();
 
 	my @links;
-	if ($is_admin and $modifysubnet_path) {
-		push (@links, "[<a HREF='$modifysubnet_path;id=$id'>edit</a>]");
+	if ($is_admin and $links{modifysubnet}) {
+		push (@links, "[<a HREF='$links{modifysubnet};id=$id'>edit</a>]");
 	}
 
-	if ($is_admin and $netplan_uri) {
-		push (@links, "[<a HREF='$netplan_uri'>netplan</a>]");
-	}
+	push (@links, "[<a HREF='$links{netplan}'>netplan</a>]") if ($is_admin and $links{netplan});
 
 	my $h_desc = $q->escapeHTML ($subnet->description ()?$subnet->description ():'no description');
 	$q->print (<<EOH);
@@ -195,9 +203,7 @@ EOH
 		if (! defined ($host)) {
 			# there is a gap here, output IP in green
 						
-			if ($modifyhost_path) {
-				$ip = "<a href='$modifyhost_path;ip=$ip'>$ip</a>";
-			}
+			$ip = "<a href='$links{modifyhost};ip=$ip'>$ip</a>" if ($links{modifyhost});
 			push (@o, <<EOH);
 				<tr>
 					<td>
@@ -217,8 +223,8 @@ EOH
 			# split at space to only get date and not time
 			$mac_ts = (split (/\s/, $mac_ts))[0] || '';
 
-			if ($whois_path) {
-				$ip = "<a HREF='$whois_path;whoisdatatype=ID;whoisdata=$id'>$ip</a>";
+			if ($links{whois}) {
+				$ip = "<a HREF='$links{whois};whoisdatatype=ID;whoisdata=$id'>$ip</a>";
 			}
 			
 			my $h_u_t = $host->unix_mac_address_ts ();

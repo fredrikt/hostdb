@@ -33,10 +33,8 @@ if (-f $hostdbini->val ('sucgi', 'cfgfile')) {
 }
 
 my $q = SUCGI->new ($sucgi_ini);
+my %links = $hostdb->html_links ($q);
 
-my $showsubnet_path = $q->state_url ($hostdbini->val('subnet','showsubnet_uri')) if ($hostdbini->val('subnet','showsubnet_uri'));
-my $modifyhost_path = $q->state_url ($hostdbini->val('subnet','modifyhost_uri')) if ($hostdbini->val('subnet','modifyhost_uri'));
-my $modifyzone_path = $q->state_url ($hostdbini->val('subnet','modifyzone_uri')) if ($hostdbini->val('subnet','modifyzone_uri'));
 my $static_flag_days = $hostdbini->val ('subnet', 'static_flag_days');
 my $dynamic_flag_days = $hostdbini->val ('subnet', 'static_flag_days');
 
@@ -52,13 +50,24 @@ if (defined ($ENV{REMOTE_USER}) and $ENV{REMOTE_USER} =~ /^[a-z0-9]{,50}$/) {
 	# XXX JUST FOR DEBUGGING UNTIL PUBCOOKIE IS FINISHED
 	$remote_user = 'ft';
 }
+my $is_admin = $hostdb->auth->is_admin ($remote_user);
 
+
+my (@links, @admin_links);
+push (@admin_links, "[<a HREF='$links{netplan}'>netplan</a>]") if ($is_admin and $links{netplan});
+push (@links, "[<a HREF='$links{home}'>home</a>]") if ($links{home});
+
+my $l = '';
+if (@links or @admin_links) {
+	$l = join(' ', @links, @admin_links);
+}
 
 $q->print (<<EOH);
 	<table BORDER='0' CELLPADDING='0' CELLSPACING='0' WIDTH='600'>
 		$table_blank_line
 		<tr>
-			<td COLSPAN='4' ALIGN='center'><h3>HOSTDB: Search</h3></td>
+			<td COLSPAN='3' ALIGN='center'><h3>HOSTDB: Search</h3></td>
+			<td ALIGN='right'>$l</td>
 		</tr>
 		$table_blank_line
 EOH
@@ -67,7 +76,8 @@ whois_form ($q);
 
 $q->print ($table_hr_line);
 
-perform_search ($hostdb, $q, $remote_user, $static_flag_days, $dynamic_flag_days);
+
+perform_search ($hostdb, $q, $remote_user, $is_admin, $static_flag_days, $dynamic_flag_days);
 
 $q->print (<<EOH);
 	</table>
@@ -108,6 +118,7 @@ sub perform_search
 	my $hostdb = shift;
 	my $q = shift;
 	my $remote_user = shift;
+	my $is_admin = shift;
 	my $static_flag_days = shift;
 	my $dynamic_flag_days = shift;
 
@@ -129,7 +140,6 @@ sub perform_search
 					my $zonename = $zone->zonename ();
 				
 					# do access control
-					my $is_admin = $hostdb->auth->is_admin ($remote_user);
 					if (! $is_admin) {
 						if (! $hostdb->auth->is_allowed_write ($zone, $remote_user)) {
 							error_line ($q, "You do not have sufficient access to zone '$zonename'");
@@ -261,7 +271,7 @@ sub print_zone_info
 	
 	my $modifyzone_link = '';
 	if ($is_admin) {
-		$modifyzone_link = "[<a HREF='$modifyzone_path;id=$id'>edit</a>]";
+		$modifyzone_link = "[<a HREF='$links{modifyzone};id=$id'>edit</a>]" if ($links{modifyzone});
 	}
 	
 	if ($delegated eq 'N') {
@@ -483,7 +493,7 @@ sub print_host_info
 		$zone_link = "<font COLOR='red'>No zone set</font>&nbsp;$manual_dnszone";
 	}
 	
-	my $modify_link = $authorized?"[<a HREF='$modifyhost_path;id=$id'>modify</a>]":'<!-- not authorized to modify -->';
+	my $modify_link = $authorized?"[<a HREF='$links{modifyhost};id=$id'>modify</a>]":'<!-- not authorized to modify -->';
 
 	# format some things...
 	
@@ -629,9 +639,7 @@ EOH
 		my $netmask = $subnet->netmask ();
 		my $desc = $subnet->description ();
 	
-		if ($showsubnet_path) {
-			$s = "<a HREF='$showsubnet_path;subnet=$s'>$s</a>";
-		}
+		$s = "<a HREF='$links{showsubnet};subnet=$s'>$s</a>" if ($links{showsubnet});
 	
 		$q->print (<<EOH);
 			<tr>
@@ -673,7 +681,7 @@ sub print_brief_subnet
 
 	my $subnet_link = $subnet->subnet ();
 	if ($is_admin or $hostdb->auth->is_allowed_write ($subnet, $remote_user)) {
-		$subnet_link = "<a HREF='$showsubnet_path;id=$id'>" . $subnet->subnet () . "</a>";
+		$subnet_link = "<a HREF='$links{showsubnet};id=$id'>" . $subnet->subnet () . "</a>" if ($links{showsubnet});
 	}
 
 	my $h_desc = $q->escapeHTML ($subnet->description ()?$subnet->description ():'no description');
