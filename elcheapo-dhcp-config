@@ -199,7 +199,7 @@ sub parse_cfgfile
 				my $entry = $2;
 			
 				if ($keyword eq "RESERVED") {
-					die ("$infile:$. Invalid IP address '$entry'\n") if (! $hostdb->check_is_valid_ip ($entry));
+					die ("$infile:$. Invalid IP address '$entry'\n") if (! $hostdb->is_valid_ip ($entry));
 	
 					$dhcpcfg_ref->{$entry}{reserved} = 1;
 	
@@ -209,8 +209,8 @@ sub parse_cfgfile
 				} elsif ($keyword eq "RANGE") {
 					my ($start, $stop) = split (";", $entry);
 					
-					die ("$infile:$. Invalid range start IP address '$start'\n") if (! $hostdb->check_is_valid_ip ($start));
-					die ("$infile:$. Invalid range stop IP address '$stop'\n") if (! $hostdb->check_is_valid_ip ($start));
+					die ("$infile:$. Invalid range start IP address '$start'\n") if (! $hostdb->is_valid_ip ($start));
+					die ("$infile:$. Invalid range stop IP address '$stop'\n") if (! $hostdb->is_valid_ip ($start));
 					
 					die ("$infile:$. Range start IP '$start' not in subnet " . $subnet->subnet () . "\n") if (! ip_in_subnet ($hostdb, $start, $subnet));;
 					die ("$infile:$. Range stop IP '$stop' not in subnet " . $subnet->subnet () . "\n") if (! ip_in_subnet ($hostdb, $stop, $subnet));;
@@ -230,7 +230,7 @@ sub parse_cfgfile
 
 					print ("$infile:$.	Domain name '$entry'\n") if ($debug);
 				} elsif ($keyword eq "TFTPSERVER") {
-					die ("$infile:$. Invalid TFTP server '$entry'\n") if (! $hostdb->check_is_valid_ip ($entry));
+					die ("$infile:$. Invalid TFTP server '$entry'\n") if (! $hostdb->is_valid_ip ($entry));
 	
 					$subnetcfg_ref->{tftpserver} = $entry;
 
@@ -253,7 +253,7 @@ sub parse_cfgfile
 			
 			print ("$infile:$.	'$ip' '$fixedaddress' '$mac'\n") if ($debug);
 
-			die ("$infile:$. Invalid IP address '$ip'\n") if (! $hostdb->check_is_valid_ip ($ip));
+			die ("$infile:$. Invalid IP address '$ip'\n") if (! $hostdb->is_valid_ip ($ip));
 			die ("$infile:$. Invalid FQDN '$fixedaddress'\n") if (! $hostdb->is_valid_fqdn ($fixedaddress));
 
 			die ("$infile:$. IP '$ip' not in subnet " . $subnet->subnet () . "\n") if (! ip_in_subnet ($hostdb, $ip, $subnet));;

@@ -34,7 +34,7 @@ my $first = 1;
 my $match_count = 0;
 
 foreach my $t_search (sort @searchfor) {
-	if (! $hostdb->check_is_valid_ip ($t_search)) {
+	if (! $hostdb->is_valid_ip ($t_search)) {
 		warn ("Invalid IP address '$t_search'\n");
 		next;
 	}
