@@ -10,40 +10,40 @@ use HOSTDB;
 
 my $debug = 0;
 if ($ARGV[0] eq "-d") {
-	shift (@ARGV);
-	$debug = 1;
+    shift (@ARGV);
+    $debug = 1;
 }
 
 my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
 			      debug => $debug
-			     );
+			      );
 
 my @searchfor = @ARGV;
 
 if ($#searchfor == -1) {
-	die ("Syntax: $0 [-d] hostname ...\n");
+    die ("Syntax: $0 [-d] hostname ...\n");
 }
 
 my $first = 1;
 my $match_count = 0;
 
 foreach my $t_search (sort @searchfor) {
-	my @hostlist = $hostdb->findhostbyname ($t_search);
-	if ($#hostlist == -1) {
-		warn ("No entrys matching '$t_search'\n");
-		next;
-	}
+    my @hostlist = $hostdb->findhostbyname ($t_search);
+    if ($#hostlist == -1) {
+	warn ("No entrys matching '$t_search'\n");
+	next;
+    }
+    
+    foreach my $host (@hostlist) {
+	printf "%-7s %-7s %-16s %s\n", "id", "partof", "ip", "hostname",
+	$first = 0 if ($first);
 	
-	foreach my $host (@hostlist) {
-		printf "%-7s %-7s %-16s %s\n", "id", "partof", "ip", "hostname",
-			$first = 0 if ($first);
-
-		printf "%-7s %-7s %-16s %s\n", $host->id (),
-			defined ($host->partof ())?$host->partof ():"-",
-			$host->ip (), $host->hostname ();
-
-		$match_count++;
-	}
+	printf "%-7s %-7s %-16s %s\n", $host->id (),
+	defined ($host->partof ())?$host->partof ():"-",
+	$host->ip (), $host->hostname ();
+	
+	$match_count++;
+    }
 }
 
 exit ($match_count == 0);
