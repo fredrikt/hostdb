@@ -41,6 +41,18 @@ my $modifyhost_path = create_url ($q, $hostdbini->val ('subnet', 'http_base'),
 			     $hostdbini->val ('subnet', 'modifyhost_path'));
 
 $q->begin (title => "Subnet(s) matching $subnet");
+my $remote_user = '';
+if (defined ($ENV{REMOTE_USER}) and $ENV{REMOTE_USER} =~ /^[a-z0-9]{,50}$/) {
+	$remote_user = $ENV{REMOTE_USER};
+} else {
+	#$q->print ("&nbsp;<p><ul><font COLOR='red' SIZE='3'><strong>You are not logged in.</strong></font></ul>\n\n");
+	#$q->end ();
+	#die ("$0: Invalid REMOTE_USER environment variable '$ENV{REMOTE_USER}'");
+
+	# XXX JUST FOR DEBUGGING UNTIL PUBCOOKIE IS FINISHED
+	$remote_user = 'ft';
+}
+
 
 $q->print (<<EOH);
 	<table BORDER='0' CELLPADDING='0' CELLSPACING='3' WIDTH='600'>
@@ -84,6 +96,15 @@ sub list_subnet
 				my $static_in_use = 0;
 				my $dynamic_in_use = 0;
 				my $dynamic_hosts = 0;
+
+				# check that user is allowed to list subnet
+
+				if (! $hostdb->auth->is_admin ($remote_user)) {
+					if (! defined ($subnet) or ! $hostdb->auth->is_allowed_write ($subnet, $remote_user)) {
+						error_line ($q, "You do not have sufficient access to subnet '" . $subnet->subnet () . "'");
+						next;
+					}
+				}
 
 				# HTML
 				my $h_subnet = $subnet->subnet ();
