@@ -92,6 +92,7 @@ sub init
 		$self->{_subnet} =			$self->{_dbh}->prepare ("$SELECT_subnet WHERE netaddr = ? AND slashnotation = ? ORDER BY n_netaddr")	or die "$DBI::errstr";
 		$self->{_subnet_longer_prefix} =	$self->{_dbh}->prepare ("$SELECT_subnet WHERE n_netaddr >= ? AND n_netaddr <= ? ORDER BY n_netaddr")	or die "$DBI::errstr";
 		$self->{_subnet_closest_match} =	$self->{_dbh}->prepare ("$SELECT_subnet WHERE n_netaddr <= ? AND n_broadcast >= ? ORDER BY n_netaddr DESC LIMIT 1")		or die "$DBI::errstr";
+		$self->{_allsubnets} =			$self->{_dbh}->prepare ("$SELECT_subnet ORDER BY n_netaddr")			or die "$DBI::errstr";
 	} else {
 		$self->_debug_print ("DSN not provided, not connecting to database.");
 	}
@@ -755,6 +756,27 @@ sub findsubnetlongerprefix
 	$self->_find(_subnet_longer_prefix => 'HOSTDB::Object::Subnet',
 		$self->aton ($netaddr), $self->aton ($broadcast));
 }
+
+
+=head2 findallsubnets
+
+	foreach my $subnet ($hostdb->findallsubnets ()) {
+		print $subnet->subnet () . "\n";
+	}
+
+	Finds all subnets.
+
+
+=cut
+sub findallsubnets
+{
+	my $self = shift;
+
+	$self->_debug_print ('Find all subnets');
+
+	$self->_find(_allsubnets => 'HOSTDB::Object::Subnet');
+}
+
 
 
 #####################
