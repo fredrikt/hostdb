@@ -633,9 +633,13 @@ sub findhost
 	my $datatype = lc (shift);
 	my $search_for = shift;
 
+	if (! defined ($datatype) or ! $datatype or ! defined ($search_for) or ! $search_for) {
+	    die ("$0: HOSTDB findhost () called with wrong arguments (datatype = '$datatype', search for = '$search_for')\n");
+	}
+
 	$self->_set_error ('');
 	
-	if ($datatype eq "guess" or ! $datatype) {
+	if ($datatype eq 'guess' or ! $datatype) {
 		my $t = $search_for;
 		if ($self->clean_mac_address ($t)) {
 			$search_for = $t;
