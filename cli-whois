@@ -7,22 +7,21 @@
 
 use strict;
 use HOSTDB;
+use Getopt::Std;
+use vars qw ($opt_h $opt_d);
 
-my $debug = 0;
-if ($ARGV[0] eq "-d") {
-	shift (@ARGV);
-	$debug = 1;
+getopts ('hd');
+
+my $debug = defined ($opt_d);
+
+my @searchfor = @ARGV;
+if ($#searchfor == -1 || $opt_h) {
+	die ("Syntax: $0 [-d] <IP/FQDN/MAC> ...\n");
 }
 
 my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
 			      debug => $debug
 			     );
-
-my @searchfor = @ARGV;
-
-if ($#searchfor == -1) {
-	die ("Syntax: $0 [-d] <IP/FQDN/MAC> ...\n");
-}
 
 my $first = 1;
 while ($ARGV[0]) {
@@ -104,7 +103,7 @@ EOH
 						print ("\n	  [$section]\n");
 					}
 					
-					printf ("	    %-20s = %s\n", $key, $value);
+					printf ("	    %-17s = %s\n", $key, $value);
 				}
 				
 				print ("\n");
