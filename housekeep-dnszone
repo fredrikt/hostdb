@@ -1,0 +1,81 @@
+#!/usr/local/bin/perl -w
+#
+# $Id$
+#
+# script to check all host entrys and make sure their DNS zone is correct
+#
+
+use strict;
+use Config::IniFiles;
+#use lib 'blib/lib';
+use HOSTDB;
+use Getopt::Std;
+use vars qw ($opt_h $opt_d $opt_q);
+use FileHandle;
+
+getopts ('hdq');
+
+my $debug = defined ($opt_d);
+my $quiet = defined ($opt_q);
+
+if ($opt_h) {
+	die(<<EOT);
+Syntax: $0 [options] zones
+	options:
+		-d	debug
+		-q	quiet mode
+
+EOT
+}
+
+my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
+			      debug => $debug
+			     );
+
+my (@all_zonenames);
+foreach my $zone ($hostdb->findallzones ()) {
+	push (@all_zonenames, $zone->zonename ());
+}
+
+my $changed_count = 0;
+my $total_count = 0;
+my $failed_count = 0;
+
+my @all_hosts = $hostdb->findallhosts ();
+foreach my $host (@all_hosts) {
+	$total_count++;
+	
+	my $hostname = $host->hostname ();
+	my $id = $host->id ();
+	my $dnszone = $host->dnszone () || '';
+
+	if ($host->manual_dnszone () eq 'Y') {
+		# host has auto-DNS-zone disabled, probably glue
+		warn ("Skipping host $hostname, manual DNS zone maintenance\n") unless $quiet;
+		next;
+	}
+
+	my $host_dnszone = $hostdb->findzonenamebyhostname ($hostname, @all_zonenames) || '';
+
+	if ($dnszone ne $host_dnszone) {
+		my $valid = 1;
+		$host->dnszone ($host_dnszone) or warn ("Could not set zone '$host_dnszone' on host $id ($hostname): $host->{error}\n"), $valid = 0;
+
+		if ($valid) {
+			if ($host->commit ()) {
+				warn ("Changed zone for '$hostname' from '$dnszone' to '$host_dnszone'\n") unless $quiet;
+				$changed_count++;
+			} else {
+				warn ("Commit on host $id ($hostname) failed: $host->{error}\n");
+				$failed_count++;
+			}
+		}		
+	}
+}
+
+print ("Changed dnszone on $changed_count out of $total_count hosts, $failed_count failed.\n") unless $quiet;
+
+exit (1) if ($failed_count);
+
+exit (0);
+
