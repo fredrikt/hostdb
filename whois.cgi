@@ -275,9 +275,7 @@ sub print_zone_info
 	$zonename = $zone->zonename ();
 	$id = $zone->id ();
 	$delegated = $zone->delegated ();
-	$default_ttl = $zone->default_ttl () || 'default';
 	$serial = $zone->serial () || 'NULL';
-	$ttl = $zone->ttl () || 'default';
 	$mname = $zone->mname () || 'default';
 	$rname = $zone->rname () || 'default';
 	$refresh = $zone->refresh () || 'default';
@@ -285,6 +283,17 @@ sub print_zone_info
 	$expiry = $zone->expiry () || 'default';
 	$minimum = $zone->minimum () || 'default';
 	$owner = $zone->owner ();
+
+	if ($zone->default_ttl ()) {
+		$default_ttl = $zone->default_ttl () . " seconds";
+	} else {
+		$default_ttl = 'default';
+	}
+	if ($zone->ttl ()) {
+		$ttl = $zone->ttl () . " seconds";
+	} else {
+		$ttl = 'default';
+	}
 	
 	my $modifyzone_link = '';
 	if ($is_admin) {
@@ -316,7 +325,7 @@ sub print_zone_info
 		</tr>
 		<tr>
 			<td>&nbsp;&nbsp;Default TTL</td>
-			<td>$default_ttl seconds</td>
+			<td>$default_ttl</td>
 			<td>($zone_defaults{default_ttl})</td>
 			$empty_td
 		</tr>
@@ -599,7 +608,7 @@ EOH
 	   <tr>
 		$empty_td
 		<td>TTL</td>
-		<td>$ttl seconds</td>
+		<td>$ttl</td>
 	   </tr>
 	   <tr>
 		$empty_td
