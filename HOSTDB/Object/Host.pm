@@ -551,7 +551,7 @@ sub ttl
 	if (@_) {
 		my $newvalue = lc (shift);
 
-		if ($newvalue eq 'NULL') {
+		if ($newvalue eq 'null') {
 			$self->{ttl} = undef;
 		} else {
 			if (! $self->is_valid_nameserver_time ($newvalue)) {
