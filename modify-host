@@ -8,12 +8,14 @@
 use strict;
 use HOSTDB;
 use Getopt::Long;
-use vars qw ($opt_ip $opt_hostname $opt_owner $opt_dhcpmode $opt_dhcpstatus $opt_dnsmode $opt_dnsstatus $opt_mac_address $opt_ttl $opt_user $opt_partof $opt_debug $opt_force);
+use vars qw ($opt_ip $opt_hostname $opt_manual_dnszone $opt_dnszone $opt_owner $opt_dhcpmode $opt_dhcpstatus $opt_dnsmode $opt_dnsstatus $opt_mac_address $opt_ttl $opt_user $opt_partof $opt_profile $opt_debug $opt_force);
 
 my %o = ();
 my $res = GetOptions (
 	    "ip=s",
 	    "hostname=s",
+	    "dnszone=s",
+	    "manual_dnszone=s",
 	    "owner=s",
 	    "dhcpmode=s",
 	    "dhcpstatus=s",
@@ -23,6 +25,7 @@ my $res = GetOptions (
 	    "ttl=i",
 	    "user=s",
 	    "partof=i",
+	    "profile=s",
 	    "debug",
 	    "force"
 	   );
@@ -43,17 +46,19 @@ ${msg}Syntax: $0 [options] <IP/FQDN/MAC/ID>
 		--debug		debug
 		--force		well, force
 	object modifiers :
-		--ip		IP address
-		--hostname	FQDN
-		--partof n	parent Host ID
-		--dhcpmode	STATIC or DYNAMIC
-		--dhcpstatus	ENABLED or DISABLED
-		--dnsmode	A_AND_PTR or A
-		--dnsstatus	ENABLED or DISABLED
-		--mac_address	MAC address
-		--ttl		DNS TTL
-		--user		Comment about user
-		--owner		Comment about owner
+		--ip			IP address
+		--hostname		FQDN
+		--dnszone		The DNS zone to include this host in
+		--manual_dnszone	Set to 'N' to disable automatic dnszone maintenance
+		--partof n		parent Host ID
+		--dhcpmode		STATIC or DYNAMIC
+		--dhcpstatus		ENABLED or DISABLED
+		--dnsmode		A_AND_PTR or A
+		--dnsstatus		ENABLED or DISABLED
+		--mac_address		MAC address
+		--ttl			DNS TTL
+		--user			Comment about user
+		--owner			Comment about owner
 
 EOT
 }
@@ -64,7 +69,7 @@ my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
 			      debug => $debug
 			     );
 
-my $host = get_host ($search_for);
+my $host = get_host ($hostdb, 'guess', $search_for);
 
 die ("$0: Could not find host object\n") unless ($host);
 
@@ -94,76 +99,52 @@ if (! $opt_force) {
 	}
 }
 
-$host->ip ($opt_ip)			or die ("$0: Invalid value - $host->{error}\n") if (defined ($opt_ip));
-$host->hostname ($opt_hostname)		or die ("$0: Invalid value - $host->{error}\n") if (defined ($opt_hostname));
-$host->owner ($opt_owner)		or die ("$0: Invalid value - $host->{error}\n") if (defined ($opt_owner));
-$host->dhcpmode ($opt_dhcpmode)		or die ("$0: Invalid value - $host->{error}\n") if (defined ($opt_dhcpmode));
-$host->dhcpstatus ($opt_dhcpstatus)	or die ("$0: Invalid value - $host->{error}\n") if (defined ($opt_dhcpstatus));
-$host->dnsmode ($opt_dnsmode)		or die ("$0: Invalid value - $host->{error}\n") if (defined ($opt_dnsmode));
-$host->dnsstatus ($opt_dnsstatus)	or die ("$0: Invalid value - $host->{error}\n") if (defined ($opt_dnsstatus));
-$host->mac_address ($opt_mac_address)	or die ("$0: Invalid value - $host->{error}\n") if (defined ($opt_mac_address));
-$host->ttl ($opt_ttl)			or die ("$0: Invalid value - $host->{error}\n") if (defined ($opt_ttl));
-$host->user ($opt_user)			or die ("$0: Invalid value - $host->{error}\n") if (defined ($opt_user));
-$host->partof ($opt_partof)		or die ("$0: Invalid value - $host->{error}\n") if (defined ($opt_partof));
+$host->ip ($opt_ip)			or die ("$0: Invalid ip - $host->{error}\n") if (defined ($opt_ip));
+$host->owner ($opt_owner)		or die ("$0: Invalid owner - $host->{error}\n") if (defined ($opt_owner));
+$host->dhcpmode ($opt_dhcpmode)		or die ("$0: Invalid dhcpmode - $host->{error}\n") if (defined ($opt_dhcpmode));
+$host->dhcpstatus ($opt_dhcpstatus)	or die ("$0: Invalid dhcpstatus - $host->{error}\n") if (defined ($opt_dhcpstatus));
+$host->dnsmode ($opt_dnsmode)		or die ("$0: Invalid dnsmode - $host->{error}\n") if (defined ($opt_dnsmode));
+$host->dnsstatus ($opt_dnsstatus)	or die ("$0: Invalid dnsstatus - $host->{error}\n") if (defined ($opt_dnsstatus));
+$host->mac_address ($opt_mac_address)	or die ("$0: Invalid mac_address - $host->{error}\n") if (defined ($opt_mac_address));
+$host->ttl ($opt_ttl)			or die ("$0: Invalid ttl - $host->{error}\n") if (defined ($opt_ttl));
+$host->user ($opt_user)			or die ("$0: Invalid user - $host->{error}\n") if (defined ($opt_user));
+$host->partof ($opt_partof)		or die ("$0: Invalid partof - $host->{error}\n") if (defined ($opt_partof));
+$host->manual_dnszone ($opt_manual_dnszone) or die ("$0: Invalid manual_dnszone - $host->{error}\n") if (defined ($opt_manual_dnszone));
+
+if (defined ($opt_dnszone)) {
+	$host->dnszone ($opt_dnszone) or die ("$0: Invalid dnszone - $host->{error}\n");
+} else {
+	if (defined ($opt_hostname) and $opt_hostname ne $host->hostname()) {
+		# setting hostname, but not setting DNS zone. auto-detect.
+		my $z = $hostdb->findzonebyhostname ($opt_hostname);
+
+		if (defined ($z)) {
+			if ($host->manual_dnszone () ne 'Y') {
+				$host->dnszone ($z->zonename);
+				warn ("$0: You changed hostname so I changed DNS zone for you (to " . $host->dnszone () . ")\n");
+			} else {
+				warn ("$0: NOT changing DNS zone (to " . $z->zonename () . ") since manual_dnszone is set to 'Y' for this host\n");
+			}
+		} else {
+			warn ("$0: Could not find a suitable dnszone for new hostname '$opt_hostname'\n");
+		}
+	}
+}
+$host->hostname ($opt_hostname) or die ("$0: Invalid hostname - $host->{error}\n") if (defined ($opt_hostname));
 
 $host->commit () or die ("$0: Could not commit host object - $host->{error}\n");
 
 exit (0);
 
+
 sub get_host
 {
+	my $hostdb = shift;
+	my $datatype = shift;
 	my $search_for = shift;
 	my @host_refs;
-	my $datatype;
 
-	my $t = $search_for;
-	if ($hostdb->clean_mac_address ($t)) {
-		$search_for = $t;
-		$datatype = "MAC";
-	} elsif ($hostdb->is_valid_ip ($search_for)) {
-		$datatype = "IP";
-	} elsif ($hostdb->is_valid_fqdn ($search_for)) {
-		$datatype = "FQDN";
-	} elsif ($search_for =~ /^\d+$/) { 
-		$datatype = "ID";
-	} else {
-		usage ("Don't know what '$search_for' is\n\n");
-	}
-
-	if ($datatype eq "IP") {
-		if ($hostdb->is_valid_ip ($search_for)) {
-			@host_refs = $hostdb->findhostbyip ($search_for);
-		} else {
-			warn ("Search failed: '$search_for' is not a valid IP address");
-			return undef;
-		}
-	} elsif ($datatype eq "FQDN") {
-		if ($hostdb->is_valid_fqdn ($search_for)) {
-			@host_refs = $hostdb->findhostbyname ($search_for);
-		} else {
-			warn ("Search failed: '$search_for' is not a valid FQDN");
-			return undef;
-		}
-	} elsif ($datatype eq "MAC") {
-		my $t = $search_for;
-		if ($hostdb->clean_mac_address ($t)) {
-			$search_for = $t;
-			@host_refs = $hostdb->findhostbymac ($search_for);
-		} else {
-			warn ("Search failed: '$search_for' is not a valid MAC address");
-			return undef;
-		}
-	} elsif ($datatype eq "ID") {
-		if ($search_for =~ /^\d+$/) { 
-			@host_refs = $hostdb->findhostbyid ($search_for);
-		} else {
-			warn ("Search failed: '$search_for' is not a valid ID");
-			return undef;
-		}
-	} else {
-		warn ("Search failed: don't recognize datatype '$datatype'");
-		return undef;
-	}
+	@host_refs = $hostdb->findhost ($datatype, $search_for);
 
 	if ($#host_refs == -1) {
 		warn ("$0: Search for '$search_for' (type '$datatype') failed - no match\n");
