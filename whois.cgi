@@ -527,6 +527,23 @@ sub print_host_info
 	
 	my $modify_link = $authorized?"[<a HREF='$links{modifyhost};id=$id'>modify</a>]":'<!-- not authorized to modify -->';
 
+
+	my $hostattributes_link = '';
+	if ($is_admin or $is_helpdesk) {
+		my $numattrs = $host->init_attributes ();
+
+		if ($numattrs > 0) {
+			if ($links{hostattributes}) {
+				$hostattributes_link = "[<a HREF='$links{hostattributes};id=$id'>attributes</a>]";
+			} else {
+				$hostattributes_link = "[$numattrs attributes but no path to hostattributes.cgi]";
+			}
+		} else {
+			$hostattributes_link = "[no attributes]";
+		}
+
+	}
+
 	# format some things...
 	
 	if ($dhcpstatus ne 'ENABLED') {
@@ -557,7 +574,7 @@ sub print_host_info
 	   <tr>
 		$empty_td
 		<td>ID</td>
-		<td>$id&nbsp;$modify_link</td>
+		<td>$id&nbsp;$modify_link $hostattributes_link</td>
 	   </tr>	
 	   <tr>
 		$empty_td
