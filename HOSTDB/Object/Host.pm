@@ -198,7 +198,6 @@ sub delete
 			return 0;
 		}
 	}
-	unset (@attributes);
 	
 	if (defined ($self->{id})) {
 		my $sth = $self->{_delete_host};
