@@ -162,10 +162,10 @@ sub print_cgi_header
 		</tr>
 
                 <tr>
-                        <td ALIGN='center' WIDTH='75%'>
+                        <td ALIGN='center' WIDTH='75%' NOWRAP>
 				<h3>HOSTDB: $title</h3>
 			</td>
-                        <td ALIGN='right' WIDTH='25%'>
+                        <td ALIGN='right' WIDTH='25%' NOWRAP>
 				$l
 			</td>
                 </tr>
