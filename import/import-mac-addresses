@@ -1,0 +1,80 @@
+#!/usr/bin/perl
+#
+# $Id$
+#
+# script to set mac addresses on hosts in the database based on output of
+# cisco command
+#
+#	terminal length 0
+#	sh ip arp
+#
+
+use strict;
+use Config::IniFiles;
+#use lib 'blib/lib';
+use HOSTDB;
+
+my $debug = 0;
+my @files = @ARGV;
+my $default_ttl;
+
+if ($#files == -1) {
+	die ("Syntax: $0 file\n");
+}
+
+my $hostdbini = Config::IniFiles->new (-file => '/usr/local/etc/hostdb.ini');
+
+my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
+			  db => $hostdbini->val ('db', 'database'),
+			  user => $hostdbini->val ('db', 'user'),
+			  password => $hostdbini->val ('db', 'password'),
+			  debug => $debug
+			 );
+
+my ($set_count, $failed_count, %seen);
+foreach my $file (@files) {
+	open (FIL, "< $file") or die ("Could not open $file for reading: $!\n");
+
+	while (my $rad = <FIL>) {
+		chomp ($rad);
+
+		if ($rad =~ /^Internet\s+([0-9\.]+)\s+(\d|\-)+\s+([0-9a-f\.]+)\s+/) {
+			my ($ip, $mac) = ($1, $3);
+		
+			# shortcut as early as possible if we've seen this ip and mac earlier this run
+			next if ($seen{"$ip;$mac"});
+			$seen{"$ip;$mac"} = 1;
+
+			$hostdb->clean_mac_address ($mac);
+			warn ("Invalid MAC address '$3' on $file:$.\n"), next unless ($hostdb->valid_mac_address ($mac));
+
+			#warn ("IP $ip MAC $mac\n");
+			my $host = $hostdb->findhostbyip ($ip);
+		
+			if (! defined ($host->{id})) {
+				warn ("$ip not found in database\n");
+				$failed_count++;
+			} else {
+				my $valid = 1;
+
+				next if ($host->{mac} eq $mac);
+
+				warn("Overwriting $ip ($host->{mac}) with $mac\n") if ($host->{mac});
+
+				$host->set_mac_address ($mac) or warn ($host->{error}), $valid = 0;
+				$host->commit() if ($valid);
+			
+				undef ($host);
+				$set_count++;
+
+				printf("%-6d %-16s %s\n", $set_count, $ip, $mac);
+			}
+		}
+
+	}
+	close (FIL);
+	
+	print ("$file: set $set_count mac addresses, failed to set $failed_count\n");
+}
+
+print ("done\n");
