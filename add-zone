@@ -1,4 +1,4 @@
-#!/usr/local/bin/perl
+#!/usr/local/bin/perl -w
 #
 # $Id$
 #
@@ -6,8 +6,6 @@
 #
 
 use strict;
-use Config::IniFiles;
-#use lib 'blib/lib';
 use HOSTDB;
 use Getopt::Long;
 use vars qw ($opt_delegated $opt_default_ttl $opt_ttl $opt_serial $opt_mname $opt_rname $opt_refresh $opt_retry $opt_expiry $opt_minimum $opt_owner $opt_force $opt_debug);
@@ -58,15 +56,9 @@ ${msg}Syntax: $0 [options] zonename owner
 EOT
 }
 
-my $hostdbini = Config::IniFiles->new (-file => HOSTDB::get_inifile ());
-die ("$0: Config file access problem.\n") unless ($hostdbini);
-
-my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
-			  db => $hostdbini->val ('db', 'database'),
-			  user => $hostdbini->val ('db', 'user'),
-			  password => $hostdbini->val ('db', 'password'),
-			  debug => $debug
-			 );
+my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
+			      debug => $debug
+			     );
 
 usage ("") if (! $zonename or ! $owner);
 usage ("Invalid zonename '$zonename'\n\n") unless ($hostdb->is_valid_domainname ($zonename));

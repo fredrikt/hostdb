@@ -1,4 +1,4 @@
-#!/usr/local/bin/perl
+#!/usr/local/bin/perl -w
 #
 # $Id$
 #
@@ -6,8 +6,6 @@
 #
 
 use strict;
-use Config::IniFiles;
-#use lib 'blib/lib';
 use HOSTDB;
 use SUCGI;
 
@@ -20,15 +18,11 @@ if (defined($ARGV[0]) and $ARGV[0] eq "-d") {
 	$debug = 1;
 }
 
-my $hostdbini = Config::IniFiles->new (-file => HOSTDB::get_inifile ());
-die ("$0: Config file access problem.\n") unless ($hostdbini);
+my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
+			      debug => $debug
+			     );
 
-my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
-			  db => $hostdbini->val ('db', 'database'),
-			  user => $hostdbini->val ('db', 'user'),
-			  password => $hostdbini->val ('db', 'password'),
-			  debug => $debug
-			 );
+my $hostdbini = $hostdb->inifile ();
 
 my $sucgi_ini;
 if (-f $hostdbini->val ('sucgi', 'cfgfile')) {

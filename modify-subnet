@@ -1,4 +1,4 @@
-#!/usr/local/bin/perl
+#!/usr/local/bin/perl -w
 #
 # $Id$
 #
@@ -7,7 +7,6 @@
 
 use strict;
 use Config::IniFiles;
-#use lib 'blib/lib';
 use HOSTDB;
 use Getopt::Std;
 use vars qw ($opt_h $opt_d $opt_s $opt_c $opt_D);
@@ -48,12 +47,7 @@ Syntax: $0 [options] subnet
 EOT
 }
 
-my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
-			  db => $hostdbini->val ('db', 'database'),
-			  user => $hostdbini->val ('db', 'user'),
-			  password => $hostdbini->val ('db', 'password'),
-			  debug => $debug
-			 );
+my $hostdb = HOSTDB::DB->new (ini => $hostdbini, debug => $debug);
 
 my $subnet = $hostdb->findsubnet ($subnet_name);
 

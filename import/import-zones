@@ -1,4 +1,4 @@
-#!/usr/local/bin/perl
+#!/usr/local/bin/perl -w
 #
 # $Id$
 #
@@ -7,8 +7,6 @@
 #
 
 use strict;
-use Config::IniFiles;
-#use lib 'blib/lib';
 use HOSTDB;
 use Net::DNS;
 
@@ -20,15 +18,9 @@ if (! $file or $#ARGV != -1) {
 	warn ("No named.conf filename given as argument, expecting zone names on stdin.\n");
 }
 
-my $hostdbini = Config::IniFiles->new (-file => HOSTDB::get_inifile ());
-die ("$0: Config file access problem.\n") unless ($hostdbini);
-
-my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
-			  db => $hostdbini->val ('db', 'database'),
-			  user => $hostdbini->val ('db', 'user'),
-			  password => $hostdbini->val ('db', 'password'),
-			  debug => $debug
-			 );
+my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
+			      debug => $debug
+			     );
 
 my %counters;
 $counters{imported} = 0;

@@ -47,13 +47,7 @@ $zone_defaults{soa_retry} = $hostdbini->val ('zone', 'default_soa_retry');
 $zone_defaults{soa_expiry} = $hostdbini->val ('zone', 'default_soa_expiry');
 $zone_defaults{soa_minimum} = $hostdbini->val ('zone', 'default_soa_minimum');
 
-my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
-			  db => $hostdbini->val ('db', 'database'),
-			  user => $hostdbini->val ('db', 'user'),
-			  password => $hostdbini->val ('db', 'password'),
-			  debug => $debug
-			 );
-
+my $hostdb = HOSTDB::DB->new (ini => $hostdbini, debug => $debug);
 my @generate = @ARGV;
 
 push (@generate, "*") if ($#generate == -1);	# default is to generate ALL

@@ -20,6 +20,7 @@ CREATE TABLE host (
 	mac_address_ts DATETIME,
 	client_id VARCHAR(255),
 	options MEDIUMBLOB,
+	profile VARCHAR(25) DEFAULT 'default' NOT NULL,
 	PRIMARY KEY (id)
 );
 

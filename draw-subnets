@@ -1,4 +1,4 @@
-#!/usr/local/bin/perl
+#!/usr/local/bin/perl -w
 #
 # $Id$
 #
@@ -6,8 +6,6 @@
 #
 
 use strict;
-use Config::IniFiles;
-#use lib 'blib/lib';
 use HOSTDB;
 use GD;
 
@@ -45,12 +43,7 @@ die ("$0: Could not create path to showsubnet cgi-script.\n" .
      "You should probably specify 'http_base' and 'showsubnet_path'\n" .
      "in the 'subnet' section of '" . HOSTDB::get_inifile () . "'\n") if (! $showsubnet_path);
 
-my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
-			  db => $hostdbini->val ('db', 'database'),
-			  user => $hostdbini->val ('db', 'user'),
-			  password => $hostdbini->val ('db', 'password'),
-			  debug => $debug
-			 );
+my $hostdb = HOSTDB::DB->new (ini => $hostdbini, debug => $debug);
 
 my @drawsubnets = @ARGV;
 
