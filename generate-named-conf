@@ -52,6 +52,10 @@ foreach my $zone ($hostdb->findallzones ()) {
 		$options = 'allow-query { rfc1918-query-acl; }; ';
 	}
 
+	if ($zonename =~ /^.*\.sub\.su\.se$/ or $zonename eq 'sub.su.se') {
+	    $options = 'allow-transfer { axfr-acl; 130.237.165.3; }; ';
+	}
+
 	if ($gen_master) {
 		print ("$z	{ type master; file \"/approved/$zonename..ZONE\"; $options};\n");
 	} else {
