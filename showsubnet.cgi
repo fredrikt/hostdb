@@ -205,7 +205,7 @@ EOH
 	for $i (1 .. $subnet->addresses () - 2) {
 		my $ip = $hostdb->ntoa ($subnet->n_netaddr () + $i);
 		my @thesehosts = get_hosts_with_ip ($ip, @hosts);
-		if (! defined (@thesehosts)) {
+		if (! @thesehosts) {
 			# there is a gap here, output IP in green
 						
 			$ip = "<a href='$links{modifyhost};ip=$ip'>$ip</a>" if ($links{modifyhost});
