@@ -185,6 +185,21 @@ sub delete
 
 	return 0 if ($check ne "YES");
 
+	# XXX delete both host attributes and host object in a database transaction
+
+	my @attributes = $self->init_attributes ();
+	foreach my $attr (@attributes) {
+		my $fail = 0;
+		$attr->delete () or $fail = 1;
+		if ($fail) {
+			my $attrid = $attr->id ();
+			my $attrerror = $attr->{error};
+			$self->_set_error ("Failed deleting a host attribute (id $attrid) - $attrerror");
+			return 0;
+		}
+	}
+	unset (@attributes);
+	
 	if (defined ($self->{id})) {
 		my $sth = $self->{_delete_host};
 		$sth->execute ($self->id ()) or die "$DBI::errstr";
@@ -231,6 +246,57 @@ sub init_attributes
 
 	wantarray ? @{$self->{attributes}} : 1;
 }
+
+
+=head2 get_attribute
+
+	Locate a specific attribute in this hosts attribute-list. Make sure
+	you have called $host->init_attributes () before using this!
+
+	Blah
+
+=cut
+sub get_attribute
+{
+	my $self = shift;
+	my $attribute = shift;
+	my $section = shift;
+
+	my @res;
+
+	foreach my $attr (@{$self->{attributes}}) {
+		if ($attr->key () eq $attribute and
+		    $attr->section () eq $section) {
+			push (@res, $attr);
+		}
+	}
+
+	wantarray ? @res : $res[0];
+}
+
+
+=head2 create_hostattribute
+
+	$attr = $hostdb->create_hostattribute();
+
+	Gets you a brand new HOSTDB::Object::HostAttribute object.
+
+
+=cut
+sub create_hostattribute
+{
+	my $self = shift;
+	
+	my $o = bless {},"HOSTDB::Object::HostAttribute";
+	$o->{hostdb} = $self->{hostdb};
+	$o->{debug} = $self->{debug};
+	$o->{hostid} = $self->{id};
+	$self->_set_error ($o->{error}), return undef if (! $o->init());
+	
+	return ($o);
+}
+
+
 
 
 =head2 dhcpmode
