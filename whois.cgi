@@ -154,9 +154,15 @@ sub perform_search
 						}
 					}
 
-					print_zone_info ($q, $hostdb, $zone, $is_admin, $is_helpdesk);
-
 					@host_refs = $hostdb->findhostbyzone ($search_for);
+
+					my $hostdbini = $hostdb->inifile ();
+					my $static_flag_days = $hostdbini->val ('subnet', 'static_flag_days');
+					my $dynamic_flag_days = $hostdbini->val ('subnet', 'static_flag_days');
+
+					print_zone_info ($q, $hostdb, $zone, \@host_refs,
+							 $static_flag_days, $dynamic_flag_days,
+							 $is_admin, $is_helpdesk);
 				} else {
 					error_line ($q, "No such zone: '$search_for'");
 				}
@@ -253,6 +259,9 @@ sub print_zone_info
 	my $q = shift;
 	my $hostdb = shift;
 	my $zone = shift;
+	my $hosts_ref = shift;
+	my $static_flag_days = shift;
+	my $dynamic_flag_days = shift;
 	my $is_admin = shift;
 	my $is_helpdesk = shift;
 
@@ -270,6 +279,33 @@ sub print_zone_info
 	$zone_defaults{soa_retry} = $hostdbini->val ('zone', 'default_soa_retry') || 'no default set';
 	$zone_defaults{soa_expiry} = $hostdbini->val ('zone', 'default_soa_expiry') || 'no default set';
 	$zone_defaults{soa_minimum} = $hostdbini->val ('zone', 'default_soa_minimum') || 'no default set';
+
+	# Statistics
+	my $static_hosts = 0;
+	my $static_in_use = 0;
+	my $dynamic_in_use = 0;
+	my $dynamic_hosts = 0;
+	
+	foreach my $host (@$hosts_ref) {
+		my $h_u_t = $host->unix_mac_address_ts ();
+
+		if ($host->dhcpmode () eq 'DYNAMIC') {
+			$dynamic_hosts++;
+			$dynamic_in_use++ if (defined ($h_u_t) and
+				(time () - $h_u_t) < ($dynamic_flag_days * 86400));
+		} else {
+			$static_hosts++;
+			$static_in_use++ if (defined ($h_u_t) and
+				(time () - $h_u_t) < ($static_flag_days * 86400));
+		}
+	}
+	
+	my $num_hosts = $static_hosts + $dynamic_hosts;
+	my $static_percent = int (safe_div ($static_hosts, $num_hosts) * 100);
+	my $dynamic_percent = int (safe_div ($dynamic_hosts, $num_hosts) * 100);
+	my $static_usage_percent = int (safe_div ($static_in_use, $static_hosts) * 100);
+	my $dynamic_usage_percent = int (safe_div ($dynamic_in_use, $dynamic_hosts) * 100);
+	my $addresses_needed = $static_in_use + $dynamic_hosts;
 	
 	# HTML
 	$zonename = $zone->zonename ();
@@ -308,10 +344,9 @@ sub print_zone_info
 	
 	$q->print (<<EOH);
 		<tr>
-			<td><strong>Zone</strong></td>
-			<td><strong>$zonename</strong></td>
-			<td>$modifyzone_link&nbsp;</td>
-			$empty_td
+			<th ALIGN='left'>Zone</th>
+			<th ALIGN='left'>$zonename</td>
+			<td COLSPAN='2'>$modifyzone_link&nbsp;</td>
 		</tr>
 		<tr>
 			<td>&nbsp;&nbsp;Delegated</td>
@@ -336,10 +371,7 @@ sub print_zone_info
 			$empty_td
 		</tr>
 		<tr>
-			<td><strong>SOA parameters</strong></td>
-			$empty_td
-			$empty_td
-			$empty_td
+			<th ALIGN='left' COLSPAN='4'>SOA parameters</strong></th>
 		</tr>
 		<tr>
 			<td>&nbsp;&nbsp;serial</td>
@@ -383,7 +415,35 @@ sub print_zone_info
 			<td>($zone_defaults{soa_minimum})</td>
 			$empty_td
 		</tr>
+
+		<tr>
+			<th ALIGN='left' COLSPAN='4'>Zone hosts statistics</strong></th>
+		</tr>
+		<tr>
+		   <td>Hosts</td>
+		   <td>$num_hosts</td>
+		   $empty_td
+		   $empty_td
+		</tr>
+		<tr>
+		   <td>Static hosts</td>
+		   <td>$static_hosts ($static_percent%)</td>
+		   <td>in use</td>
+		   <td>$static_in_use/$static_hosts ($static_usage_percent%)</td>
+		</tr>
+		<tr>
+		   <td>Dynamic hosts</td>
+		   <td>$dynamic_hosts ($dynamic_percent%)</td>
+		   <td>in use</td>
+		   <td>$dynamic_in_use/$dynamic_hosts ($dynamic_usage_percent%)</td>
+		</tr>
 		
+		$table_blank_line
+		
+		<tr>
+		   <td COLSPAN='2'>Addresses needed</td>
+		   <td COLSPAN='2'>$static_in_use + $dynamic_hosts = $addresses_needed</td>
+		</tr>
 		$table_hr_line
 	
 EOH
@@ -746,6 +806,16 @@ sub print_brief_subnet
 EOH
 	
 	return 1;
+}
+
+sub safe_div
+{
+	my $a = shift;
+	my $b = shift;
+
+	return ($a / $b) if ($a != 0 and $b != 0);
+
+	return 0;
 }
 
 sub error_line
