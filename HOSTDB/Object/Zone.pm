@@ -32,7 +32,7 @@ Zone object routines. A host object has the following attributes :
 
   id			- unique identifier (numeric, database assigned)
   zonename		- the name of the zone, without trailing dot
-  delegated		- is this a subzone to one of ours or not?
+  delegated		- is this a subzone to one of ours or not? Y or N
   default_ttl		- the $TTL printed at the top of the zone file
   ttl			- SOA ttl
   mname			- SOA mname (primary nameserver name)
@@ -210,7 +210,7 @@ sub zonename
 
 
 	# set property
-	$zone->delegated ("Y");	# valid values are "Y" (or 1), "N" (or 0)
+	$zone->delegated ("Y");	# valid values are "Y" or "N"
 
 	# when used to get the value, always returns "Y" or "N" so you
 	# can't just do 'if ($zone->delegated ()) ...'
@@ -226,12 +226,12 @@ sub delegated
 	if (@_) {
 		my $newvalue = shift;
 	
-		if ($newvalue =~ /^y/i or $newvalue == 1) {
-			$self->{delegated} = "Y";
-		} elsif ($newvalue =~ /^n/i or $newvalue == 0) {
-			$self->{delegated} = "N";
+		if ($newvalue =~ /^y/oi) {
+			$self->{delegated} = 'Y';
+		} elsif ($newvalue =~ /^n/oi) {
+			$self->{delegated} = 'N';
 		} else {
-			$self->_set_error ("Invalid delegated format");
+			$self->_set_error ('Invalid delegated format');
 			return 0;
 		}
 		
