@@ -11,6 +11,11 @@ use Config::IniFiles;
 use HOSTDB;
 
 my $debug = 0;
+if ($ARGV[0] eq "-d") {
+	shift (@ARGV);
+	$debug = 1;
+}
+
 
 my $subnet_name = shift;
 my $check = shift;
@@ -34,8 +39,7 @@ my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
 
 my $subnet = $hostdb->findsubnet ($subnet_name);
 
-die ("Could not find subnet '$subnet_name' in database\n");
-
+die ("Could not find subnet '$subnet_name' in database\n") if (! $subnet);
 
 if (! $subnet->delete ($check)) {
 	die ("Could not delete subnet '$subnet_name': $subnet->{error}\n");
