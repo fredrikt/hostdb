@@ -132,7 +132,7 @@ EOD
 		if ($profile eq 'default') {
 			print ($SUBNET <<EOD);
 
-	include "generated/${subnetfn}-default";			
+	include "generated/${subnetfn}-default";
 EOD
 		} else {
 			print ($SUBNET <<EOD);
