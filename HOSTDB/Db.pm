@@ -391,7 +391,7 @@ sub findhostbyaliasname
 
 
 =cut
-sub findhostbyaliaswilcdardname
+sub findhostbyaliaswildcardname
 {
 	my $self = shift;
 	my $searchfor = shift;
@@ -646,11 +646,9 @@ sub findhost
 		my $t = $search_for;
 		if ($self->clean_hostname ($t)) {
 			$search_for = $t;
-			@host_refs = $self->findhostbyname ($search_for);
-
-			if (! @host_refs) {
-			    @host_refs = $self->findhostbyaliasname ($search_for);
-			}
+			@host_refs = HOSTDB::unique_id ($self->findhostbyname ($search_for),
+							$self->findhostbyaliasname ($search_for)
+							);
 		} else {
 			$self->_set_error ("findhost () search failed: '$search_for' is not a valid FQDN");
 			return undef;
