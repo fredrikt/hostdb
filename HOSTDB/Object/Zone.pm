@@ -504,7 +504,11 @@ sub minimum
 
 =head2 owner
 
-	Not yet documented, saving that for a rainy day.
+	Get or set owner. Owner can either be a single username or a
+	comma-separated list of usernames.
+
+	printf "Old owner: %s\n", $zone->owner ();
+	$zone->owner ($new_owner) or warn ("Failed setting value\n");
 
 
 =cut
@@ -513,13 +517,33 @@ sub owner
 	my $self = shift;
 
 	if (@_) {
-		my $newvalue = shift;
+		my %newlist;
+		foreach my $tt (@_) {
+			my $t = $tt;
+			# remove spaces around commas
+			$t =~ s/\s*,\s*/,/o;
+			
+			foreach my $newvalue (split (',', $t)) {
+				if (! $self->is_valid_username ($newvalue)) {
+					$self->_set_error ("Invalid owner list member '$newvalue'");
+					return 0;
+				}
+				$newlist{$newvalue} = 1;
+			}
+		}
+		$newlist{default} = 1;
+
+		my $newvalue = join (',', sort keys %newlist);
+
+		if (length ($newvalue) > 255) {
+			$self->_set_error ('Owner too long (max 255 chars)');
+		}
 
 		$self->{owner} = $newvalue;
 		
 		return 1;
 	}
-		
+
 	return ($self->{owner});
 }
 

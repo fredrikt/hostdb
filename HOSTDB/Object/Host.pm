@@ -221,7 +221,7 @@ sub dhcpmode
 	if (@_) {
 		my $newvalue = shift;
 	
-		if ($newvalue eq "DYNAMIC" or $newvalue eq "STATIC") {
+		if ($newvalue eq 'DYNAMIC' or $newvalue eq 'STATIC') {
 			$self->{dhcpmode} = $newvalue;
 		} else {
 			$self->_set_error ("Invalid dhcpmode '$newvalue'");
@@ -257,7 +257,7 @@ sub dhcpstatus
 	if (@_) {
 		my $newvalue = shift;
 	
-		if ($newvalue eq "ENABLED" or $newvalue eq "DISABLED") {
+		if ($newvalue eq 'ENABLED' or $newvalue eq 'DISABLED') {
 			$self->{dhcpstatus} = $newvalue;
 		} else {
 			$self->_set_error ("Invalid dhcpstatus '$newvalue'");
@@ -287,7 +287,7 @@ sub mac_address
 
 	if (@_) {
 		my $newvalue = shift;
-		if ($newvalue eq "NULL") {
+		if ($newvalue eq 'NULL') {
 			$self->{mac} = undef;
 			return 1;
 		}
@@ -322,7 +322,7 @@ sub dnsmode
 	if (@_) {
 		my $newvalue = shift;
 	
-		if ($newvalue eq "A_AND_PTR" or $newvalue eq "A") {
+		if ($newvalue eq 'A_AND_PTR' or $newvalue eq 'A') {
 			$self->{dnsmode} = $newvalue;
 		} else {
 			$self->_set_error ("Invalid dnsmode '$newvalue'");
@@ -358,7 +358,7 @@ sub dnsstatus
 	if (@_) {
 		my $newvalue = shift;
 	
-		if ($newvalue eq "ENABLED" or $newvalue eq "DISABLED") {
+		if ($newvalue eq 'ENABLED' or $newvalue eq 'DISABLED') {
 			$self->{dnsstatus} = $newvalue;
 		} else {
 			$self->_set_error ("Invalid dnsstatus '$newvalue'");
@@ -389,7 +389,7 @@ sub hostname
 	if (@_) {
 		my $newvalue = shift;
 
-		if ($newvalue eq "NULL") {
+		if ($newvalue eq 'NULL') {
 			$self->{hostname} = undef;
 			return 1;
 		}
@@ -421,7 +421,7 @@ sub dnszone
 	if (@_) {
 		my $newvalue = shift;
 
-		if ($newvalue eq "NULL") {
+		if ($newvalue eq 'NULL') {
 			$self->{dnszone} = undef;
 			return 1;
 		}
@@ -459,7 +459,7 @@ sub manual_dnszone
 		} elsif ($newvalue =~ /^n/oi) {
 			$self->{manual_dnszone} = 'N';
 		} else {
-			$self->_set_error ('Invalid manual_dnszone format');
+			$self->_set_error ("Invalid manual_dnszone '$newvalue'");
 			return 0;
 		}
 		
@@ -487,22 +487,11 @@ sub ip
 	if (@_) {
 		my $newvalue = shift;
 	
-		return 0 if (! $self->is_valid_ip ($newvalue));
+		if (! $self->is_valid_ip ($newvalue)) {
+			$self->_set_error ("Invalid IP address '$newvalue'");
+			return 0;
+		}
 
-		# XXX CHECK IP
-		# check if IP is
-		#
-		# 127.0.0.0/8
-		# 0.0.0.0/8
-		# 255.0.0.0/8
-		# 172.16.0.0/12
-		# 224.0.0.0/4
-		#
-		# and ideally the assigned test networks too
-		#
-		# (10.0.0.0/8 are IP telephones and 192.168.0.0/16 is used)
-		#
-		
 		$self->{ip} = $newvalue;
 
 		# redundantly stored, but this enables us to do much simpler
@@ -537,9 +526,10 @@ sub n_ip
 
 =head2 ttl
 
-	Get or set this hosts DNS records TTL value.
-	XXX it is not defined if this should be a number of seconds or
-	numerical IP address field n_ip.
+	Get or set this hosts DNS records TTL value. This should be
+	either a number of seconds, or something that
+	is_valid_nameserver_time () validates (the default function
+	validates things parseable by BIND9, such as 1d or 1w2d3h4m5s).
 
 	If you want to use the default TTL value, set to "NULL".
 
@@ -553,11 +543,15 @@ sub ttl
 	my $self = shift;
 
 	if (@_) {
-		my $newvalue = shift;
+		my $newvalue = lc (shift);
 
-		if ($newvalue eq "NULL") {
+		if ($newvalue eq 'NULL') {
 			$self->{ttl} = undef;
 		} else {
+			if (! $self->is_valid_nameserver_time ($newvalue)) {
+				$self->_set_error ("Invalid TTL time value '$newvalue'");
+				return 0;
+			}
 			$self->{ttl} = $newvalue;
 		}
 
@@ -580,7 +574,7 @@ sub profile
 	if (@_) {
 		my $newvalue = shift;
 
-		if ($newvalue eq "NULL") {
+		if ($newvalue eq 'NULL') {
 			$self->{profile} = 'default';
 		} else {
 			if (! $self->is_valid_profilename ($newvalue)) {
@@ -613,6 +607,11 @@ sub comment
 	if (@_) {
 		my $newvalue = shift;
 
+		if (length ($newvalue) > 255) {
+			$self->_set_error ('Comment too long (max 255 chars)');
+			return 0;
+		}
+
 		$self->{comment} = $newvalue;
 	
 		return 1;
@@ -625,9 +624,12 @@ sub comment
 =head2 owner
 
 	Get or set this hosts owner. The thoughts for having a owner is
-	to control who can update this object.
+	to control who can update this object. This is however not
+	implemented for host objects yet.
+	Owner can either be a single username or a comma-separated
+	list of usernames.
 
-	print ("Old owner: " . $host->owner ());
+	printf "Old owner: %s\n", $host->owner ();
 	$host->owner ($new_owner) or warn ("Failed setting value\n");
 
 
@@ -637,10 +639,30 @@ sub owner
 	my $self = shift;
 
 	if (@_) {
-		my $newvalue = shift;
+		my %newlist;
+		foreach my $tt (@_) {
+			my $t = $tt;
+			# remove spaces around commas
+			$t =~ s/\s*,\s*/,/o;
+			
+			foreach my $newvalue (split (',', $t)) {
+				if (! $self->is_valid_username ($newvalue)) {
+					$self->_set_error ("Invalid owner list member '$newvalue'");
+					return 0;
+				}
+				$newlist{$newvalue} = 1;
+			}
+		}
+		$newlist{default} = 1;
+
+		my $newvalue = join (',', sort keys %newlist);
+
+		if (length ($newvalue) > 255) {
+			$self->_set_error ('Owner too long (max 255 chars)');
+		}
 
 		$self->{owner} = $newvalue;
-	
+		
 		return 1;
 	}
 
@@ -689,7 +711,7 @@ sub partof
 	if (@_) {
 		my $newvalue = shift;
 	
-		if ((int($newvalue) == 0) and ($newvalue ne "0")) {
+		if ((int($newvalue) == 0) and ($newvalue !~ /^0+$/)) {
 			$self->_set_error ("Invalid partof");
 			return 0;
 		}
