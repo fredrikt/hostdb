@@ -1,0 +1,135 @@
+#!/usr/local/bin/perl -w
+#
+# $Id$
+#
+
+use strict;
+use HOSTDB;
+use SUCGI2;
+use SAM2;
+
+my $debug = 0;
+if (defined ($ARGV[0]) and ($ARGV[0] eq "-d")) {
+	shift (@ARGV);
+	$debug = 1;
+}
+
+my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
+			      debug => $debug
+			     );
+
+my $hostdbini = $hostdb->inifile ();
+
+my @searchfor = @ARGV;
+
+if ($#searchfor == -1) {
+	die ("Syntax: $0 [-d] zone or subnet ...\n");
+}
+
+my (@subnets, @zones);
+
+foreach my $a (@ARGV) {
+	if ($hostdb->is_valid_ip ($a)) {
+		if ($a =~ /\.0+$/) {
+			# prolly intended subnet /24
+			$a .= '/24';
+		} else {
+			die ("$0: Argument '$a' is an IP address, not a subnet\n");
+		}
+	}
+	
+	if ($hostdb->is_valid_subnet ($a)) {
+		my $s = $hostdb->findsubnet ($a);
+		if (defined ($s)) {
+			my $n = $s->subnet ();	# make sure we get correctly formatted name
+			push (@subnets, $n);
+		} else {
+			die ("$0: Subnet '$a' not found\n");
+		}		
+	} elsif ($hostdb->clean_domainname ($a)) {
+		my $z = $hostdb->findzonebyname ($a);
+		if (defined ($z)) {
+			my $n = $z->zonename ();	# make sure we get correctly formatted name
+			push (@zones, $n);
+		} else {
+			die ("$0: Zone '$a' not found\n");
+		}		
+	} else {
+		die ("$0: Argument '$a' is neither subnet nor domain\n");
+	}
+}
+
+my $dhcp_signal_directory = $hostdbini->val('signals','dhcp_directory') if ($hostdbini->val('signals','dhcp_directory'));
+my $dns_signal_directory = $hostdbini->val('signals','dns_directory') if ($hostdbini->val('signals','dns_directory'));
+
+request_reload ($dhcp_signal_directory, $dns_signal_directory, \@subnets, \@zones);
+
+
+sub request_reload
+{
+	my $dhcp_signal_directory = shift;
+	my $dns_signal_directory = shift;
+	my $subnets_ref = shift;
+	my $zones_ref = shift;
+	
+	my $sam;
+	my $i = localtime () . " home.cgi[$$]";
+
+	if (! $dhcp_signal_directory) {
+		warn ("$0: Can't request reconfiguration, DHCP message spool directory not set");
+		return undef;
+	}
+	if (! $dns_signal_directory) {
+		warn ("$0: Can't request reconfiguration, DNS message spool directory not set");
+		return undef;
+	}
+		
+	if (! -d $dhcp_signal_directory) {
+		warn ("$0: Can't request reconfiguration, DHCP message spool directory '$dhcp_signal_directory' does not exist");
+		return undef;
+	}
+	if (! -d $dns_signal_directory) {
+		warn ("$0: Can't request reconfiguration, DNS message spool directory '$dns_signal_directory' does not exist");
+		return undef;
+	}
+		
+	$sam = SAM2->new (directory => $dhcp_signal_directory, name => 'home.cgi');
+	if (! defined ($sam)) {
+		warn ("$0: Could not create SAM object (directory $dhcp_signal_directory)");
+		return 0;
+	}
+
+	$sam->send ({msg => join (',', @$subnets_ref)}, 'configure');
+	# or error_line ($q, "WARNING: Message might not have been sent (directory $dhcp_signal_directory)");
+	$sam = undef;
+	
+	$sam = SAM2->new (directory => $dns_signal_directory, name => 'home.cgi');
+	if (! defined ($sam)) {
+		warn ("$0: Could not create SAM object (directory $dns_signal_directory)");
+		return 0;
+	}
+
+	# build list of all requested zonenames plus the
+	# ones for IPv4 reverse of the subnets from above
+	my ($t, %zonenames);
+	foreach $t (@$zones_ref) {
+		$zonenames{$t} = 1;	
+	}
+	foreach $t (@$subnets_ref) {
+		if ($t =~ /^(\d+?)\.(\d+?)\.(\d+?)\.(\d+?)\/\d+$/) {
+			my $zn = "$3.$2.$1.in-addr.arpa";
+			my $z = $hostdb->findzonebyname ($zn);
+			
+			$zonenames{$zn} = 1 if (defined ($z));
+		}
+	}
+	
+	$sam->send ({msg => join (',', sort keys %zonenames)}, 'configure');
+	# or error_line ($q, "WARNING: Message might not have been sent (directory $dns_signal_directory)");
+	$sam = undef;
+
+	print ("Requested reload of the following subnet(s) :\n	", join ("\n	", sort @$subnets_ref), "\n\n");
+	print ("Requested reload of the following zone(s) :\n	", join ("\n	", sort keys %zonenames), "\n\n");
+	
+	return 1;
+}
