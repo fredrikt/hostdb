@@ -40,7 +40,7 @@ my $whois_path = $q->state_url ($hostdbini->val ('subnet', 'whois_uri'));
 $q->begin (title => 'Modify/Add Host');
 
 my $remote_user = '';
-if ($ENV{REMOTE_USER} =~ /^[a-z0-9]{,50}/) {
+if (defined ($ENV{REMOTE_USER}) and $ENV{REMOTE_USER} =~ /^[a-z0-9]{,50}/) {
 	$remote_user = $ENV{REMOTE_USER};
 }
 # XXX JUST FOR DEBUGGING UNTIL PUBCOOKIE IS FINISHED
