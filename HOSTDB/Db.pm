@@ -1,6 +1,8 @@
 # $Id$
 
 use HOSTDB;
+use Config::IniFiles;
+use strict;
 
 package HOSTDB::DB;
 @HOSTDB::DB::ISA = qw(HOSTDB);
@@ -16,6 +18,15 @@ HOSTDB::Db - Database access routines.
 
   my $hostdb = HOSTDB::DB->new (dsn => $dsn, db => $db, user = $user,
 				password => $pw);
+
+  or
+  
+  my $hostdb = HOSTDB::DB->new (ini => $inifile);
+
+  or
+
+  my $hostdb = HOSTDB::DB->new (inifilename => $filename);
+
 
 =head1 DESCRIPTION
 
@@ -34,6 +45,21 @@ None.
 sub init
 {
 	my $self = shift;
+
+	if (defined ($self->{inifile})) {
+		$self->{ini} = Config::IniFiles->new (-file => $self->{inifile});
+			
+		unless (defined ($self->{ini})) {
+			die ("Could not create HOSTDB object, config file '$self->{inifile}");
+		}
+	}
+		
+	if (defined ($self->{ini})) {
+		$self->{dsn} = $self->{ini}->val ('db', 'dsn') unless (defined ($self->{dsn}));
+		$self->{db} = $self->{ini}->val ('db', 'database') unless (defined ($self->{db}));
+		$self->{user} = $self->{ini}->val ('db', 'user') unless (defined ($self->{user}));
+		$self->{password} = $self->{ini}->val ('db', 'password') unless (defined ($self->{password}));
+	}
 
 	if (defined ($self->{dsn})) {
 		$self->{_dbh} = DBI->connect ($self->{dsn}, $self->{user}, $self->{password}) or die "$DBI::errstr";
@@ -61,7 +87,7 @@ sub init
 	}
 
 	$self->user (getpwuid("$<"));
-	
+
 	return 1;
 }
 
@@ -81,6 +107,27 @@ sub DESTROY
 =head1 PUBLIC FUNCTIONS
 
 
+=head2 inifile
+
+	my $inifile = $hostdb->inifile ();
+	
+	Fetch the Config::IniFiles object that was supplied to the new ()
+	function (this is a read only function).
+	
+=cut
+sub inifile
+{
+	my $self = shift;
+
+	if (defined ($_[0])) {
+		$self->_set_error ("inifile () is a read only function");
+		
+		return undef;
+	}
+	
+	return $self->{ini};
+}
+	
 =head2 user
 
 	$hostdb->user("foo") or die("error");
@@ -480,6 +527,10 @@ sub _find
 	my $class = shift;
 	my $sth = $self->{$key};
 
+	unless (defined ($sth)) {
+		die ("SQL statement undefined, have you provied a DSN?\n");
+	}
+	
 	$sth->execute(@_) or die "$DBI::errstr";
 
 	if (defined ($self->{debug}) and $self->{debug} > 0) {
