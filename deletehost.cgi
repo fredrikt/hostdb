@@ -39,8 +39,10 @@ my $modifyhost_path = $q->state_url($hostdbini->val('subnet','modifyhost_uri'));
 $q->begin (title => 'Delete Host');
 
 my $remote_user = '';
-if (defined ($ENV{REMOTE_USER}) and $ENV{REMOTE_USER} =~ /^[a-z0-9]{,50}/) {
+if (defined ($ENV{REMOTE_USER}) and $ENV{REMOTE_USER} =~ /^[a-z0-9]{,50}$/) {
 	$remote_user = $ENV{REMOTE_USER};
+} else {
+	die ("$0: Invalid REMOTE_USER environment variable");
 }
 # XXX JUST FOR DEBUGGING UNTIL PUBCOOKIE IS FINISHED
 $remote_user = 'ft';
@@ -212,7 +214,7 @@ sub print_host_info
 	my $ip = $host->ip ();
 	my $mac = $host->mac_address ();
 	my $hostname = $host->hostname ();
-	my $user = $host->user ();
+	my $comment = $host->comment ();
 	my $owner = $host->owner ();
 	
 	$q->print (<<EOH);
@@ -257,8 +259,8 @@ EOH
 		<td><strong>$hostname</strong></td>
 	   </tr>	
 	   <tr>
-		<td>User</td>
-		<td>$user</td>
+		<td>Comment</td>
+		<td>$comment</td>
 	   </tr>	
 	   <tr>
 		<td>Owner</td>

@@ -35,8 +35,10 @@ if (-f $hostdbini->val ('sucgi', 'cfgfile')) {
 my $q = SUCGI->new ($sucgi_ini);
 
 my $remote_user = '';
-if (defined ($ENV{REMOTE_USER}) and $ENV{REMOTE_USER} =~ /^[a-z0-9]{,50}/) {
+if (defined ($ENV{REMOTE_USER}) and $ENV{REMOTE_USER} =~ /^[a-z0-9]{,50}$/) {
 	$remote_user = $ENV{REMOTE_USER};
+} else {
+	die ("$0: Invalid REMOTE_USER environment variable");
 }
 # XXX JUST FOR DEBUGGING UNTIL PUBCOOKIE IS FINISHED
 $remote_user = 'andreaso';
@@ -219,7 +221,7 @@ sub print_host_info
 	my $ip = $host->ip ();
 	my $mac = $host->mac_address () || 'NULL';
 	my $hostname = $host->hostname () || 'NULL';
-	my $user = $host->user () || 'NULL';
+	my $comment = $host->commentö () || 'NULL';
 	my $owner = $host->owner ();
 	my $dhcpstatus = $host->dhcpstatus ();
 	my $dhcpmode = $host->dhcpmode ();
@@ -410,8 +412,8 @@ EOH
 	   </tr>	
 	   <tr>
 		$empty_td
-		<td>User</td>
-		<td>$user</td>
+		<td>Comment</td>
+		<td>$comment</td>
 	   </tr>	
 	   <tr>
 		$empty_td

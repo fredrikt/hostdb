@@ -40,8 +40,10 @@ my $whois_path = $q->state_url ($hostdbini->val ('subnet', 'whois_uri'));
 $q->begin (title => 'Modify/Add Host');
 
 my $remote_user = '';
-if (defined ($ENV{REMOTE_USER}) and $ENV{REMOTE_USER} =~ /^[a-z0-9]{,50}/) {
+if (defined ($ENV{REMOTE_USER}) and $ENV{REMOTE_USER} =~ /^[a-z0-9]{,50}$/) {
 	$remote_user = $ENV{REMOTE_USER};
+} else {
+	die ("$0: Invalid REMOTE_USER environment variable");
 }
 # XXX JUST FOR DEBUGGING UNTIL PUBCOOKIE IS FINISHED
 $remote_user = 'ft';
@@ -165,7 +167,7 @@ sub modify_host
 			       'hostname' =>	'hostname',
 			       'owner' =>	'owner',
 			       'ttl' =>		'ttl',
-			       'user' =>	'user',
+			       'comment' =>	'comment',
 			       'partof' =>	'partof',
 			       'ip' =>		'ip'
 			      );
@@ -303,7 +305,7 @@ sub host_form
         my $state_field = $q->state_field ();
 	my $commit = $q->submit ('action', 'Commit');
 
-	my ($id, $partof, $ip, $mac, $hostname, $user, $owner, 
+	my ($id, $partof, $ip, $mac, $hostname, $comment, $owner, 
 	    $dnsmode, $dnsstatus, $dhcpmode, $dhcpstatus, $subnet);
 	
 	# HTML
@@ -314,7 +316,7 @@ sub host_form
 		$ip = $q->textfield ('ip', $host->ip ());
 		$mac = $q->textfield ('mac_address', $host->mac_address ());
 		$hostname = $q->textfield ('hostname', $host->hostname ());
-		$user = $q->textfield ('user', $host->user ());
+		$comment = $q->textfield ('comment', $host->comment ());
 		$owner = $q->textfield ('owner', $host->owner () || $remote_user);
 		$dnsmode = $q->popup_menu (-name => 'dnsmode', -values => ['A_AND_PTR', 'A'], -default => $host->dnsmode ());
 		$dnsstatus = $q->popup_menu (-name => 'dnsstatus', -values => ['ENABLED', 'DISABLED'], -default => $host->dnsstatus ());
@@ -401,8 +403,8 @@ sub host_form
 			<td>$dhcpmode</td>
 		</tr>
 		<tr>
-			<td>User</td>
-			<td>$user</td>
+			<td>Comment</td>
+			<td>$comment</td>
 			$empty_td
 			$empty_td
 		</tr>	
