@@ -392,6 +392,28 @@ sub _validate_list_of_usernames
     return 0;
 }
 
+=head2 _validate_string_not_empty
+
+    Check that a string is not exceedingly long, and not empty.
+
+
+=cut
+sub _validate_string_not_empty
+{
+    my $self = shift;
+    my $key = shift;
+    my $newvalue = shift;
+
+    return ("Can't be undefined/empty") if (! defined ($newvalue) or ! $newvalue);
+
+    if (length ($newvalue) > 255) {
+	return ('Too long (max 255 chars)');
+    }
+
+    return 0;
+}
+
+
 1;
 __END__
 
