@@ -453,7 +453,17 @@ sub create_datafield
 	    return ($q->$func (-name => $attribute, -default => $curr));
 	}
     } else {
-	return ("$curr (read only)");
+	my $val = $curr;
+	if (defined (%paramhash)) {
+	    # look for label matching the value we are to print
+	    # (for example, "Both 'A' and 'PTR'" instead of A_AND_PTR)
+	    my %l = %{$paramhash{'-labels'}};
+	    if (defined (%l)) {
+		$val = $l{$curr} || $curr;
+	    }
+	}
+	
+	return ("$val (read only)");
     }
 }
 
@@ -490,12 +500,12 @@ sub host_form
     my $state_field = $q->state_field ();
     my $commit = $q->submit (-name=>'action', -value=>'Commit', -class=>'button');
 
-    my %dnsmode_labels = ('A_AND_PTR' => "Both 'A' and 'PTR'",
-			  'A'	  => "Only 'A'");
-    my %enabled_labels = ('ENABLED'	  => 'Enabled',
-			  'DISABLED'  => 'Disabled');
-    my %dhcpmode_labels = ('STATIC'	  => 'Static',
-			   'DYNAMIC'  => 'Dynamic');
+    my %dnsmode_labels = ('A_AND_PTR'	=> "Both 'A' and 'PTR'",
+			  'A'		=> "Only 'A'");
+    my %enabled_labels = ('ENABLED'	=> 'Enabled',
+			  'DISABLED'	=> 'Disabled');
+    my %dhcpmode_labels = ('STATIC'	=> 'Static',
+			   'DYNAMIC'	=> 'Dynamic');
 
     my $me = $q->state_url ();
 
