@@ -15,7 +15,7 @@ my $table_blank_line = "<tr><td COLSPAN='4'>&nbsp;</td></tr>\n";
 my $table_hr_line = "<tr><td COLSPAN='4'><hr></td></tr>\n";
 
 my $debug = 0;
-if ($ARGV[0] eq "-d") {
+if (defined ($ARGV[0]) and $ARGV[0] eq "-d") {
 	shift (@ARGV);
 	$debug = 1;
 }
@@ -41,6 +41,8 @@ my $subnet = $q->param ('subnet');
 
 my $whois_path = create_url ($q, $hostdbini->val ('subnet', 'http_base'),
 			     $hostdbini->val ('subnet', 'whois_path'));
+my $modifyhost_path = create_url ($q, $hostdbini->val ('subnet', 'http_base'),
+			     $hostdbini->val ('subnet', 'modifyhost_path'));
 
 $q->begin (title => "Subnet(s) matching $subnet");
 
@@ -119,17 +121,30 @@ EOH
 					my $host = get_host_with_ip ($ip, @subnet_hosts);
 					if (! defined ($host)) {
 						# there is a gap here, output IP in green
-						push (@o, "<tr><td><font COLOR='green'>$ip</font></td><td COLSPAN='3'>&nbsp;</td></tr>");
-					} else {
-						# HTML
-						my $ip = $host->ip ();
-
-						if ($whois_path) {
-							$ip = "<a href='$whois_path&whoisdatatype=IP&whoisdata=$ip'>$ip</a>";
+						
+						if ($modifyhost_path) {
+							$ip = "<a href='$modifyhost_path&ip=$ip'>$ip</a>";
 						}
+						push (@o, <<EOH);
+							<tr>
+								<td>
+									<font COLOR='green'>$ip</font>
+								</td>
+								<td COLSPAN='3'>
+									&nbsp;
+								</td>
+							</tr>
+EOH
+
+					} else {
+						my $id = $host->id();
 						my $hostname = $host->hostname ();
-						my $mac = $host->mac_address ();
-						my $mac_ts = $host->mac_address_ts ();
+						my $mac = $host->mac_address () || "";
+						my $mac_ts = $host->mac_address_ts () || "";
+						
+						if ($whois_path) {
+							$ip = "<a href='$whois_path&whoisdatatype=ID&whoisdata=$id'>$ip</a>";
+						}
 						
 						my $ts_font = "";
 						my $ts_font_end = "";
@@ -138,7 +153,8 @@ EOH
 						my $ts_flag_days = 30;
 						my $ts_flag_color = '#dd0000';
 						
-						if (time () - $host->unix_mac_address_ts () >= ($ts_flag_days * 86400)) {
+						my $h_u_t = $host->unix_mac_address_ts ();
+						if ($h_u_t and time () - $h_u_t >= ($ts_flag_days * 86400)) {
 							$ts_font = "<font COLOR='$ts_flag_color'>";
 							$ts_font_end = "</font>";
 						} else {
@@ -150,7 +166,7 @@ EOH
 							   <td ALIGN='left'>$ip</td>
 							   <td ALIGN='left'>$hostname</td>
 							   <td ALIGN='center'><font SIZE='2'><pre>$mac  </pre></font></td>
-							   <td ALIGN='right' NOWRAP>$ts_font$mac_ts$ts_font_end</td>
+							   <td ALIGN='left' NOWRAP>${ts_font}${mac_ts}${ts_font_end}</td>
 							</tr>
 EOH
 					}
