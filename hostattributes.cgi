@@ -51,10 +51,24 @@ unless ($remote_user) {
 my $is_admin = $hostdb->auth->is_admin ($remote_user);
 my $is_helpdesk = $hostdb->auth->is_helpdesk ($remote_user);
 
-if (! $is_admin and ! $is_helpdesk) {
-	$q->print ("&nbsp;<p><ul><font COLOR='red' SIZE='3'><strong>You do not have permissions to access host attributes.</strong></font></ul>\n\n");
+my $id = $q->param ('id');
+my $host = $hostdb->findhostbyid ($id);
+
+if (! defined ($host)) {
+	$q->print ("&nbsp;<p><ul><font COLOR='red' SIZE='3'><strong>No host with id '$id' found in database.</strong></font></ul>\n\n");
 	$q->end ();
-	die ("$0: Unauthorized host attribute access attempt.");
+	die ("$0: No host with id '$id' found in database.");
+}
+
+# get subnet of host
+my $subnet = $hostdb->findsubnetbyip ($host->ip ());
+
+if (! $is_admin and ! $is_helpdesk) {
+	if (! defined ($subnet) or ! $hostdb->auth->is_allowed_write ($subnet, $remote_user)) {
+		$q->print ("&nbsp;<p><ul><font COLOR='red' SIZE='3'><strong>You do not have permissions to access host attributes.</strong></font></ul>\n\n");
+		$q->end ();
+		die ("$0: Unauthorized host attribute access attempt.");
+	}
 }
 
 $q->print (<<EOH);
@@ -66,13 +80,15 @@ $q->print (<<EOH);
 		$table_blank_line
 EOH
 
-my $id = $q->param ('id');
-my $host = $hostdb->findhostbyid ($id);
-
 if (! defined ($host)) {
 	$q->print ("&nbsp;<p><ul><font COLOR='red' SIZE='3'><strong>No host with id '$id' found in database.</strong></font></ul>\n\n");
 } else {
-	show_hostattributes ($q, $host);
+	my @sectionfilter;
+	foreach my $t (split (',', $hostdbini->val ('host', 'semipublic_attributesections'))) {
+		$t =~ s/^\s*(\S+)\s*$/$1/o;	# trim
+		push (@sectionfilter, $t);
+	}
+	show_hostattributes ($q, $host, $is_admin, $is_helpdesk, \@sectionfilter);
 }
 
 $q->print (<<EOH);
@@ -86,7 +102,10 @@ sub show_hostattributes
 {
 	my $q = shift;
 	my $host = shift;
-	
+	my $is_admin = shift;
+	my $is_helpdesk = shift;
+	my $attributesection_filter_ref = shift;
+
 	return undef if (! defined ($host));
 
 	# HTML
@@ -127,6 +146,7 @@ EOH
 	my @attrs = $host->init_attributes ();
 
 	my $lastsection = '';
+	my $showsection = 0;
 
 	foreach my $attr (@attrs) {
 		my $key = $attr->key ();
@@ -134,20 +154,42 @@ EOH
 		my $value = $attr->get ();
 					
 		if ($section ne $lastsection) {
-			$q->print (<<EOH);
+			if (! $is_admin and ! $is_helpdesk) {
+				my @attributesection_filter = @$attributesection_filter_ref;
+				# user is not helpdesk or admin, only show this section if the name of
+				# this section occurs in @attributesection_filter, or if
+				# @attributesection_filter is undefined.
+				if (! defined (@attributesection_filter)) {
+					$showsection = 1;
+				} else {
+					$showsection = 1 if (grep (/^${section}$/, @attributesection_filter));
+				}
+
+				$q->print ("<!-- SECTION $section SHOWSECTION $showsection -->\n");
+			} else {
+				$showsection = 1;
+			}
+
+			if ($showsection) {
+				$q->print (<<EOH);
+	   $table_blank_line
 	   <tr>
 		<th ALIGN='left' COLSPAN='3'>&nbsp;&nbsp;$section</th>
 	   </tr>
 EOH
+			}
+
 			$lastsection = $section;
 		}
-					
-		$q->print (<<EOH);
-	   <tr>
-		<td>&nbsp;&nbsp;&nbsp;&nbsp;$key</td>
-		<td COLSPAN='2'>$value</td>
-	   </tr>
+
+		if ($showsection) {
+			$q->print (<<EOH);
+		   <tr>
+			<td>&nbsp;&nbsp;&nbsp;&nbsp;$key</td>
+			<td COLSPAN='2'>$value</td>
+		   </tr>
 EOH
+		}
 	}
 				
 	$q->print ($table_blank_line);	
