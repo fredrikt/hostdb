@@ -232,9 +232,8 @@ sub update_db
 			
 			$host->ip ($ip) or warn ($host->{error}), $valid = 0;
 			$host->dnsstatus ("DISABLED") or warn ($host->{error}), $valid = 0;
-			# hostname is required, but we don't have one. make one up.
-			$host->hostname ("NO-HOSTNAME-$ip.not-in-dns.su.se") or warn ($host->{error}), $valid = 0;
-			$host->owner ("mac-import");
+			$host->hostname ("NULL") or warn ($host->{error}), $valid = 0;
+			$host->owner ("mac-import") or warn ($host->{error}), $valid = 0;
 		}
 
 		my @mac_l = split (";", $ip_to_mac->{$ip});
