@@ -98,14 +98,17 @@ $action = 'search' unless $action;
 
 if ($action eq 'commit') {
 	if (modify_subnet ($hostdb, $subnet, $q, \%colors, $remote_user)) {
+		my $i = localtime () . " modifysubnet.cgi[$$]";
 		eval
 		{
 			$subnet->commit ();
 		};
 		if ($@) {
 			error_line ($q, "Could not commit changes: $@");
-			warn ("Changes to subnet with id '$id' could not be committed");
-		} 
+			warn ("$i: Changes to subnet with id '$id' could not be committed ($@)\n");
+		} else {
+			warn ("$i: Changes to subnet with id '$id' committed successfully\n");
+		}
 	}
 	$id = $subnet->id () unless ($id);
 	$subnet = get_subnet ($hostdb, $id); # read-back

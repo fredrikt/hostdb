@@ -106,14 +106,17 @@ $action = 'search' unless $action;
 
 if ($action eq 'commit') {
 	if (modify_zone ($hostdb, $zone, \%zone_defaults, $q, $remote_user)) {
+		my $i = localtime () . " modifyzone.cgi[$$]";
 		eval
 		{
 			$zone->commit ();
 		};
 		if ($@) {
 			error_line ($q, "Could not commit changes: $@");
-			warn ("Changes to zone with id '$id' could not be committed");
-		} 
+			warn ("$i: Changes to zone with id '$id' could not be committed ($@)\n");
+		} else {
+			warn ("$i: Changes to zone with id '$id' committed successfully\n");
+		}
 	}
 	$id = $zone->id () unless ($id);
 	$zone = get_zone ($hostdb, $id); # read-back

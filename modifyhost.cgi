@@ -92,14 +92,17 @@ $action = 'search' unless $action;
 
 if ($action eq 'commit') {
 	if (modify_host ($hostdb, $host, $q, $remote_user)) {
+		my $i = localtime () . " modifyhost.cgi[$$]";
 		eval
 		{
 			$host->commit ();
 		};
 		if ($@) {
 			error_line ($q, "Could not commit changes: $@");
-			warn ("Changes to host with id '$id' could not be committed");
-		} 
+			warn ("$i: Changes to host with id '$id' could not be committed ($@)\n");
+		} else {
+			warn ("$i: Changes to host with id '$id' committed successfully\n");
+		}
 	}
 	$id = $host->id () unless ($id);
 	$host = get_host ($hostdb, 'ID', $id) if ($id);	# read-back
