@@ -39,7 +39,7 @@ if ($output_dir) {
 
 my $http_base = $hostdbini->val ('subnet', 'http_base');
 my $showsubnet_path = $hostdbini->val ('subnet', 'showsubnet_path');
-if ($showsubnet_path !~ '^http://') {
+if ($showsubnet_path !~ '^https*://') {
 	# path appears to be relative to http_base
 	$showsubnet_path = "$http_base/$showsubnet_path";
 }
