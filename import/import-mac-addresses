@@ -22,9 +22,9 @@ use vars qw ($opt_h $opt_d $opt_r $opt_w $opt_f $opt_D);
 getopts ('Dhdr:w:f:');
 
 my $debug = defined ($opt_d);
-my $dump_db = defined ($opt_D);
-my $read_db = defined ($opt_r);
-my $write_db = defined ($opt_w);
+my $dump_cache = defined ($opt_D);
+my $read_cache = defined ($opt_r);
+my $write_cache = defined ($opt_w);
 my @files = @ARGV;
 my $default_ttl;
 my $filelistfile;
@@ -42,7 +42,7 @@ if ($opt_f) {
 	close (FIL);
 }
 
-if ($#files == -1 and ! $read_db) {
+if ($#files == -1 and ! $read_cache) {
 	die ("Syntax: $0 [options] [cisco-output-file ...]\n" .
 	     "	options :\n" .
 	     "		-f file		read list of cisco-output-files from file\n" .
@@ -52,11 +52,11 @@ if ($#files == -1 and ! $read_db) {
 	    );
 }
 
-if ($filelistfile and $read_db) {
+if ($filelistfile and $read_cache) {
 	die ("$0: options -f and -r cannot be used at the same time\n");
 }
 
-if ($read_db and $write_db) {
+if ($read_cache and $write_cache) {
 	die ("$0: options -r and -w cannot be used at the same time\n");
 }
 
@@ -73,13 +73,13 @@ my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
 
 my (%ip_to_mac, %ip_mac_to_ts, %ip_mac_to_count);
 
-if ($read_db or $write_db) {
-	warn ("Tying hashes for reading\n") if ($debug and $read_db);
-	warn ("Tying hashes for writing\n") if ($debug and $write_db);
+if ($read_cache or $write_cache) {
+	warn ("Tying hashes for reading\n") if ($debug and $read_cache);
+	warn ("Tying hashes for writing\n") if ($debug and $write_cache);
 
 	my $db_cache;
 	
-	if ($read_db) {
+	if ($read_cache) {
 		$db_cache = $opt_r;
 	} else {
 		$db_cache = $opt_w;
@@ -93,19 +93,19 @@ if ($read_db or $write_db) {
 		die ("$0: Can't open DB hash file '$db_cache-ip_mac_to_count': $!\n");
 }
 
-if ($filelistfile or $read_db) {
-	if ($dump_db) {
-		dump_db (\%ip_to_mac, \%ip_mac_to_ts, \%ip_mac_to_count, $debug);
+if ($read_cache) {
+	if ($dump_cache) {
+		dump_cache (\%ip_to_mac, \%ip_mac_to_ts, \%ip_mac_to_count, $debug);
 	} else {
 		update_db ($hostdb, \%ip_to_mac, \%ip_mac_to_ts, \%ip_mac_to_count, $debug);	
 	}
-} elsif ($write_db) {
+} elsif ($write_cache) {
 	parse_files ($hostdb, \%ip_to_mac, \%ip_mac_to_ts, \%ip_mac_to_count, $debug, @files);
 } else {
 	die ("$0: Nothing to do.\n");
 }
 
-if ($read_db or $write_db) {
+if ($read_cache or $write_cache) {
 	warn ("Untying hashes\n") if ($debug);
 	untie (%ip_to_mac);
 	untie (%ip_mac_to_ts);
@@ -145,13 +145,39 @@ sub parse_files
 					$ip_to_mac->{$ip} = join (";", @l);
 				}
 				$ip_mac_to_count{"$ip;$mac"}++;
-				$ip_mac_to_ts{"$ip;$mac"} = 0 unless defined ($ip_mac_to_ts{"$ip;$mac"});
-				$ip_mac_to_ts{"$ip;$mac"} = $ts if ($ts > $ip_mac_to_ts{"$ip;$mac"});
+				if (defined ($ip_mac_to_ts{"$ip;$mac"})) {
+					if ($ts > $ip_mac_to_ts{"$ip;$mac"}) {
+						my $new = unixtime_to_datetime ($ts);
+						my $old = unixtime_to_datetime ($ip_mac_to_ts{"$ip;$mac"});
+						
+						printf "New timestamp  %-16s %-17s  %s > %s\n",
+						       $ip, $mac, $new, $old if ($debug);
+	
+						$ip_mac_to_ts{"$ip;$mac"} = $ts;
+					}
+				} else {
+					$ip_mac_to_ts{"$ip;$mac"} = $ts;
+				}
 			}
 		}
 		close (FIL);
 		print ("$file\n");
 	}
+}
+
+# copy from Host.pm - for simplicity
+sub unixtime_to_datetime
+{
+	my $time = shift;
+
+	my ($sec, $min, $hour, $mday, $mon, $year, $yday, $isdst) = localtime ($time);
+	
+	$year += 1900;	# yes, this is Y2K safe (why do you even bother? this was written
+			# in the year of 2002)
+	$mon++;
+	
+	return (sprintf ("%.4d-%.2d-%.2d %.2d:%.2d:%.2d",
+		$year, $mon, $mday, $hour, $min, $sec));
 }
 
 sub get_mac
@@ -196,41 +222,52 @@ sub update_db
 		
 		my $host = $hostdb->findhostbyip ($ip);
 		
+		my $valid = 1;
+
 		if (! defined ($host)) {
-			warn ("$ip not found in database\n");
+			warn ("$ip not found in database, creating\n") if ($debug);
+
+			$host = $hostdb->create_host ();
+			die ("$0: Failed to create host object: $hostdb->{error}\n") unless (defined ($host));
+			
+			$host->ip ($ip) or warn ($host->{error}), $valid = 0;
+			$host->dnsstatus ("DISABLED") or warn ($host->{error}), $valid = 0;
+			# hostname is required, but we don't have one. make one up.
+			$host->hostname ("NO-HOSTNAME-$ip.not-in-dns.su.se") or warn ($host->{error}), $valid = 0;
+			$host->owner ("mac-import");
+		}
+
+		my @mac_l = split (";", $ip_to_mac->{$ip});
+		my $mac_count = $#mac_l + 1;
+
+		my $is_dynamic = 1 if ($host->hostname () =~ /^.*dhcp.*/oi or
+				       $mac_count >= 5);
+				
+		my $ts = "";	
+		if ($is_dynamic) {
+			print ("Set IP $ip to dynamic\n") if ($debug);
+
+			$host->mac_address ("NULL") or warn ($host->{error}), $valid = 0;
+			$host->mac_address_ts ("NULL") or warn ($host->{error}), $valid = 0;
+			$host->dhcpmode ("DYNAMIC") or warn ($host->{error}), $valid = 0;
+
+			$mac = "dynamic";
+		} else {
+			$host->mac_address ($mac) or warn ($host->{error}), $valid = 0;
+			$host->mac_address_ts ("unixtime:" . $ip_mac_to_ts->{"$ip;$mac"}) or warn ($host->{error}), $valid = 0;
+			$ts = unixtime_to_datetime ($ip_mac_to_ts->{"$ip;$mac"});
+		}
+
+		if ($valid) {
+			$host->commit();
+					
+			$set_count++;
+			$total_set_count++;
+
+			printf ("%-6d %-16s %-17s %s\n", $total_set_count, $ip, $mac, $ts);
+		} else {
 			$failed_count++;
 			$total_failed_count++;
-		} else {
-			my $valid = 1;
-
-			my @mac_l = split (";", $ip_to_mac->{$ip});
-			my $mac_count = $#mac_l + 1;
-
-			my $is_dynamic = 1 if ($host->hostname () =~ /^.*dhcp.*/oi or
-					       $mac_count >= 5);
-					
-			if ($is_dynamic) {
-				print ("Set IP $ip to dynamic\n") if ($debug);
-
-				$host->mac_address ("NULL") or warn ($host->{error}), $valid = 0;
-				$host->dhcpmode ("DYNAMIC") or warn ($host->{error}), $valid = 0;
-
-				$mac = "dynamic";
-			} else {
-				$host->mac_address ($mac) or warn ($host->{error}), $valid = 0;
-			}
-			
-			if ($valid) {
-				$host->commit();
-					
-				$set_count++;
-				$total_set_count++;
-
-				printf ("%-6d %-16s %s\n", $total_set_count, $ip, $mac);
-			} else {
-				$failed_count++;
-				$total_failed_count++;
-			}
 		}
 	}
 
@@ -249,7 +286,7 @@ sub ipsort {
 	return unpack('N', inet_aton($in1)) <=> unpack('N', inet_aton($in2));
 }
 
-sub dump_db
+sub dump_cache
 {
 	my $ip_to_mac = shift;
 	my $ip_mac_to_ts = shift;
@@ -265,7 +302,7 @@ sub dump_db
 		print ("$ip ($count MACs) :\n");
 	
 		foreach my $mac (sort { $ip_mac_to_ts->{"$ip;$b"} <=> $ip_mac_to_ts->{"$ip;$a"} } @mac_l) {
-			my $ts = localtime ($ip_mac_to_ts->{"$ip;$mac"});
+			my $ts = unixtime_to_datetime ($ip_mac_to_ts->{"$ip;$mac"});
 			my $count = $ip_mac_to_count->{"$ip;$mac"};
 			
 			print ("	$mac	$ts	$count\n");
