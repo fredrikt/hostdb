@@ -35,10 +35,8 @@ if (-f $hostdbini->val ('sucgi', 'cfgfile')) {
 my $q = SUCGI->new ($sucgi_ini);
 my $subnet = $q->param ('subnet');
 
-my $whois_path = create_url ($q, $hostdbini->val ('subnet', 'http_base'),
-			     $hostdbini->val ('subnet', 'whois_path'));
-my $modifyhost_path = create_url ($q, $hostdbini->val ('subnet', 'http_base'),
-			     $hostdbini->val ('subnet', 'modifyhost_path'));
+my $whois_path = $q->state_url ($hostdbini->val ('subnet', 'whois_uri'));
+my $modifyhost_path = $q->state_url ($hostdbini->val ('subnet', 'modifyhost_uri'));
 
 $q->begin (title => "Subnet(s) matching $subnet");
 my $remote_user = '';
@@ -177,7 +175,7 @@ EOH
 						$mac_ts = (split (/\s/, $mac_ts))[0] || '';
 
 						if ($whois_path) {
-							$ip = "<a HREF='$whois_path;whoisdatatype=ID;whoisdata=$id'>$ip</a>";
+							$ip = "<a HREF='$whois_path?;whoisdatatype=ID;whoisdata=$id'>$ip</a>";
 						}
 						
 						my $ts_font = "";
