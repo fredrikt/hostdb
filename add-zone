@@ -84,16 +84,6 @@ $zone->owner ($owner) or die ("$0: Invalid value - $zone->{error}\n");
 # defaults, set before checking if they are supplied
 $zone->delegated ('N')		or die ("$0: Could not set default 'delegated': $zone->{error}\n");
 
-	    "delegated=s",
-	    "default_ttl=s",
-	    "ttl=s",
-	    "serial=s",
-	    "mname=s",
-	    "rname=s",
-	    "refresh=s",
-	    "retry=s",
-	    "expiry=s",
-	    "minimum=s",
 # optional ones
 $zone->delegated ($opt_delegated)	or die ("$0: Invalid value - $zone->{error}\n") if (defined ($opt_delegated));
 $zone->default_ttl ($opt_default_ttl)	or die ("$0: Invalid value - $zone->{error}\n") if (defined ($opt_default_ttl));
