@@ -2,6 +2,42 @@ use ExtUtils::MakeMaker;
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
 WriteMakefile(
-    'NAME'	=> 'HOSTDB',
-    'VERSION_FROM' => 'HOSTDB.pm', # finds $VERSION
-);
+	      'NAME'	=> 'HOSTDB',
+	      'EXE_FILES' => ['add-host',
+			      'add-subnet',
+			      'add-zone',
+			      'bulk-hostattr',
+			      'bump-SOA-serial',
+			      'cli-whois',
+			      'delete-host',
+			      'delete-hostattr',
+			      'delete-subnet',
+			      'delete-zone',
+			      'deletehost.cgi',
+			      'draw-subnets',
+			      'elcheapo-dhcp-config',
+			      'generate-dhcp-config',
+			      'generate-dhcp-subnet-declaration',
+			      'generate-named-conf',
+			      'generate-zonefiles',
+			      'home.cgi',
+			      'hostattributes.cgi',
+			      'housekeep-dnszone',
+			      'list-hostwithattr',
+			      'list-subnet',
+			      'list-zones',
+			      'modify-host',
+			      'modify-subnet',
+			      'modify-zone',
+			      'modifyhost.cgi',
+			      'modifysubnet.cgi',
+			      'modifyzone.cgi',
+			      'request-reload',
+			      'set-hostattr',
+			      'showsubnet.cgi',
+			      'update-mac-timestamps',
+			      'whois.cgi',
+			      'zonediff'
+			      ],
+	      'VERSION_FROM' => 'HOSTDB.pm', # finds $VERSION
+	      );
