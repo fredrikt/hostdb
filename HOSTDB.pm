@@ -371,6 +371,8 @@ sub check_valid_subnet
 		return 0;
 	}
 
+	$self->_debug_print ("$subnet is valid");
+
 	return 1;
 }
 
