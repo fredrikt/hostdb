@@ -59,7 +59,7 @@ while ($ARGV[0]) {
 			my $id = $host->id ();
 			my $parent = $host->partof ()?$host->partof ():"-";
 			my $ip = $host->ip ();
-			my $mac = $host->mac_address ();
+			my $mac = $host->mac_address () || "n/a";
 			my $mac_ts = $host->mac_address_ts () || "no timestamp";
 			my $hostname = $host->hostname ();
 			my $user = $host->user ();
