@@ -125,9 +125,9 @@ sub clean_hostname
 }
 
 
-=head2 clean_zonename
+=head2 clean_domainname
 
-	if (! $hostdb->clean_zonename ($zonename)) {
+	if (! $hostdb->clean_domainname ($zonename)) {
 		print ("given zonename was invalid: $hostdb->{error}\n");
 	} else {
 		print ("new zonename: $zonename\n");
@@ -139,7 +139,7 @@ sub clean_hostname
 	and finally returns the result of is_valid_domainname ($new_zonename).
 
 =cut
-sub clean_zonename
+sub clean_domainname
 {
 	my $self = shift;
 	my $new = lc ($_[0]);	# lowercase
@@ -230,37 +230,37 @@ ERROR:
 sub is_valid_domainname
 {
 	my $self = shift;
-	my $zonename = shift;
+	my $domainname = shift;
 
-	# do NOT clean_zonename() because that function actually uses this one
+	# do NOT clean_domainname() because that function actually uses this one
 
-	my @zonename_parts = split (/\./, $zonename);
-	my $illegal_chars;
+	my @domainname_parts = split (/\./, $domainname);
 
-	if ($#zonename_parts < 1) {
-		$self->_debug_print ("zonename '$zonename' is incomplete");
+	if ($#domainname_parts < 1) {
+		$self->_debug_print ("domainname '$domainname' is incomplete");
 		goto ERROR;
 	}
 
 	# check TLD, only letters and between 2 and 6 chars long
 	# 2 is for 'se', 6 is 'museum'
-	if ($zonename_parts[$#zonename_parts] !~ /^[a-zA-Z]{2,6}$/o) {
-		$self->_debug_print ("TLD part '$zonename_parts[$#zonename_parts]' of FQDN '$zonename' is invalid (should be 2-6 characters and only alphabetic)");
+	if ($domainname_parts[$#domainname_parts] !~ /^[a-zA-Z]{2,6}$/o) {
+		$self->_debug_print ("TLD part '$domainname_parts[$#domainname_parts]' of domain name '$domainname' is invalid (should be 2-6 characters and only alphabetic)");
 		goto ERROR;
 	}
 
 	# check it all, a bit more relaxed than above (underscores allowed
 	# for example).	
-	$illegal_chars = $zonename;
+	my $illegal_chars = $domainname;
 	$illegal_chars =~ s/[a-zA-Z0-9\._-]//og;
+	# what is left are illegal chars
 	if ($illegal_chars) {
-		$self->_debug_print ("'$zonename' has illegal characters in it ($illegal_chars)");
+		$self->_debug_print ("'$domainname' has illegal characters in it ($illegal_chars)");
 		goto ERROR;
 	}
 
 	return 1;
 ERROR:
-	$self->_set_error ("'$zonename' is not a valid domain name");
+	$self->_set_error ("'$domainname' is not a valid domain name");
 	return 0;
 }
 
@@ -1787,7 +1787,7 @@ sub zonename
 	if (@_) {
 		my $zonename = shift;
 	
-		return 0 if (! $self->clean_zonename ($zonename));
+		return 0 if (! $self->clean_domainname ($zonename));
 		$self->{zonename} = $zonename;
 		
 		return 1;
