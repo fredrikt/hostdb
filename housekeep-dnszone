@@ -10,13 +10,15 @@ use Config::IniFiles;
 #use lib 'blib/lib';
 use HOSTDB;
 use Getopt::Std;
-use vars qw ($opt_h $opt_d $opt_q);
+use vars qw ($opt_h $opt_d $opt_q $opt_v $opt_n);
 use FileHandle;
 
-getopts ('hdq');
+getopts ('hdqvn');
 
 my $debug = defined ($opt_d);
 my $quiet = defined ($opt_q);
+my $verbose = defined ($opt_v);
+my $dry_run = defined ($opt_n);
 
 if ($opt_h) {
 	die(<<EOT);
@@ -24,6 +26,8 @@ Syntax: $0 [options] zones
 	options:
 		-d	debug
 		-q	quiet mode
+		-v	verbose mode
+		-n	dry run
 
 EOT
 }
@@ -47,7 +51,7 @@ foreach my $host (@all_hosts) {
 	
 	my $hostname = $host->hostname ();
 	my $id = $host->id ();
-	my $dnszone = $host->dnszone () || '';
+	my $dnszone = $host->dnszone () || 'NULL';
 
 	if ($host->manual_dnszone () eq 'Y') {
 		# host has auto-DNS-zone disabled, probably glue
@@ -55,25 +59,38 @@ foreach my $host (@all_hosts) {
 		next;
 	}
 
-	my $host_dnszone = $hostdb->findzonenamebyhostname ($hostname, @all_zonenames) || '';
+	next unless defined ($hostname);
+
+	my $host_dnszone = $hostdb->findzonenamebyhostname ($hostname, @all_zonenames) || 'NULL';
 
 	if ($dnszone ne $host_dnszone) {
+		warn ("Changing DNS zone on $hostname (id $id) from '$dnszone' to '$host_dnszone'\n");
+
 		my $valid = 1;
-		$host->dnszone ($host_dnszone) or warn ("Could not set zone '$host_dnszone' on host $id ($hostname): $host->{error}\n"), $valid = 0;
+		$host->dnszone ($host_dnszone) or warn ("Could not change zone from '$dnszone' to '$host_dnszone' on host $id ($hostname): $host->{error}\n"), $valid = 0;
 
 		if ($valid) {
-			if ($host->commit ()) {
-				warn ("Changed zone for '$hostname' from '$dnszone' to '$host_dnszone'\n") unless $quiet;
-				$changed_count++;
-			} else {
-				warn ("Commit on host $id ($hostname) failed: $host->{error}\n");
-				$failed_count++;
+			$changed_count++;
+
+			if (! $dry_run) {
+				if ($host->commit ()) {
+					warn ("Changed zone for '$hostname' from '$dnszone' to '$host_dnszone'\n") if ($debug);
+				} else {
+					warn ("Commit on host $id ($hostname) failed: $host->{error}\n");
+					$failed_count++;
+				}
 			}
 		}		
 	}
+
+	if ($host_dnszone eq 'NULL' and $verbose) {
+		warn ("Host $hostname (id $id) has empty DNS zone\n");
+	}
 }
 
-print ("Changed dnszone on $changed_count out of $total_count hosts, $failed_count failed.\n") unless $quiet;
+my $t = '';
+$t = '(dry run) ' if (defined ($dry_run));
+print ("Changed DNS zone on $changed_count ${t}out of $total_count hosts, $failed_count failed.\n") unless $quiet;
 
 exit (1) if ($failed_count);
 
