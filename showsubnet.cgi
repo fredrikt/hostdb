@@ -204,7 +204,7 @@ EOH
 				my $host_object_usage_percent = int (safe_div ($num_hosts, $num_addrs) * 100);
 				my $static_usage_percent = int (safe_div ($static_in_use, $static_hosts) * 100);
 				my $dynamic_usage_percent = int (safe_div ($dynamic_in_use, $dynamic_hosts) * 100);
-				my $addresses_needed = $static_in_use + $dynamic_percent;
+				my $addresses_needed = $static_in_use + $dynamic_hosts;
 				my $needed_percent = int (safe_div ($addresses_needed, $num_addrs) * 100);
 
 				$q->print (<<EOH);
