@@ -18,7 +18,12 @@ my $verbose = defined ($opt_v);
 
 if ($#ARGV != 4 || $opt_h) {
 	die (<<EOH);
-Syntax: $0 [-d] attribute section type condition match
+Syntax: $0 [-dvr] attribute section type condition match
+
+	Options :
+	   -d  debug
+	   -r  raw output, awkable
+	   -v  verbose output, no-op if raw output is selected
 
 	attribute is the name
 	section is the section
