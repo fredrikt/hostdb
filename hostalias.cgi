@@ -209,8 +209,9 @@ sub modify_alias
 
 			die "Invalid hostname '$aliasname'\n" if (! $hostdb->clean_hostname ($aliasname));
 
-			my $t_host = $hostdb->findhost ('guess', $aliasname);
-			if ($t_host) {
+			my @t_hosts = $hostdb->findhost ('guess', $aliasname);
+			if (@t_hosts) {
+			    my $t_host = $t_hosts[0];
 			    my $t_id = $t_host->id ();
 			    my $t_ip = $t_host->ip ();
 			    die "Another host object (ID $t_id, IP $t_ip) currently have the hostname/alias '$aliasname'\n";
@@ -226,7 +227,7 @@ sub modify_alias
 
 			if (! $is_admin and ! $is_helpdesk and
 			    ! $hostdb->auth->is_allowed_write ($new_zone, $remote_user)) {
-			    die ("You do not have sufficient access to the new aliasnames zone '$new_zonename'");
+			    die ("You do not have sufficient access to the new aliasnames zone '$new_zonename'\n");
 			}
 
 			# there is no manual dnszone control on aliases (alias can't be glue),
