@@ -39,6 +39,15 @@ while ($ARGV[0]) {
 	if (@host_refs) {
 		foreach my $host (@host_refs) {
 			print ("Host :\n\n");
+
+			my $zone;
+			my $z = $hostdb->findzonebyhostname ($host->hostname ());
+
+			if (defined ($z)) {
+				$zone = $z->zonename ();
+			} else {
+				$zone = 'No zone found';
+			}
 		
 			# interpolation
 			my $id = $host->id ();
@@ -49,17 +58,35 @@ while ($ARGV[0]) {
 			my $hostname = $host->hostname () || 'NULL';
 			my $user = $host->user () || 'NULL';
 			my $owner = $host->owner ();
+			my $dhcpstatus = $host->dhcpstatus ();
+			my $dhcpmode = $host->dhcpmode ();
+			my $dnsstatus = $host->dnsstatus ();
+			my $dnsmode = $host->dnsmode ();
+			my $ttl = $host->ttl () || 'default';
+			#my $dhcpprofile = $host->dhcpprofile () || 'default';
 
 			print (<<EOH);
 	ID	$id
 	Parent	$parent
 	---
-	IP address	$ip
-	MAC address	$mac ($mac_ts)
-	Hostname	$hostname
-	User		$user
-	Owner		$owner
 	
+	DNS :
+	  IP address	$ip
+	  Hostname	$hostname
+	  Zone		$zone
+	  TTL		$ttl
+	  Status	$dnsstatus
+	  Mode		$dnsmode
+	
+	DHCP :
+	  MAC address	$mac (last seen $mac_ts)
+	  Status	$dhcpstatus
+	  Mode		$dhcpmode
+
+	General :
+	  User		$user
+	  Owner		$owner
+
 EOH
 			
 			my $subnet = $hostdb->findsubnetclosestmatch ($host->ip ());
