@@ -334,7 +334,7 @@ sub dump
 	my $self = shift;
 
 	foreach my $k (sort keys %{$self}) {
-		printf "%-20s:%s\n",$k,$self->{$k};
+		printf "%-20s %s\n",$k,$self->{$k};
 	}
 }
 
