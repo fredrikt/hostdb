@@ -90,7 +90,7 @@ sub init
 	if ($hostdb->{_dbh}) {
 		$self->{_new_host} = $hostdb->{_dbh}->prepare ("INSERT INTO $hostdb->{db}.host (dhcpmode, dhcpstatus, mac, dnsmode, dnsstatus, hostname, ip, n_ip, owner, ttl, user, partof, mac_address_ts) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
 			or die "$DBI::errstr";
-		$self->{_update_host} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.host SET dhcpmode = ?, dhcpstatus = ?, mac = ?, dnsmode = ?, dnsstatus = ?, hostname = ?, ip = ?, n_ip = ?, owner = ?, ttl = ?, user = ?, partof = ?, mac_address_ts = ?, WHERE id = ?")
+		$self->{_update_host} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.host SET dhcpmode = ?, dhcpstatus = ?, mac = ?, dnsmode = ?, dnsstatus = ?, hostname = ?, ip = ?, n_ip = ?, owner = ?, ttl = ?, user = ?, partof = ?, mac_address_ts = ? WHERE id = ?")
 			or die "$DBI::errstr";
 
 		$self->{_get_last_id} = $hostdb->{_dbh}->prepare ("SELECT LAST_INSERT_ID()")
@@ -245,7 +245,10 @@ sub mac_address
 
 	if (@_) {
 		my $newvalue = shift;
-	
+		if ($newvalue eq "NULL") {
+			$self->{mac} = undef;
+			return 1;
+		}
 		return 0 if (! $self->clean_mac_address ($newvalue));
 		$self->{mac} = $newvalue;
 
