@@ -68,28 +68,29 @@ sub whois_form
 
 	# HTML 
         my $state_field = $q->state_field ();
+	my $me = $q->state_url ();
         my $popup = $q->popup_menu (-name => "whoisdatatype", -values => ['Guess', 'IP', 'FQDN', 'MAC', 'ID']);
 	my $datafield = $q->textfield ("whoisdata");
 	my $submit = $q->submit ("Search");
 
 	$q->print (<<EOH);
-	   <form>
-		$state_field
 		<tr>
 		   <td COLSPAN='2'>
 			<table BORDER='0' CELLSPACING='0' CELLPADDING='0' WIDTH='600'>
 			   <tr>
 				<td>
+				   <form ACTION='$me' METHOD='post'>
+					$state_field
 					Search for &nbsp;
 					$popup &nbsp;
 					$datafield &nbsp;
 					$submit
+				   </form>
 				</td>
 			   </tr>
 			   $table_blank_line
 			</table>
 		</tr>
-	   </form>	   
 EOH
 }
 
@@ -195,7 +196,7 @@ sub perform_search
 					my $id = $host->id ();
 					my $me = $q->state_url ();
 
-					$ip = "<a href='$me&whoisdatatype=ID&whoisdata=$id'>$ip</a>";
+					$ip = "<a HREF='$me;whoisdatatype=ID;whoisdata=$id'>$ip</a>";
 					my $hostname = $host->hostname ();
 					my $mac = $host->mac_address ();
 						
@@ -233,7 +234,7 @@ sub print_host_info
 	my $me = $q->state_url();
 	my $id = $host->id ();
 	my $parent = $host->partof ()?$host->partof ():'-';
-	$parent = "<a href='$me&whoisdatatype=ID&whoisdata=$parent'>$parent</a>";
+	$parent = "<a HREF='$me;whoisdatatype=ID;whoisdata=$parent'>$parent</a>";
 	my $ip = $host->ip ();
 	my $mac = $host->mac_address ();
 	my $hostname = $host->hostname ();
@@ -243,7 +244,7 @@ sub print_host_info
 	$q->print (<<EOH);
 	   <tr>
 		<td>ID</td>
-		<td><a href="$me&whoisdatatype=ID&whoisdata=$id">$id</a>&nbsp;[<a href="$modifyhost_path&id=$id">modify</a>]</td>
+		<td><a HREF="$me;whoisdatatype=ID;whoisdata=$id">$id</a>&nbsp;[<a HREF="$modifyhost_path;id=$id">modify</a>]</td>
 	   </tr>	
 	   <tr>
 		<td>Parent</td>
@@ -254,7 +255,7 @@ EOH
 	my $t_host;
 	foreach $t_host ($hostdb->findhostbypartof ($id)) {
 		my $child = $t_host->id ()?$t_host->id ():'-';
-		$child = "<a href='$me&whoisdatatype=ID&whoisdata=$child'>$child</a>";
+		$child = "<a HREF='$me;whoisdatatype=ID;whoisdata=$child'>$child</a>";
 		
 		$q->print (<<EOH);
 			<tr>
@@ -307,18 +308,19 @@ sub print_subnet_info
 	my $desc = $subnet->description ();
 	
 	if ($showsubnet_path) {
-		$s = "<a HREF='$showsubnet_path&subnet=$s'>$s</a>";
+		$s = "<a HREF='$showsubnet_path;subnet=$s'>$s</a>";
 	}
 	
 	$q->print (<<EOH);
 		<tr>
-		   <td><strong>Subnet</td>
+		   <td><strong>Subnet</strong></td>
 		   <td>$s</td>
 		</tr>
 		<tr>
 		   <td>Netmask</td>
 		   <td>$netmask</td>
 		</tr>
+		<tr>
 		   <td>Description</td>
 		   <td>$desc</td>
 		</tr>
