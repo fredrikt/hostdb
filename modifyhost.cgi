@@ -44,7 +44,7 @@ if (defined ($ENV{REMOTE_USER}) and $ENV{REMOTE_USER} =~ /^[a-z0-9]{,50}/) {
 	$remote_user = $ENV{REMOTE_USER};
 }
 # XXX JUST FOR DEBUGGING UNTIL PUBCOOKIE IS FINISHED
-$remote_user = 'andreaso';
+$remote_user = 'ft';
 
 
 my $me = $q->state_url ();
@@ -102,26 +102,13 @@ SWITCH:
 	},last SWITCH;
 }
 
-if (defined ($host)) {
-	# get subnet
-	my $subnet = $hostdb->findsubnetclosestmatch ($host->ip () || $q->param ('ip'));
-
-	# get zone
-	my $zone = $hostdb->findzonebyhostname ($host->hostname ());
-
-	if (! $hostdb->auth->is_allowed_write ($subnet, $remote_user)) {
-		error_line ($q, "You do not have sufficient access to subnet '" . 
-			    $subnet->subnet () . "'");
-	} elsif (! $hostdb->auth->is_allowed_write ($zone, $remote_user)) {
-		error_line ($q, "You do not have sufficient access to zone '" . 
-			    $zone->zonename () . "'");
-	} else {
-		host_form ($q, $host, $subnet, $remote_user);
-	}
-}
 
 if ($@) {
 	error_line($q, "$@\n");
+} else {
+	if (defined ($host)) {
+		host_form ($q, $host, $subnet, $remote_user);
+	}
 }
 
 END:
@@ -147,28 +134,23 @@ sub modify_host
 		$host->_set_error ('');		
 
 		# get subnet
-		my $subnet = $hostdb->findsubnetclosestmatch ($host->ip ()) if (defined ($host->ip ()));
+		my $subnet = $hostdb->findsubnetclosestmatch ($host->ip () || $q->param ('ip'));
 
 		# get zone
 		my $zone = $hostdb->findzonebyhostname ($host->hostname ());
 
 		# check that user is allowed to edit both current zone and subnet
-		#
-		# the reason to not demand subnet and host to be defined is to not
-		# make it impossible to move hosts to a new subnet if the old subnet
-		# is renamed or such... but maybe that is a bad idea. XXX
 
-		if (defined ($subnet) and 
-		    ! $hostdb->auth->is_allowed_write ($subnet, $remote_user)) {
-			die ("You do not have sufficient access to subnet '" . 
-				    $subnet->subnet () . "'");
+		if (! $hostdb->auth->is_admin ($remote_user)) {
+			if (! defined ($subnet) or ! $hostdb->auth->is_allowed_write ($subnet, $remote_user)) {
+				die ("You do not have sufficient access to subnet '" . $subnet->subnet () . "'");
+			}
+
+			if (! defined ($zone) or ! $hostdb->auth->is_allowed_write ($zone, $remote_user)) {
+				die ("You do not have sufficient access to zone '" . $zone->zone () . "'");
+			}
 		}
 
-		if (defined ($zone) and 
-		    ! $hostdb->auth->is_allowed_write ($zone, $remote_user)) {
-			error_line ($q, "You do not have sufficient access to zone '" . 
-				    $zone->zonename () . "'");
-		}
 
 		# this is a hash and not an array to provide a better framework
 		my %changer = ('dhcpmode' =>	'dhcpmode',
