@@ -9,7 +9,7 @@ use strict;
 use Config::IniFiles;
 #use lib 'blib/lib';
 use HOSTDB;
-use SUCGI;
+use SUCGI2;
 
 my $table_blank_line = "<tr><td COLSPAN='2'>&nbsp;</td></tr>\n";
 my $table_hr_line = "<tr><td COLSPAN='2'><hr></td></tr>\n";
@@ -44,11 +44,16 @@ my $modifyhost_path = $q->state_url($hostdbini->val('subnet','modifyhost_uri'));
 
 $q->begin (title => 'Delete Host');
 
-$q->print ("<table BORDER='0' CELLPADDING='0' CELLSPACING='3' WIDTH='600'>\n" .
-	   "$table_blank_line");
-
-$q->print ("<tr><td COLSPAN='2' ALIGN='center'><h3>HOSTDB: Delete Host</h3></td></tr>\n" .
-	   "$table_blank_line");
+$q->print (<<EOH);
+	<table BORDER='0' CELLPADDING='0' CELLSPACING='3' WIDTH='600'>
+		$table_blank_line
+		<tr>
+			<td COLSPAN='2' ALIGN='center'>
+				<h3>HOSTDB: Delete Host</h3>
+			</td>
+		</tr>
+		$table_blank_line
+EOH
 
 my $action = $q->param('action');
 $action = 'Search' unless $action;
@@ -77,7 +82,7 @@ EOH
 			my $s = $subnet->subnet ();
 			
 			if ($showsubnet_path) {
-				$s = "<a HREF='$showsubnet_path&subnet=$s'>$s</a>";
+				$s = "<a HREF='$showsubnet_path;subnet=$s'>$s</a>";
 				
 				$q->print (<<EOH);
 					<tr>
@@ -89,7 +94,7 @@ EOH
 
 		}
 		
-		$ip = "<a href='$modifyhost_path&ip=$ip'>New host</a>";
+		$ip = "<a HREF='$modifyhost_path;ip=$ip'>New host</a>";
 
 		$q->print (<<EOH);
 			<tr>
@@ -107,7 +112,9 @@ if ($@) {
 	error_line($q, "$@\n");
 }
 
-$q->print ("</table>\n");
+$q->print (<<EOH);
+	</table>
+EOH
 
 $q->end();
 
@@ -149,18 +156,19 @@ sub delete_form
 	my $id = $host->id ();
 
 	$q->print (<<EOH);
-	   <form METHOD='post'>
-		$state_field
-                <input type="hidden" name="id" value="$id"/>
-		<input type="hidden" name="_hostdb.deletehost" value="yes"/>
 		<tr>
-			<td ALIGN='right'><font COLOR='red'>Are you SURE you want to delete this host?</font></strong></td>
-			<td ALIGN='right'>$delete</td>
+			<td ALIGN='right'><font COLOR='red'><strong>Are you SURE you want to delete this host?</strong></font></td>
+			<td ALIGN='right'>
+			   <form ACTION='$me' METHOD='post'>
+				$state_field
+		                <input TYPE='hidden' NAME='id' VALUE='$id'>
+				<input TYPE='hidden' NAME='_hostdb.deletehost' VALUE='yes'>
+				$delete
+			   </form>
+			</td>
 		</tr>
 		
 		$table_blank_line
-	   </form>	   
-
 EOH
 
 	return 1;
@@ -178,7 +186,7 @@ sub print_host_info
 	my $me = $q->state_url();
 	my $id = $host->id ();
 	my $parent = $host->partof ()?$host->partof ():'-';
-	$parent = "<a href='$me&whoisdatatype=ID&whoisdata=$parent'>$parent</a>";
+	$parent = "<a href='$me;whoisdatatype=ID;whoisdata=$parent'>$parent</a>";
 	my $ip = $host->ip ();
 	my $mac = $host->mac_address ();
 	my $hostname = $host->hostname ();
@@ -188,7 +196,7 @@ sub print_host_info
 	$q->print (<<EOH);
 	   <tr>
 		<td>ID</td>
-		<td><a href="$me&whoisdatatype=ID&whoisdata=$id">$id</a>&nbsp;</td>
+		<td><a HREF="$me;whoisdatatype=ID;whoisdata=$id">$id</a>&nbsp;</td>
 	   </tr>	
 	   <tr>
 		<td>Parent</td>
@@ -199,7 +207,7 @@ EOH
 	my $t_host;
 	foreach $t_host ($hostdb->findhostbypartof ($id)) {
 		my $child = $t_host->id ()?$t_host->id ():'-';
-		$child = "<a href='$me&whoisdatatype=ID&whoisdata=$child'>$child</a>";
+		$child = "<a HREF='$me;whoisdatatype=ID;whoisdata=$child'>$child</a>";
 		
 		$q->print (<<EOH);
 			<tr>
