@@ -321,8 +321,6 @@ sub _is_in_list
 
 =cut
 
-my %cache = {};
-
 sub _ldap_explode
 {
 	my $self = shift;
@@ -348,8 +346,8 @@ sub _ldap_explode
 	foreach my $token (@in) {
 		my ($res, @t, $e, %uid);
 
-                if ($cache{$token}) {
-		   push(@out,@{$cache{$token}});
+                if ($self->{_token_cache}->{$token}) {
+		   push(@out,@{$self->{_token_cache}->{$token}});
                    next;
                 }
 		
@@ -382,7 +380,7 @@ sub _ldap_explode
 
 		@t = sort keys %uid;
 		push (@out, @t);
-                $cache{$token} = \@t;
+                $self->{_token_cache}->{$token} = \@t;
 
 		$self->_debug_print ("LDAP exploding of '$token' resulted in '@t'");
 	}
