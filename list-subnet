@@ -33,8 +33,8 @@ if ($#searchfor == -1) {
 	     "\n");
 }
 
-while ($ARGV[0]) {
-	my $subnet = shift;
+while ($searchfor[0]) {
+	my $subnet = shift (@searchfor);
 
 	if ($hostdb->check_valid_subnet ($subnet)) {
 		my @hosts = $hostdb->findhostbyiprange ($hostdb->get_netaddr ($subnet),
