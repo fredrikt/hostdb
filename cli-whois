@@ -84,6 +84,31 @@ while ($ARGV[0]) {
 	  Owner		$owner
 
 EOH
+			my @attrs = $host->init_attributes();
+			my $numattrs = scalar @attrs;
+
+			if ($numattrs > 0) {
+				print (<<EOH);
+
+	Host has $numattrs attributes :
+EOH
+
+				my $lastsection = '';
+				
+				foreach my $attr (@attrs) {
+					my $key = $attr->key ();
+					my $section = $attr->section ();
+					my $value = $attr->get ();
+					
+					if ($section ne $lastsection) {
+						print ("\n	  [$section]\n");
+					}
+					
+					printf ("	    %-20s = %s\n", $key, $value);
+				}
+				
+				print ("\n");
+			}
 			
 			my $subnet = $hostdb->findsubnetbyip ($host->ip ());
 		
