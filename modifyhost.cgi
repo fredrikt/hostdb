@@ -114,7 +114,7 @@ if ($action eq 'commit') {
 	modify_host ($hostdb, $host, $q, $remote_user);
 } else {
 	error_line ($q, 'Unknown action');
-	$subnet = undef;
+	$host = undef;
 }
 
 
@@ -258,7 +258,11 @@ sub modify_host
 						}
 					}
 			
-					push (@changelog, "Changed '$name' from '$old_val' to '$new_val'");
+					if ($old_val) {
+						push (@changelog, "Changed '$name' from '$old_val' to '$new_val'");
+					} else {
+						push (@changelog, "Set '$name' to '$new_val'");
+					}
 					$host->$func ($new_val) or die ("Failed to set host attribute: '$name' - error was '$host->{error}'");
 				}
 			}

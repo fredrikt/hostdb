@@ -173,7 +173,11 @@ sub modify_subnet
 				}
 				
 				if ($new_val ne $old_val) {
-					push (@changelog, "Changed '$name' from '$old_val' to '$new_val'");
+					if ($old_val) {
+						push (@changelog, "Changed '$name' from '$old_val' to '$new_val'");
+					} else {
+						push (@changelog, "Set '$name' to '$new_val'");
+					}
 					$subnet->$func ($new_val) or die ("$subnet->{error}\n");
 				}
 			}
