@@ -202,7 +202,7 @@ EOH
 				my $static_percent = int (safe_div ($static_hosts, $num_addrs) * 100);
 				my $dynamic_percent = int (safe_div ($dynamic_hosts, $num_addrs) * 100);
 				my $host_object_usage_percent = int (safe_div ($num_hosts, $num_addrs) * 100);
-				my $static_usage_percent = int (safe_div ($static_in_use, $num_hosts) * 100);
+				my $static_usage_percent = int (safe_div ($static_in_use, $static_hosts) * 100);
 				my $dynamic_usage_percent = int (safe_div ($dynamic_in_use, $dynamic_hosts) * 100);
 				my $addresses_needed = $static_in_use + $dynamic_percent;
 				my $needed_percent = int (safe_div ($addresses_needed, $num_addrs) * 100);
@@ -223,13 +223,13 @@ EOH
 					   <td>Static hosts</td>
 					   <td>$static_hosts/$num_addrs ($static_percent%)</td>
 					   <td>in use</td>
-					   <td>$static_in_use/$num_addrs ($static_usage_percent%)</td>
+					   <td>$static_in_use/$static_hosts ($static_usage_percent%)</td>
 					</tr>
 					<tr>
 					   <td>Dynamic hosts</td>
 					   <td>$dynamic_hosts/$num_addrs ($dynamic_percent%)</td>
 					   <td>in use</td>
-					   <td>$dynamic_in_use/$num_addrs ($dynamic_usage_percent%)</td>
+					   <td>$dynamic_in_use/$dynamic_hosts ($dynamic_usage_percent%)</td>
 					</tr>
 					
 					$table_blank_line
