@@ -67,8 +67,8 @@ if (defined ($id) and $id ne '') {
 		# set some defaults
 		$host->profile ('default');
 		$host->manual_dnszone ('N');
-		$host->dnsmode('A_AND_PTR');
-		$host->dnsstatus('ENABLED');
+		$host->dnsmode ('A_AND_PTR');
+		$host->dnsstatus ('ENABLED');
 	}
 }
 
