@@ -221,7 +221,7 @@ sub print_host_info
 	my $ip = $host->ip ();
 	my $mac = $host->mac_address () || 'NULL';
 	my $hostname = $host->hostname () || 'NULL';
-	my $comment = $host->commentö () || 'NULL';
+	my $comment = $host->comment () || 'NULL';
 	my $owner = $host->owner ();
 	my $dhcpstatus = $host->dhcpstatus ();
 	my $dhcpmode = $host->dhcpmode ();
