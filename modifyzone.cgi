@@ -119,7 +119,7 @@ if ($action eq 'commit') {
 			warn ("$i Changes to zone with id '$id' committed successfully\n");
 		}
 	}
-	$id = $zone->id () if (! defined ($id) and defined ($host));
+	$id = $zone->id () if (! defined ($id) and defined ($zone));
 	$zone = get_zone ($hostdb, $id); # read-back
 } elsif ($action eq 'search') {
 	# call modify_zone but don't commit () afterwards to get
