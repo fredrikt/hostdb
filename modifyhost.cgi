@@ -18,24 +18,30 @@ if (defined($ARGV[0]) and $ARGV[0] eq "-d") {
 	$debug = 1;
 }
 
-my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
-			      debug => $debug
-			     );
-
-my $hostdbini = $hostdb->inifile ();
-
+my $hostdbini = Config::IniFiles->new (-file => HOSTDB::get_inifile ());
 my $sucgi_ini;
 if (-f $hostdbini->val ('sucgi', 'cfgfile')) {
 	$sucgi_ini = Config::IniFiles->new (-file => $hostdbini->val ('sucgi', 'cfgfile'));
 } else {
 	warn ("No SUCGI config-file ('" . $hostdbini->val ('sucgi', 'cfgfile') . "')");
 }
+my $q = SUCGI2->new ($sucgi_ini, 'hostdb');
+$q->begin (title => 'Modify/Add Host');
 
-my $q = SUCGI2->new ($sucgi_ini,'hostdb');
+my $hostdb = eval {
+	HOSTDB::DB->new (ini => $hostdbini, debug => $debug);
+};
+
+if ($@) {
+	my $e = $@;
+	$q->print ("&nbsp;<p><ul><font COLOR='red' SIZE='3'><strong>Could not create HOSTDB object: $e</strong></font></ul>\n\n");
+	$q->end ();
+	die ("$0: Could not create HOSTDB object: '$e'");
+}
+
 my $me = $q->state_url ();
 my %links = $hostdb->html_links ($q);
 
-$q->begin (title => 'Modify/Add Host');
 my $remote_user = $q->user();
 unless ($remote_user) {
         $q->print ("&nbsp;<p><ul><font COLOR='red' SIZE='3'><strong>You are not logged in.</strong></font></ul>\n\n");
@@ -205,7 +211,8 @@ sub modify_host
 						my $t_host = $hostdb->findhostbyip ($ip);
 						if (defined ($t_host)) {
 							my $t_id = $t_host->id () ;
-							die "Another host object (ID $t_id) currently have the IP '$ip'\n";
+							my $t_hostname = $t_host->hostname ();
+							die "Another host object (ID $t_id, hostname '$t_hostname') currently have the IP '$ip'\n";
 						}
 				
 						my $new_subnet = $hostdb->findsubnetbyip ($ip);
@@ -225,8 +232,9 @@ sub modify_host
 
 						my $t_host = $hostdb->findhostbyname ($hostname);
 						if (defined ($t_host)) {
-							my $t_id = $t_host->id () ;
-							die "Another host object (ID $t_id) currently have the hostname '$hostname'\n";
+							my $t_id = $t_host->id ();
+							my $t_ip = $t_host->ip ();
+							die "Another host object (ID $t_id, IP $t_ip) currently have the hostname '$hostname'\n";
 						}
 				
 						my $new_zone = $hostdb->findzonebyhostname ($hostname);
@@ -297,7 +305,9 @@ sub modify_host
 								$t_subnetname = $t_subnet->subnet () if (defined ($t_subnet));
 								
 								if ($t_subnetname and $t_subnet->subnet () eq $subnet->subnet ()) {
-									die ("Another host object (ID $t_id) on the same subnet ($t_subnetname) has the same MAC address\n");
+									my $t_ip = $t_host->ip ();
+									my $t_hostname = $t_host->hostname ();
+									die ("Another host object (ID $t_id, IP $t_ip, hostname '$t_hostname') on the same subnet ($t_subnetname) has the same MAC address\n");
 								} else {
 									my $t;
 									$t = " (on subnet $t_subnetname)" if ($t_subnetname);
