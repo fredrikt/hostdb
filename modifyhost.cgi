@@ -221,6 +221,8 @@ sub modify_host
 						# changing hostname, check that user has enough permissions for the _new_ zone too
 						my $hostname = $q->param ('hostname');
 
+						die "Invalid hostname '$hostname'\n" if (! $hostdb->clean_hostname ($hostname));
+
 						my $t_host = $hostdb->findhostbyname ($hostname);
 						if (defined ($t_host)) {
 							my $t_id = $t_host->id () ;
@@ -273,6 +275,9 @@ sub modify_host
 						
 						my $mac = $q->param ('mac_address');
 						if ($mac) {
+						
+							die "Invalid MAC address '$mac'\n" if (! $hostdb->clean_mac_address ($mac));
+
 							my @host_refs = $hostdb->findhostbymac ($mac);
 
 							foreach my $t_host (@host_refs) {
