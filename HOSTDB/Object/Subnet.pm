@@ -670,6 +670,7 @@ sub profilelist
 	{
 		# sort 'default' before anything else
 		return -1 if ($a eq 'default');
+		return 1 if ($b eq 'default');
 		return $a cmp $b;
 	}
 
