@@ -249,7 +249,7 @@ sub draw_subnet
 	my $subnet_frame = color_resolve ($im, $colors_ref, "subnet_frame", "#0000ff");			# default blue
 	my $subnet_text = color_resolve ($im, $colors_ref, "subnet_text", "#000000");			# default black
 
-	my $bg = color_resolve ($im, $colors_ref, "subnet_fill", "#c8ffc8");	# default light green
+	my $bg = color_resolve ($im, $colors_ref, "subnet_background", "#c8ffc8");	# default bright green
 	$im->filledRectangle (0, 0, $im_width - 1, $im_height - 1, $bg);
 	
         # Put a (black) frame around the picture
