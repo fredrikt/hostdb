@@ -402,10 +402,6 @@ sub is_valid_subnet
 
 	Do some checking to determine if this is a valid IP address or not.
 	
-	This routine does it's checking in a strange way. It appears one of the thoughts
-	behind it was to not return valid if the input is a network address/broadcast.
-	At least not net 0/8 and 255/8. Investigate.
-
 
 =cut
 sub is_valid_ip
@@ -422,14 +418,12 @@ sub is_valid_ip
 	if ($ip =~ /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/o) {
 		my @ip = ($1, $2, $3, $4);
 
-		return 0 if (int($ip[0]) < 1 or int($ip[0]) > 254);
-		return 0 if (int($ip[1]) < 0 or int($ip[1]) > 255);
-		return 0 if (int($ip[2]) < 1 or int($ip[2]) > 255);
-		return 0 if (int($ip[3]) < 1 or int($ip[3]) > 255);
-		#return 0 if ("$1.$2" eq "192.168");
-
-		$self->_debug_print ("is a valid IP");
-		return 1;
+		return 1 if ($ip eq "0.0.0.0");
+		
+		if ($self->aton ($ip) > 0) {
+			$self->_debug_print ("is a valid IP");
+			return 1;
+		}
 	}
 
 	return 0;
@@ -883,6 +877,11 @@ sub findhostbyip
 
 	$self->_debug_print ("Find host with IP '$_[0]'");
 	
+	if (! $self->is_valid_ip ($_[0])) {
+		$self->_set_error ("findhostbyip: '$_[0]' is not a valid IP address");
+		return undef;
+	}
+	
 	$self->_find(_hostbyip => 'HOSTDB::Object::Host', $_[0]);
 }
 
@@ -919,6 +918,11 @@ sub findhostbymac
 
 	$self->_debug_print ("Find host with MAC address '$_[0]'");
 	
+	if (! $self->is_valid_mac_address ($_[0])) {
+		$self->_set_error ("findhostbymac: '$_[0]' is not a valid MAC address");
+		return undef;
+	}
+	
 	$self->_find(_hostbymac => 'HOSTDB::Object::Host', $_[0]);
 }
 
@@ -934,6 +938,11 @@ sub findhostbyid
 	my $self = shift;
 
 	$self->_debug_print ("Find host with id '$_[0]'");
+	
+	if ($_[0] !~ /^\d+$/) {
+		$self->_set_error ("findhostbyid: '$_[0]' is not a valid ID");
+		return undef;
+	}
 	
 	$self->_find(_hostbyid => 'HOSTDB::Object::Host', $_[0]);
 }
@@ -968,6 +977,16 @@ sub findhostbyiprange
 	my $self = shift;
 
 	$self->_debug_print ("Find host by IP range '$_[0]' -> '$_[1]'");
+	
+	if (! $self->is_valid_ip ($_[0])) {
+		$self->_set_error ("findhostbyiprange: start-ip '$_[0]' is not a valid IP adress");
+		return undef;
+	}
+	
+	if (! $self->is_valid_ip ($_[1])) {
+		$self->_set_error ("findhostbyiprange: stop-ip '$_[1]' is not a valid IP adress");
+		return undef;
+	}
 	
 	$self->_find(_hostbyiprange => 'HOSTDB::Object::Host',
 			$self->aton ($_[0]), $self->aton ($_[1]));
