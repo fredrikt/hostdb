@@ -99,8 +99,8 @@ sub init
 
 	# create an HOSTDB::Auth to be used for authorization
 	$self->{auth} = $self->create_auth (authorization => $self->{auth_disabled});
-	$self->auth->ldap_server ($self->{auth_ldap_server});
-	$self->auth->admin_list (split (',', $self->{auth_admins}));
+	$self->auth->ldap_server ($self->{auth_ldap_server}) if (defined ($self->{auth_ldap_server}));
+	$self->auth->admin_list (split (',', $self->{auth_admins})) if (defined ($self->{auth_admins}));
 	$self->{auth_ldap_server} = undef;
 	$self->{auth_admins} = undef;
 	$self->{auth_disabled} = undef;
