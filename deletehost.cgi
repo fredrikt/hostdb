@@ -191,11 +191,11 @@ sub delete_host
 	eval {
 		die ("No host object") unless ($host);
 
-		$host->delete ("YES");
+		$host->delete ("YES") or die ($host->{error});
 	};
 	if ($@) {
 		chomp ($@);
-		error_line ($q, "Failed to delete host: $@: $host->{error}");
+		error_line ($q, "Failed to delete host: $@");
 		return 0;
 	}
 	
