@@ -720,6 +720,12 @@ sub partof
 			$self->_set_error ("Invalid partof");
 			return 0;
 		}
+
+		if (int($newvalue) != 0 and (int($newvalue) == int($self->{id}))) {
+			$self->_set_error ("Host cannot be partof itself");
+			return 0;
+		}
+
 		$self->{partof} = int($newvalue);
 
 		return 1;
