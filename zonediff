@@ -5,9 +5,9 @@
 
 use strict;
 use Getopt::Std;
-use vars qw ($opt_h $opt_Z $opt_D);
+use vars qw ($opt_h $opt_Z $opt_D $opt_s);
 
-getopts ('hZD:');
+getopts ('hZD:s');
 
 if ($opt_h or ! defined ($ARGV[0])) {
 	die (<<EOM);
@@ -16,6 +16,7 @@ Syntax: $0 [options] zonefile ...
 	options:
 		-Z	print zone name
 		-D dir	chdir to dir
+		-s	suppress message saying SOA serial not changed
 EOM
 }
 
@@ -85,7 +86,11 @@ foreach my $file (@files) {
 		} else {
 			if ($first) {
 				if ($print_zonename and ! $header_printed) {
-					print ("$zonename (SOA serial not changed) :\n\n");
+					if ($opt_s) {
+						print ("$zonename :\n\n");
+					} else {
+						print ("$zonename (SOA serial not changed) :\n\n");
+					}
 					$header_printed = 1;
 				}
 
