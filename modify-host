@@ -59,6 +59,7 @@ ${msg}Syntax: $0 [options] <IP/FQDN/MAC/ID>
 		--ttl			DNS TTL
 		--comment		Comment abou host
 		--owner			Username of owner
+		--profile		Profile this host belongs to (DHCP config)
 
 EOT
 }
@@ -77,6 +78,12 @@ if (! $opt_force) {
 	# do some extra sanity checks if not forced
 
 	my $h;
+	my $ip = $opt_ip || $host->ip ();
+	my $subnet = $hostdb->findsubnetclosestmatch ($ip);
+		
+	if (! defined ($subnet)) {
+		die ("$0: No subnet matches IP '$ip'");
+	}
 	
 	if ($opt_ip) {
 		$h = $hostdb->findhostbyip ($opt_ip);
@@ -97,6 +104,13 @@ if (! $opt_force) {
 		$h = $hostdb->findhostbyid ($opt_partof);
 		die ("$0: A parent host with ID $opt_partof could not be found, use --force to set partof anyways.\n") unless (defined ($h));
 	}
+
+	if ($opt_profile) {
+		my @profiles = split (',', $subnet->profilelist ());
+		if (! grep (/^$opt_profile$/, @profiles)) {
+			die ("$0: No profile called '$opt_profile' for subnet " . $subnet->subnet () . "\n");
+		}
+	}
 }
 
 $host->ip ($opt_ip)			or die ("$0: Invalid ip - $host->{error}\n") if (defined ($opt_ip));
@@ -110,6 +124,7 @@ $host->ttl ($opt_ttl)			or die ("$0: Invalid ttl - $host->{error}\n") if (define
 $host->comment ($opt_comment)		or die ("$0: Invalid comment - $host->{error}\n") if (defined ($opt_comment));
 $host->partof ($opt_partof)		or die ("$0: Invalid partof - $host->{error}\n") if (defined ($opt_partof));
 $host->manual_dnszone ($opt_manual_dnszone) or die ("$0: Invalid manual_dnszone - $host->{error}\n") if (defined ($opt_manual_dnszone));
+$host->profile ($opt_profile)		or die ("$0: Invalid profile - $host->{error}\n") if (defined ($opt_profile));
 
 if (defined ($opt_dnszone)) {
 	$host->dnszone ($opt_dnszone) or die ("$0: Invalid dnszone - $host->{error}\n");
