@@ -16,7 +16,7 @@ if ($ARGV[0] eq "-d") {
 
 
 my $subnet_name = shift;
-my $check = shift;
+my $check = shift || 'unsure';
 
 if (! $subnet_name) {
 	die("Syntax: $0 subnet YES\n");
