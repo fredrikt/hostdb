@@ -1,0 +1,391 @@
+#!/usr/bin/perl
+#
+# $Id$
+#
+# script to draw subnet pngs
+#
+
+use strict;
+use Config::IniFiles;
+#use lib 'blib/lib';
+use HOSTDB;
+use GD;
+
+my $slash24_height = 32;
+my $pixels_per_ip = 4;
+
+my $x_pixels_per_char = 6;
+my $y_pixels_per_char = 8;
+
+my $debug = 0;
+if ($ARGV[0] eq "-d") {
+	shift (@ARGV);
+	$debug = 1;
+}
+
+my $output_dir;
+if ($ARGV[0] eq "-o") {
+	shift (@ARGV);
+	$output_dir = shift;
+	
+	die("$0: Specified output dir '$output_dir' is not a valid directory\n") if (! -d $output_dir);
+}
+
+my $hostdbini = Config::IniFiles->new (-file => '/usr/local/etc/hostdb.ini');
+
+my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
+			  db => $hostdbini->val ('db', 'database'),
+			  user => $hostdbini->val ('db', 'user'),
+			  password => $hostdbini->val ('db', 'password'),
+			  debug => $debug
+			 );
+
+my @drawsubnets = @ARGV;
+
+if ($#drawsubnets == -1) {
+	die ("Syntax: $0 [-d] netaddr/slash ...\n");
+}
+
+draw_misc($output_dir);
+
+my $html_file = ($output_dir?"$output_dir/":"") . "index.html";
+open (HTML, "> $html_file") or die ("Could not open file '$html_file' for writing: $!\n");
+
+print (HTML "<!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.01 Transitional//EN'>
+	<HTML>
+	<HEAD>
+		<TITLE>Netplan</TITLE>
+	</HEAD>
+	
+	<BODY>
+");
+
+while ($ARGV[0]) {
+	my $supernet = shift;
+
+	my ($netaddr, $slash) = split ('/', $supernet);
+
+	if (int ($slash) > 24) {
+		warn ("Ignoring supernet '$supernet' - must be at least a /24\n");
+		next;
+	}
+
+	if ($hostdb->check_valid_subnet ($supernet)) {
+		do_supernet ($supernet);
+	} else {
+		warn ("Ignoring invalid supernet '$supernet'\n");
+	}
+}
+
+print (HTML "</BODY>
+</HTML>\n");
+
+close (HTML);
+
+sub do_supernet
+{
+	my $supernet = shift;
+	my @subnets;
+	my $no_subnets_counter = 0;
+
+	# start at
+	my $slash24 = $hostdb->aton ($hostdb->get_netaddr ($supernet));
+	
+	my $last_slash24 = $hostdb->aton ($hostdb->get_broadcast ($supernet)) - 255;
+	
+	# fetch all subnets in the supernet, not just for this /24
+	@subnets = $hostdb->findsubnetlongerprefix ($supernet);
+
+	print ("Found " . ($#subnets + 1) . " subnets matching supernet '$supernet'\n") if ($debug);
+
+	if ($#subnets != -1) {
+		print (HTML "<TABLE BORDER='0' CELLSPACING='0' CELLPADDING='0'>\n<TR><TH ALIGN='left' COLSPAN='2'>Net $supernet :</TH></TR>\n");
+		#print (HTML "<H3>Net $supernet :</H3>\n");
+
+		print_row ("&nbsp;", "net_top.png", undef);
+
+		while ($slash24 <= $last_slash24) {
+			my $subnet_name = $hostdb->ntoa ($slash24) . "/24";
+
+			# get a list of the subnets STARTING in this /24.
+			my @slash24_subnets = get_subnets_starting_in_range (
+				$subnet_name, @subnets);
+			if ($#slash24_subnets != -1) {
+				# check if it was a while since we saw the last subnet
+				do_no_subnets ($no_subnets_counter);
+				$no_subnets_counter = 0;
+			
+				print ("	$subnet_name: Drawing picture of " . 
+					($#slash24_subnets + 1). " subnet(s)\n") if ($debug);
+			
+				my $fn = $subnet_name;
+				$fn =~ s#[\./]#-#go;
+				$fn .= ".png";
+				
+				print_row ($subnet_name, $fn, "/cgi-bin/showsubnetlinks?subnet=$subnet_name");
+
+				$fn = "$output_dir/$fn" if ($output_dir);
+	
+				# draw_subnet() returns the number of addresses in what was drawn.
+				# this is typically 256 for a /24, but if what we got was a larger
+				# network (like a /23) this will be reflected.
+				$slash24 += draw_subnet ($fn, $subnet_name, @slash24_subnets);
+			} else {
+				# no subnets found in this /24, go to the next
+				$slash24 += 256;
+				$no_subnets_counter++;
+			}
+		}
+		
+		print (HTML "</TABLE>\n");
+	}
+}
+
+sub print_row
+{
+	my $left_side_text = shift;
+	my $img_name = shift;
+	my $link = shift;
+	
+	if ($link) {
+		print (HTML "	<TR><TD ALIGN='left'>$left_side_text</TD>" .
+			    "<TD ALIGN='left'><A HREF='$link'>" .
+			    "<IMG SRC='$img_name' ALT='$left_side_text' BORDER=0></A></TD></TR>\n");
+	} else {
+		print (HTML "	<TR><TD ALIGN='left'>$left_side_text</TD>" .
+			    "<TD ALIGN='left'>" .
+			    "<IMG SRC='$img_name' ALT='$left_side_text' BORDER=0></TD></TR>\n");
+	}
+}
+
+sub do_no_subnets
+{
+	my $counter = shift;
+	
+	return if (! $counter);
+	
+	if ($counter <= 10) {
+		while ($counter-- > 0) {
+			print_row ("...", "blank.png", undef);
+		}
+	} else {
+		# more than three, print nice
+		print_row ("...", "blank.png", undef);
+		print(HTML "<TR><TD ALIGN='left' COLSPAN='2'>Skipped " . ($counter - 2) . " /24's</TD></TR>\n");
+		print_row ("...", "blank.png", undef);	
+	}
+}
+
+sub get_subnets_starting_in_range
+{
+	my $supernet = shift;
+	my @subnets = @_;
+	my @result;
+
+	my $low = $hostdb->aton ($hostdb->get_netaddr ($supernet));
+	my $high = $hostdb->aton ($hostdb->get_broadcast ($supernet));
+
+	my $subnet;
+	foreach $subnet (@subnets) {
+		my $netaddr = $hostdb->aton ($subnet->netaddr ());
+		push (@result, $subnet) if ($netaddr >= $low and $netaddr <= $high);
+	}
+
+	return @result;
+}
+
+sub draw_subnet
+{
+	my $output_filename = shift;
+	my $supernet = shift;
+	my @subnets = @_;
+	my $total_address_count = 0;
+	
+	my $supernet_slash = (split ('/', $supernet))[1];
+	
+	# supernet is minimum a /24, possibly a /23 or even shorter prefix.
+	# in any case a division with 256 will not result in 0.
+	my $im_height = $slash24_height * int ($hostdb->get_num_addresses ($supernet_slash) / 256);
+	my $im_width = 256 * $pixels_per_ip;
+	
+	print ("Creating image object ($im_width x $im_height)\n") if ($debug);
+	
+	my $im = new GD::Image ($im_width, $im_height);
+
+	# allocate some colors - the first one becomes the background color
+	my $white = $im->colorAllocate (255, 255, 255);
+	my $black = $im->colorAllocate (0, 0, 0);
+	my $blue = $im->colorAllocate (0, 0, 255);
+
+	if (0) {
+		# this fills the whole thing with the kind of grey you get from old b/w printers.
+		# it is a bit annoying for the eye too look at but it has the advantage of not
+		# being a color that can be similar to one of your $subnet->htmlcolor()'s.
+		# i'll take that chance for now.
+		my $def_color = $im->colorAllocate (215, 255, 215);
+		$im->setStyle ($black, gdTransparent, gdTransparent, gdTransparent, gdTransparent, gdTransparent, gdTransparent);
+		$im->filledRectangle (0, 0, $im_width - 1, $im_height - 1, gdStyled);
+	} else {
+		my $bg = $im->colorAllocate (200, 255, 200);
+		$im->filledRectangle (0, 0, $im_width - 1, $im_height - 1, $bg);
+	}
+	
+        # Put a black frame around the picture
+	$im->rectangle (0, 0, $im_width - 1, $im_height - 1, $black);
+
+    	my $subnet;
+
+	my $subnet_height = 0;
+	if (int ($supernet_slash) >= 24) {
+		$subnet_height = $slash24_height;
+	} else {
+		$subnet_height = $im_height;
+	}
+
+	foreach $subnet (@subnets) {
+		print ("		Drawing subnet " . $subnet->subnet() . "\n") if ($debug);	
+
+		my $subnet_left_side = ($hostdb->aton ($subnet->netaddr ()) -
+					$hostdb->aton ($hostdb->get_netaddr ($supernet))
+				       ) * $pixels_per_ip;
+		my $subnet_right_side = $subnet_left_side + ($subnet->addresses () * $pixels_per_ip) - 1;
+
+		my $color = $white;
+		if ($subnet->htmlcolor ()) {
+			my $t = $subnet->htmlcolor ();
+			$t =~ s/^#//go;  # strip leading #
+			
+			# XXX this is the place to lookup pre-defined colors somewhere...
+				
+			my $c1 = hex (substr($t, 0, 2));
+			my $c2 = hex (substr($t, 2, 2));
+			my $c3 = hex (substr($t, 4, 2));
+			
+			$color = $im->colorResolve ($c1, $c2, $c3);
+		}
+		# fill subnet with a color. this makes it easy to spot unallocated subnets.
+		$im->filledRectangle ($subnet_left_side, 0, $subnet_right_side, $im_height - 1, $color);
+
+		write_string ($im, $subnet_left_side, $subnet_right_side, $im_height,
+			      $subnet->short_description ());
+		# draw border around subnet
+		$im->rectangle ($subnet_left_side, 0, $subnet_right_side, 
+				$im_height - 1, $blue);
+		$total_address_count += $subnet->addresses();
+	}
+
+	open (FILE, "> $output_filename") or die ("$0: Could not open file '$output_filename' for writing: $!\n");
+	
+	binmode (FILE);
+	print (FILE $im->png ());
+	close (FILE);
+
+	return 256 if ($total_address_count < 256);
+
+	# if address count >= 256 it must be an even multiple of 256	
+	return $total_address_count;
+}
+
+sub write_string
+{
+	my $im = shift;
+	my $left_side = shift;
+	my $right_side = shift;
+	my $height = shift;
+	my $s = shift;
+
+	my $black = $im->colorResolve (0, 0, 0);
+	
+	my $x_pixels_per_char = 6;
+	my $y_pixels_per_char = 8;
+
+	# use substr() to only get first part of short_description if the whole
+	# thing won't fit
+	$s = substr($s, 0, ($right_side - $left_side) / $x_pixels_per_char);
+
+	# find middle of area height and subtract half a characters height
+	my $text_y_pos = ($height / 2) - ($y_pixels_per_char / 2) - 1;
+
+	# find middle of area and subtract half the length of the string in pixels
+	my $s_pixel_width = length ($s) * $x_pixels_per_char;
+	my $x_middle = $left_side + (($right_side - $left_side) / 2);
+	my $text_x_pos = $x_middle - ($s_pixel_width / 2) + 1; 
+	$im->string (gdSmallFont, $text_x_pos, $text_y_pos, $s, $black);
+}
+
+sub draw_misc
+{
+	my $output_dir = shift;
+	my $fn;
+
+	# draw a blank 'net'
+	$fn = ($output_dir?"$output_dir/":"") . "blank.png";
+
+	my $im_height = $slash24_height;
+	my $im_width = 256 * $pixels_per_ip;
+
+	draw_blank ($fn, $im_width, $im_height);
+
+	$fn = ($output_dir?"$output_dir/":"") . "net_top.png";
+	draw_net_top ($fn, $im_width, $im_height);
+}
+
+sub draw_blank
+{
+	my $output_filename = shift;
+	my $im_width = shift;
+	my $im_height = shift;
+
+	print ("Creating blank image ($im_width x $im_height)\n") if ($debug);
+	
+	my $im = new GD::Image ($im_width, $im_height);
+
+	# allocate some colors - the first one becomes the background color
+	my $white = $im->colorAllocate (255, 255, 255);
+
+	# make the background transparent and interlaced
+	$im->transparent($white);
+	$im->interlaced('true');
+            
+	open (FILE, "> $output_filename") or die ("$0: Could not open file '$output_filename' for writing: $!\n");
+	
+	binmode (FILE);
+	print (FILE $im->png ());
+	close (FILE);
+}
+
+sub draw_net_top
+{
+	my $output_filename = shift;
+	my $im_width = shift;
+	my $im_height = shift;
+
+	print ("Creating net_top image ($im_width x $im_height)\n") if ($debug);
+	
+	my $im = new GD::Image ($im_width, $im_height);
+
+	# allocate some colors - the first one becomes the background color
+	my $white = $im->colorAllocate (255, 255, 255);
+	my $black = $im->colorAllocate (0, 0, 0);
+	my $blue = $im->colorAllocate (0, 0, 255);
+
+	my $step = 16;
+	my $i = 0;
+	while ($i < 256) {
+		my $left_side = $i * $pixels_per_ip;
+		my $right_side = ($i + $step) * $pixels_per_ip;
+
+		$im->rectangle ($left_side, 0, $right_side - 1, 
+				$im_height - 1, $blue);
+
+		write_string ($im, $left_side, $right_side, $im_height, $i);
+		
+		$i += $step;
+	}
+	
+	open (FILE, "> $output_filename") or die ("$0: Could not open file '$output_filename' for writing: $!\n");
+	
+	binmode (FILE);
+	print (FILE $im->png ());
+	close (FILE);
+}
