@@ -114,8 +114,8 @@ sub clean_hostname
 
 	$new =~ s/\.+$//o;	# strip trailing dots
 
-	$valid = $self->is_valid_fqdn ("$new");
-	
+	$valid = $self->is_valid_fqdn ($new) || $self->is_valid_domainname ($new);
+
 	if ($valid and ($new ne $_[0])) {
 		$self->_debug_print ("changed '$_[0]' into '$new'");
 		$_[0] = $new;
