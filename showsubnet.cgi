@@ -11,6 +11,9 @@ use Config::IniFiles;
 use HOSTDB;
 use SUCGI;
 
+my $table_blank_line = "<tr><td COLSPAN='3'>&nbsp;</td></tr>\n";
+my $table_hr_line = "<tr><td COLSPAN='3'><hr></td></tr>\n";
+
 my $debug = 0;
 if ($ARGV[0] eq "-d") {
 	shift (@ARGV);
@@ -29,6 +32,8 @@ my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
 my $sucgi_ini;
 if (-f $hostdbini->val ('sucgi', 'cfgfile')) {
 	$sucgi_ini = Config::IniFiles->new (-file => $hostdbini->val ('sucgi', 'cfgfile'));
+} else {
+	warn ("No SUCGI config-file ('" . $hostdbini->val ('sucgi', 'cfgfile') . "')");
 }
 
 my $q = SUCGI->new ($sucgi_ini);
@@ -36,17 +41,22 @@ my $subnet = $q->param ('subnet');
 
 $q->begin (title => "Subnet(s) matching $subnet");
 
-$q->print ("&nbsp;</TD></TR><TR><TD COLSPAN='3' ALIGN='center'><H3>Subnet(s) matching $subnet</H3></TD></TR>\n");
+$q->print (<<EOH);
+	<table BORDER='0' CELLPADDING='0' CELLSPACING='0' WIDTH='600'>
+	   $table_blank_line
+	   <td COLSPAN='3' ALIGN='center'><h3>Subnet(s) matching $subnet</h3></td></tr>
+	   $table_blank_line
+EOH
 
-$q->print ("<TR><TD COLSPAN='2'>&nbsp;</TD></TR>\n");
-
-list_subnet ($subnet);
+list_subnet ($hostdb, $q, $subnet);
 
 $q->end ();
 
 
 sub list_subnet
 {
+	my $hostdb = shift;
+	my $q = shift;
 	my $subnet = shift;
 
 	if ($hostdb->check_valid_subnet ($subnet)) {
@@ -60,32 +70,51 @@ sub list_subnet
 			my $subnet;
 			
 			foreach $subnet (@subnets) {
-				$q->print ("<TR><TD><STRONG>" . $subnet->subnet() . "</STRONG></TD>" .
-					"<TD COLSPAN='2' ALIGN='center'><STRONG>\n" .
-					($subnet->description ()?$subnet->description ():"no description") .
-					"</STRONG></TD></TR>");
-
-				$q->print ("<TR><TD COLSPAN='3'>&nbsp;</TD></TR>\n");
+				# HTML
+				my $h_subnet = $subnet->subnet ();
+				my $h_desc = $subnet->description ()?$subnet->description ():'no description';
+				$q->print (<<EOH);
+					<tr>
+					   <td>
+						<strong>$h_subnet</strong>
+					   </td>
+					   <td COLSPAN='2' ALIGN='center'>
+						<strong>$h_desc</strong>
+					   </td>
+					</tr>
+					$table_blank_line
+EOH
 
 				my @subnet_hosts = get_hosts_in_subnet ($subnet->subnet(), @hosts);
 
 				if (get_host_with_ip ($subnet->netaddr (), @subnet_hosts) or
 				    get_host_with_ip ($subnet->broadcast (), @subnet_hosts)) {
 					if (get_host_with_ip ($subnet->netaddr (), @subnet_hosts)) {
-						$q->print ("<TR><TD COLSPAN='3'><FONT COLOR='red'>WARNING: There is a host entry for the network address " . $subnet->netaddr () . "</FONT></TD></TR>\n");
+						error_line ($q, 'WARNING: There is a host entry for the network address ' . $subnet->netaddr ());
 					}
 					if (get_host_with_ip ($subnet->broadcast (), @subnet_hosts)) {
-						$q->print ("<TR><TD COLSPAN='3'><FONT COLOR='red'>WARNING: There is a host entry for the broadcast address " . $subnet->broadcast () . "</FONT></TD></TR>\n");
+						error_line ($q, 'WARNING: There is a host entry for the broadcast address ' . $subnet->broadcast ());
 					}
-					$q->print ("<TR><TD COLSPAN='3'>&nbsp;</TD></TR>\n");
+					$q->print ($table_blank_line);
 				}
 
-				$q->print ("<TR><TD>Netmask</TD><TD>" . $subnet->netmask () . "</TD></TR>\n" .
-					   "<TR><TD>Address usage</TD><TD>" . ($#subnet_hosts + 1) . "/" .
-					   ($subnet->addresses () - 2) . " (" .
-					   int (safe_div ($#subnet_hosts + 1, $subnet->addresses () - 2) * 100) . "%)</TD></TR>\n");
+				# HTML
+				my $netmask = $subnet->netmask ();
+				my $num_hosts = ($#subnet_hosts + 1);
+				my $num_addrs = ($subnet->addresses () - 2);
+				my $usage_percent = int (safe_div ($num_hosts, $num_addrs) * 100);
 
-				$q->print ("<TR><TD COLSPAN='2'>&nbsp;</TD></TR>\n");
+				$q->print (<<EOH);
+					<tr>
+					   <td>Netmask</td>
+					   <td>$netmask</td>
+					</tr>
+					<tr>
+					   <td>Address usage</td>
+					   <td>$num_hosts/$num_addrs ($usage_percent%)</td>
+					</tr>
+					$table_blank_line
+EOH
 
 				# loop from first to last host address in subnet
 				my $i;
@@ -94,24 +123,31 @@ sub list_subnet
 					my $host = get_host_with_ip ($ip, @subnet_hosts);
 					if (! defined ($host)) {
 						# there is a gap here, output a ... line
-						$q->print ("<TR><TD><FONT COLOR='green'>$ip</FONT></TD><TD COLSPAN='2'>&nbsp;</TD></TR>\n");
+						$q->print ("<tr><td><FONT COLOR='green'>$ip</FONT></td><td COLSPAN='2'>&nbsp;</td></tr>\n");
 					} else {
-						$q->print ("<TR>" .
-							   "	<TD>" . $host->ip () . "</TD>\n" .
-							   "	<TD>" . $host->hostname () . "</TD>\n" .
-							   "	<TD>" . $host->mac_address () . "</TD>\n" .
-							   "</TR>\n");
+						# HTML
+						my $ip = $host->ip ();
+						my $hostname = $host->hostname ();
+						my $mac = $host->mac_address ();
+						
+						$q->print (<<EOH);
+							<tr>
+							   <td>$ip</td>
+							   <td>$hostname</td>
+							   <td>$mac</td>
+							</tr>
+EOH
 					}
 				}
-				$q->print ("<TR><TD COLSPAN='3'>&nbsp;</TD></TR>\n");
+				$q->print ($table_blank_line);
 			}
 			
 			$q->print ("\n\n");
 		} else {
-			$q->print ("<H3><FONT COLOR='red'>No matching subnet '$subnet'</FONT></H3>");
+			error_line ("No matching subnet '$subnet'");
 		}
 	} else {
-		$q->print ("<H3><FONT COLOR='red'>Illegal subnet address '$subnet'</FONT></H3>");
+		error_line ("Illegal subnet address '$subnet'");
 	}
 }
 
@@ -154,4 +190,19 @@ sub safe_div
 	return ($a / $b) if ($a != 0 and $b != 0);
 
 	return 0;
+}
+
+sub error_line
+{
+	my $q = shift;
+	my $error = shift;
+	$q->print (<<EOH);
+	   <tr>
+		<td COLSPAN='3'>
+		   <font COLOR='red'>
+			<strong>$error</strong>
+		   </font>
+		</td>
+	   </tr>
+EOH
 }
