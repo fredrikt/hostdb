@@ -307,7 +307,7 @@ sub clean_mac_address
 		$new = sprintf("%.2x:%.2x:%.2x:%.2x:%.2x:%.2x", hex ($1), hex ($2), hex ($3), hex ($4), hex ($5), hex ($6));
 	}
 
-	$valid = $self->valid_mac_address ("$new");
+	$valid = $self->is_valid_mac_address ("$new");
 	
 	if ($valid and ($new ne $_[0])) {
 		$self->_debug_print ("changed '$_[0]' into '$new'");
@@ -317,9 +317,9 @@ sub clean_mac_address
 	return ($valid);
 }
 
-=head2 valid_mac_address
+=head2 is_valid_mac_address
 
-	print("valid\n") if ($hostdb->valid_mac_address($mac);
+	print("valid\n") if ($hostdb->is_valid_mac_address($mac);
 	
 	Checks if $mac is a mac address formatted exactly like this: 00:02:b3:9a:89:df
 	
@@ -328,7 +328,7 @@ sub clean_mac_address
 	$hostdb->clean_mac_address ($mac);
 
 =cut
-sub valid_mac_address
+sub is_valid_mac_address
 {
 	my $self = shift;
 	my $mac = shift;
