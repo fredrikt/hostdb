@@ -40,7 +40,6 @@ my $dynamic_flag_days = $hostdbini->val ('subnet', 'static_flag_days');
 
 $q->begin (title => "Whois");
 my $remote_user = $q->user();
-$remote_user = 'ft';
 unless ($remote_user) {
 	$q->print ("&nbsp;<p><ul><font COLOR='red' SIZE='3'><strong>You are not logged in.</strong></font></ul>\n\n");
 	$q->end ();
