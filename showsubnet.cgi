@@ -33,13 +33,7 @@ if (-f $hostdbini->val ('sucgi', 'cfgfile')) {
 }
 
 my $q = SUCGI->new ($sucgi_ini);
-my $subnet = $q->param ('subnet');
-
-my $whois_path = $q->state_url ($hostdbini->val ('subnet', 'whois_uri'));
-my $modifyhost_path = $q->state_url ($hostdbini->val ('subnet', 'modifyhost_uri'));
-my $modifysubnet_path = $q->state_url ($hostdbini->val ('subnet', 'modifysubnet_uri'));
-
-$q->begin (title => "Subnet(s) matching $subnet");
+$q->begin (title => "Subnet details");
 my $remote_user = '';
 if (defined ($ENV{REMOTE_USER}) and $ENV{REMOTE_USER} =~ /^[a-z0-9]{,50}$/) {
 	$remote_user = $ENV{REMOTE_USER};
@@ -52,19 +46,44 @@ if (defined ($ENV{REMOTE_USER}) and $ENV{REMOTE_USER} =~ /^[a-z0-9]{,50}$/) {
 	$remote_user = 'ft';
 }
 
+my $id = $q->param ('id');
+my $subnetname;
+if (defined ($id)) {
+	my $s = $hostdb->findsubnetbyid ($id);
+
+	if (! defined ($s)) {
+		$q->print ("&nbsp;<p><ul><font COLOR='red' SIZE='3'><strong>No subnet with ID '$id' found.</strong></font></ul>\n\n");
+		$q->end ();
+		die ("No subnet with ID '$id' found.\n");
+	} else {
+		$subnetname = $s->subnet ();
+	}
+} else {
+	$subnetname = $q->param ('subnet') || '';
+}
+
+if (! $subnetname) {
+	$q->print ("&nbsp;<p><ul><font COLOR='red' SIZE='3'><strong>No subnet specified.</strong></font></ul>\n\n");
+	$q->end ();
+	die ("No subnet specified\n");
+}
+
+my $whois_path = $q->state_url ($hostdbini->val ('subnet', 'whois_uri'));
+my $modifyhost_path = $q->state_url ($hostdbini->val ('subnet', 'modifyhost_uri'));
+my $modifysubnet_path = $q->state_url ($hostdbini->val ('subnet', 'modifysubnet_uri'));
 
 $q->print (<<EOH);
 	<table BORDER='0' CELLPADDING='0' CELLSPACING='3' WIDTH='600'>
 		$table_blank_line
 		<tr>
-			<td COLSPAN='4' ALIGN='center'><h3>Subnet(s) matching $subnet</h3></td>
+			<td COLSPAN='4' ALIGN='center'><h3>Subnet(s) matching $subnetname</h3></td>
 		</tr>
 		$table_blank_line
 EOH
 
 my $static_flag_days = $hostdbini->val ('subnet', 'static_flag_days');
 my $dynamic_flag_days = $hostdbini->val ('subnet', 'static_flag_days');
-list_subnet ($hostdb, $q, $subnet, $static_flag_days, $dynamic_flag_days);
+list_subnet ($hostdb, $q, $subnetname, $static_flag_days, $dynamic_flag_days);
 
 $q->print (<<EOH);
 	</table>
@@ -186,32 +205,30 @@ EOH
 							$ip = "<a HREF='$whois_path?;whoisdatatype=ID;whoisdata=$id'>$ip</a>";
 						}
 						
-						my $ts_font = "";
-						my $ts_font_end = "";
-						
-						my $ts_flag_color = '#dd0000'; # bright red
-						my $ts_flag_days = $static_flag_days;
-						
 						my $h_u_t = $host->unix_mac_address_ts ();
 
+						my $in_use = 0;
 						if ($host->dhcpmode () eq 'DYNAMIC') {
-							$ts_flag_days = $dynamic_flag_days;
 							$dynamic_hosts++;
-							$dynamic_in_use++ if (defined ($h_u_t));
+							$in_use = 1 if (defined ($h_u_t) and
+								(time () - $h_u_t) < ($dynamic_flag_days * 86400));
+							$dynamic_in_use += $in_use;
 							$mac = 'dynamic';
 						} else {
 							$static_hosts++;
+							$in_use = 1 if (defined ($h_u_t) and
+								(time () - $h_u_t) < ($static_flag_days * 86400));
+							$static_in_use += $in_use;
 						}
 						
-						if (defined ($h_u_t) and
-						    (time () - $h_u_t) >= ($ts_flag_days * 86400)) {
-							# host has not been seen in active use
-							# for $ts_flag_days days
+						my $ts_font = '';
+						my $ts_font_end = '';
+						
+						my $ts_flag_color = '#dd0000'; # bright red
+						
+						if (! $in_use) {
 							$ts_font = "<font COLOR='$ts_flag_color'>";
-							$ts_font_end = "</font>";
-						} else {
-							$static_in_use++ if (defined ($h_u_t) and
-									     $host->dhcpmode () eq 'STATIC');
+							$ts_font_end = '</font>';
 						}
 						
 						push (@o, <<EOH);
