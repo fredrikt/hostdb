@@ -9,47 +9,21 @@ use strict;
 use HOSTDB;
 use SUCGI2;
 
-my $table_blank_line = "<tr><td COLSPAN='4'>&nbsp;</td></tr>\n";
-my $table_hr_line = "<tr><td COLSPAN='4'><hr></td></tr>\n";
-my $empty_td = "<td>&nbsp;</td>\n";
+my $table_cols = 4;
 
-my $debug = 0;
-if (defined ($ARGV[0]) and ($ARGV[0] eq "-d")) {
-	shift (@ARGV);
-	$debug = 1;
-}
+## Generic Stockholm university HOSTDB CGI initialization
+my ($table_blank_line, $table_hr_line, $empty_td) = HOSTDB::StdCGI::get_table_variables ($table_cols);
+my $debug = HOSTDB::StdCGI::parse_debug_arg (@ARGV);
+my ($hostdbini, $hostdb, $q, $remote_user) = HOSTDB::StdCGI::get_hostdb_and_sucgi ('Host attributes', $debug);
+my (%links, $is_admin, $is_helpdesk, $me);
+HOSTDB::StdCGI::get_cgi_common_variables ($q, $hostdb, $remote_user, \%links, \$is_admin, \$is_helpdesk, $me);
+## end generic initialization
 
-my $hostdbini = Config::IniFiles->new (-file => HOSTDB::get_inifile ());
-my $sucgi_ini;
-if (-f $hostdbini->val ('sucgi', 'cfgfile')) {
-	$sucgi_ini = Config::IniFiles->new (-file => $hostdbini->val ('sucgi', 'cfgfile'));
-} else {
-	warn ("No SUCGI config-file ('" . $hostdbini->val ('sucgi', 'cfgfile') . "')");
-}
-my $q = SUCGI2->new ($sucgi_ini, 'hostdb');
-$q->begin (title => 'Host attributes');
-
-my $hostdb = eval {
-	HOSTDB::DB->new (ini => $hostdbini, debug => $debug);
-};
-
-if ($@) {
-	my $e = $@;
-	$q->print ("&nbsp;<p><ul><font COLOR='red' SIZE='3'><strong>Could not create HOSTDB object: $e</strong></font></ul>\n\n");
-	$q->end ();
-	die ("$0: Could not create HOSTDB object: '$e'");
-}
-
-my %links = $hostdb->html_links ($q);
-
-my $remote_user = $q->user();
-unless ($remote_user) {
-	$q->print ("&nbsp;<p><ul><font COLOR='red' SIZE='3'><strong>You are not logged in.</strong></font></ul>\n\n");
-	$q->end ();
-	die ("$0: Invalid REMOTE_USER environment variable '$ENV{REMOTE_USER}'");
-}
-my $is_admin = $hostdb->auth->is_admin ($remote_user);
-my $is_helpdesk = $hostdb->auth->is_helpdesk ($remote_user);
+## Generic Stockholm university HOSTDB CGI header
+my (@l);
+push (@l, "[<a HREF='$links{home}'>home</a>]") if ($links{home});
+HOSTDB::StdCGI::print_cgi_header ($q, 'Host attributes', $is_admin, $is_helpdesk, \%links, \@l);
+## end generic header
 
 my $id = $q->param ('id');
 my $host = $hostdb->findhostbyid ($id);
@@ -75,27 +49,14 @@ if (! defined ($host)) {
 	$q->print ("&nbsp;<p><ul><font COLOR='red' SIZE='3'><strong>No host with id '$id' found in database.</strong></font></ul>\n\n");
 	$q->end ();
 	die ("$0: No host with id '$id' found in database.");
-} else {
-	$q->print (<<EOH);
-	<table BORDER='0' CELLPADDING='0' CELLSPACING='0' WIDTH='100%'>
-		$table_blank_line
-		<tr>
-			<td ALIGN='left' COLSPAN='4'><h3>Host attributes :</h3></td>
-		</tr>
-		$table_blank_line
-EOH
-
-	my @sectionfilter;
-	foreach my $t (split (',', $hostdbini->val ('host', 'semipublic_attributesections'))) {
-		$t =~ s/^\s*(\S+)\s*$/$1/o;	# trim
-		push (@sectionfilter, $t);
-	}
-	show_hostattributes ($q, $host, $is_admin, $is_helpdesk, \@sectionfilter);
 }
 
-$q->print (<<EOH);
-	</table>
-EOH
+my @sectionfilter;
+foreach my $t (split (',', $hostdbini->val ('host', 'semipublic_attributesections'))) {
+    $t =~ s/^\s*(\S+)\s*$/$1/o;	# trim
+    push (@sectionfilter, $t);
+}
+show_hostattributes ($q, $host, $is_admin, $is_helpdesk, \@sectionfilter);
 
 $q->end ();
 
@@ -119,6 +80,7 @@ sub show_hostattributes
 	$host_link = "<a HREF='$links{whois};whoisdatatype=ID;whoisdata=$id'>$id</a>" if ($links{whois});
 	
 	$q->print (<<EOH);
+	   <table BORDER='0' CELLPADDING='0' CELLSPACING='0' WIDTH='100%'>
 	   <tr>
 		<th ALIGN='left' COLSPAN='4'>Host :</th>
 	   </tr>
@@ -201,7 +163,7 @@ EOH
 		}
 	}
 				
-	$q->print ($table_blank_line);	
+	$q->print ("\t$table_blank_line\n\t</table>");
 
 	return 1;
 }
