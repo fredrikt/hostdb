@@ -378,7 +378,7 @@ sub host_form
 					      -default => $host->dhcpstatus ());
 		$profile = $q->popup_menu (-name => 'profile',
 					   -values => \@profiles,
-					   -default => $host->profile ());
+					   -default => $host->profile () || 'default');
 	}
 
 	my $empty_td = '<td>&nbsp;</td>';
