@@ -99,7 +99,7 @@ sub add_host
 	$host->user ("dns-import") or warn ($host->{error}), $valid = 0;
 	$host->dnsmode ("A_AND_PTR") or warn ($host->{error}), $valid = 0;
 	$host->dnsstatus ("ENABLED") or warn ($host->{error}), $valid = 0;
-	if ($name =~ /^dhcp/) {
+	if ($name =~ /^dhcp/ and $name !~ /^dhcp\d\.su\.se$/) {
 		$host->dhcpmode ("DYNAMIC") or warn ($host->{error}), $valid = 0;
 	} else {
 		$host->dhcpmode ("STATIC") or warn ($host->{error}), $valid = 0;
