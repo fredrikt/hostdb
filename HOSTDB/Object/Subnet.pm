@@ -195,9 +195,14 @@ sub delete
 		$sth = $self->{_delete_subnet};
 		$sth->execute ($self->id ()) or die "$DBI::errstr";
 		
-		# XXX check number of rows affected?
+		my $rowcount = $sth->rows ();
 
 		$sth->finish();
+		
+		if ($rowcount != 1) {
+			$self->_set_error ("Delete operation of subnet with id '$self->{id}' did not affect the expected number of database rows ($rowcount, not 1)");
+			return 0;
+		}
 	} else {
 		$self->_set_error ("Subnet not in database");
 		return 0;
