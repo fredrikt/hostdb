@@ -100,7 +100,7 @@ sub do_supernet
 
 	if ($#subnets != -1) {
 		print (HTML "<TABLE BORDER='0' CELLSPACING='0' CELLPADDING='0'>\n<TR><TH ALIGN='left' COLSPAN='2'>Net $supernet :</TH></TR>\n");
-		#print (HTML "<H3>Net $supernet :</H3>\n");
+		#print (HTML "<H3>Net $supernet :</H3><P>\n<BR>\n");
 
 		print_row ("&nbsp;", "net_top.png", undef);
 
@@ -122,7 +122,7 @@ sub do_supernet
 				$fn =~ s#[\./]#-#go;
 				$fn .= ".png";
 				
-				print_row ($subnet_name, $fn, "/cgi-bin/showsubnetlinks?subnet=$subnet_name");
+				print_row ($subnet_name . "&nbsp;", $fn, "/cgi-bin/showsubnetlinks?subnet=$subnet_name");
 
 				$fn = "$output_dir/$fn" if ($output_dir);
 	
@@ -137,7 +137,7 @@ sub do_supernet
 			}
 		}
 		
-		print (HTML "</TABLE>\n");
+		print (HTML "</TABLE><P>\n<BR><HR>\n<P>\n");
 	}
 }
 
