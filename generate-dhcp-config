@@ -15,10 +15,10 @@ getopts ('hdo:qR');
 
 sub usage
 {
-	die (<<EOD);
+    die (<<EOD);
 Syntax: $0 [options] [subnet ...]
 	subnet is the subnet in slash notation (eg. 192.168.1.0/24)
-	
+
 	options :
 		-d		debug
 		-o dir		output to dir
@@ -40,7 +40,7 @@ die ("$0: Output dir '$output_dir' is not a directory\n") if (! -d $output_dir);
 
 my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
 			      debug => $debug
-			     );
+			      );
 
 my @subnet_list = @ARGV;
 push (@subnet_list, '*') if (0 == @subnet_list);
@@ -48,12 +48,12 @@ push (@subnet_list, '*') if (0 == @subnet_list);
 my (@subnets);
 my $all_subnets = 0;
 if (grep (/^\*$/, @subnet_list)) {
-	@subnets = $hostdb->findallsubnets ();
-	$all_subnets = 1;
+    @subnets = $hostdb->findallsubnets ();
+    $all_subnets = 1;
 } else {
-	foreach my $subnet_name (@subnet_list) {
-		push (@subnets, $hostdb->findsubnet ($subnet_name));
-	}
+    foreach my $subnet_name (@subnet_list) {
+	push (@subnets, $hostdb->findsubnet ($subnet_name));
+    }
 }
 
 usage () if (! @subnets);
@@ -61,25 +61,25 @@ usage () if (! @subnets);
 my $failed = 0;
 my %all_generated_files;
 foreach my $subnet (@subnets) {
-	die ("$0: Empty subnet, oh no.\n") if (! $subnet);
+    die ("$0: Empty subnet, oh no.\n") if (! $subnet);
 
-	my %generated_files;
-	
-	$failed = 1 if (! print_dhcp_config ($hostdb, $subnet, $output_dir, \%generated_files, $debug, $quiet));
-	if (! $failed and ! $all_subnets) {
-		$failed = 1 if (! remove_old_files ($subnet, $output_dir, \%generated_files,
-						    $remove_old, $debug, $quiet));
-	}
+    my %generated_files;
 
-	last if ($failed);
+    $failed = 1 if (! print_dhcp_config ($hostdb, $subnet, $output_dir, \%generated_files, $debug, $quiet));
+    if (! $failed and ! $all_subnets) {
+	$failed = 1 if (! remove_old_files ($subnet, $output_dir, \%generated_files,
+					    $remove_old, $debug, $quiet));
+    }
 
-	foreach my $k (keys %generated_files) {
-		$all_generated_files{$k} = $generated_files{$k};
-	}
+    last if ($failed);
+
+    foreach my $k (keys %generated_files) {
+	$all_generated_files{$k} = $generated_files{$k};
+    }
 }
 
 if (! $failed and $all_subnets) {
-	$failed = 1 if (! remove_old_files (undef, $output_dir, \%all_generated_files, $remove_old, $debug, $quiet));
+    $failed = 1 if (! remove_old_files (undef, $output_dir, \%all_generated_files, $remove_old, $debug, $quiet));
 }
 
 exit ($failed);
@@ -87,215 +87,215 @@ exit ($failed);
 
 sub print_dhcp_config
 {
-	my $hostdb = shift;
-	my $subnet = shift;
-	my $output_dir = shift;
-	my $generated_files_ref = shift;
-	my $debug = shift;
-	my $quiet = shift;
+    my $hostdb = shift;
+    my $subnet = shift;
+    my $output_dir = shift;
+    my $generated_files_ref = shift;
+    my $debug = shift;
+    my $quiet = shift;
 
-	my @subnet_profiles = split (',', $subnet->profilelist ());
-	my $subnet_name = $subnet->subnet ();
-	my $subnet_id = $subnet->id ();
+    my @subnet_profiles = split (',', $subnet->profilelist ());
+    my $subnet_name = $subnet->subnet ();
+    my $subnet_id = $subnet->id ();
 
-	if (! grep (/^default$/, @subnet_profiles)) {
-		warn ("$0: No 'default' profile for subnet '$subnet_name', skipping subnet.\n");
-		return undef;
-	}
+    if (! grep (/^default$/, @subnet_profiles)) {
+	warn ("$0: No 'default' profile for subnet '$subnet_name', skipping subnet.\n");
+	return undef;
+    }
 
-	my (@ranges, $range_start, $range_end, %hosts);
+    my (@ranges, $range_start, $range_end, %hosts);
 
-	foreach my $host ($hostdb->findhostbyiprange ($subnet->netaddr (), $subnet->broadcast ())) {
-		if ($host->dhcpmode () eq 'DYNAMIC') {
-			$range_start = $host->ip () if (! $range_start);
-			$range_end = $host->ip ();
-			next;
-		} else {
-			my $id = $host->id ();
-			my $ip = $host->ip ();
-			my $hostname = $host->hostname () || 'NULL';
+    foreach my $host ($hostdb->findhostbyiprange ($subnet->netaddr (), $subnet->broadcast ())) {
+	if ($host->dhcpmode () eq 'DYNAMIC') {
+	    $range_start = $host->ip () if (! $range_start);
+	    $range_end = $host->ip ();
+	    next;
+	} else {
+	    my $id = $host->id ();
+	    my $ip = $host->ip ();
+	    my $hostname = $host->hostname () || 'NULL';
 
-			if ($range_start) {
-				# ok, so it was a range
-				push (@ranges, "${range_start}	${range_end}");
-				$range_start = '';
-			}
-			
-			my $profile = $host->profile ();
-			if (! grep (/^$profile$/, @subnet_profiles)) {
-				warn ("$0: Host $id ($ip, $hostname) profile $profile not listed for subnet $subnet_name, skipping subnet.");
-				return undef;
-			}
-			
-			if (! $hostdb->is_valid_profilename ($profile)) {
-				warn ("$0: Invalid profile name '$profile' for host $id ($ip, $hostname), skipping subnet.\n");
-				return undef;
-			} else {
-				push (@{$hosts{$profile}}, $host);
-			}
-		}
-
-	}
-	if ($range_start) {
+	    if ($range_start) {
 		# ok, so it was a range
 		push (@ranges, "${range_start}	${range_end}");
 		$range_start = '';
+	    }
+
+	    my $profile = $host->profile ();
+	    if (! grep (/^$profile$/, @subnet_profiles)) {
+		warn ("$0: Host $id ($ip, $hostname) profile $profile not listed for subnet $subnet_name, skipping subnet.");
+		return undef;
+	    }
+
+	    if (! $hostdb->is_valid_profilename ($profile)) {
+		warn ("$0: Invalid profile name '$profile' for host $id ($ip, $hostname), skipping subnet.\n");
+		return undef;
+	    } else {
+		push (@{$hosts{$profile}}, $host);
+	    }
 	}
 
-	my $fn = "${subnet_name}_id${subnet_id}_options";
-	my $OUT = new FileHandle;
-		
+    }
+    if ($range_start) {
+	# ok, so it was a range
+	push (@ranges, "${range_start}	${range_end}");
+	$range_start = '';
+    }
+
+    my $fn = "${subnet_name}_id${subnet_id}_options";
+    my $OUT = new FileHandle;
+
+    $fn =~ s#/#-#go;	# replace slash(es) with - (dash)
+    print ("Building $fn\n") unless ($quiet);
+    my $outfile = "$output_dir/$fn";
+
+    open ($OUT, "> $outfile.new") or warn ("$0: Could not open outfile '$outfile.new' for writing: $!\n"), return undef;
+
+    if (-f $outfile) {
+	# copy leading comments from existing file
+	open (IN, "< $outfile") or warn ("$0: Could not open existing '$outfile' for reading: $!\n"), return undef;
+	while (my $t = <IN>) {
+	    if ($t =~ /^#/) {
+		print ($OUT $t);
+		next;
+	    } elsif ($t =~ /^\s*$/) {
+		print ($OUT $t);
+		last;
+	    }
+	    last;
+	}
+	close (IN);
+    } else {
+	# new file
+	print ($OUT "# \$Id\$\n# DON'T EDIT THIS FILE, IT IS AUTO GENERATED AND WILL GET OVERWRITTEN\n#\n\n");
+    }
+
+    my $t;
+    foreach $t (@ranges) {
+	print ($OUT "	range $t;\n") or warn ("$0: Could not write to file '$outfile.new': $!\n"), return undef;		;
+    }
+
+    close ($OUT);
+    rename ("$outfile.new", $outfile) or warn ("$0: Could not rename '$outfile.new' to '$outfile': $!\n"), return undef;
+    $generated_files_ref->{$fn} = 1;
+
+    foreach my $profile (@subnet_profiles) {
+	my $fn = "${subnet_name}_id${subnet_id}-${profile}";
+
 	$fn =~ s#/#-#go;	# replace slash(es) with - (dash)
 	print ("Building $fn\n") unless ($quiet);
 	my $outfile = "$output_dir/$fn";
-	
+
+	my $OUT = new FileHandle;
 	open ($OUT, "> $outfile.new") or warn ("$0: Could not open outfile '$outfile.new' for writing: $!\n"), return undef;
 
 	if (-f $outfile) {
-		# copy leading comments from existing file
-		open (IN, "< $outfile") or warn ("$0: Could not open existing '$outfile' for reading: $!\n"), return undef;
-		while (my $t = <IN>) {
-			if ($t =~ /^#/) {
-				print ($OUT $t);
-				next;
-			} elsif ($t =~ /^\s*$/) {
-				print ($OUT $t);
-				last;
-			}
-			last;
+	    # copy leading comments from existing file
+	    open (IN, "< $outfile") or warn ("$0: Could not open existing '$outfile' for reading: $!\n"), return undef;
+	    while (my $t = <IN>) {
+		if ($t =~ /^#/) {
+		    print ($OUT $t);
+		    next;
+		} elsif ($t =~ /^\s*$/) {
+		    print ($OUT $t);
+		    last;
 		}
-		close (IN);
+
+		last;
+	    }
+	    close (IN);
 	} else {
-		# new file
-		print ($OUT "# \$Id\$\n# DON'T EDIT THIS FILE, IT IS AUTO GENERATED AND WILL GET OVERWRITTEN\n#\n\n");
+	    # new file
+	    print ($OUT "# \$Id\$\n# DON'T EDIT THIS FILE, IT IS AUTO GENERATED AND WILL GET OVERWRITTEN\n#\n\n");
 	}
 
-	my $t;
-	foreach $t (@ranges) {
-		print ($OUT "	range $t;\n") or warn ("$0: Could not write to file '$outfile.new': $!\n"), return undef;		;
+	my $t_count = 0;
+	foreach my $host (@{$hosts{$profile}}) {
+	    print_host ($OUT, $host, $debug) or warn ("$0: Could not write to file '$outfile.new': $!\n"), return undef;
+	    $t_count++;
 	}
 
-	close ($OUT);
-	rename ("$outfile.new", $outfile) or warn ("$0: Could not rename '$outfile.new' to '$outfile': $!\n"), return undef;
+	warn ("$0: No hosts in $subnet_name profile $profile\n") if (! $t_count and ! $quiet);
 	$generated_files_ref->{$fn} = 1;
-	
-	foreach my $profile (@subnet_profiles) {
-		my $fn = "${subnet_name}_id${subnet_id}-${profile}";
+	close ($OUT);
+	rename ("$outfile.new", $outfile) or warn ("$0: Could not rename '$outfile.new' to '$outfile': $!\n");
+    }
 
-		$fn =~ s#/#-#go;	# replace slash(es) with - (dash)
-		print ("Building $fn\n") unless ($quiet);
-		my $outfile = "$output_dir/$fn";
-	
-		my $OUT = new FileHandle;
-		open ($OUT, "> $outfile.new") or warn ("$0: Could not open outfile '$outfile.new' for writing: $!\n"), return undef;
-
-		if (-f $outfile) {
-			# copy leading comments from existing file
-			open (IN, "< $outfile") or warn ("$0: Could not open existing '$outfile' for reading: $!\n"), return undef;
-			while (my $t = <IN>) {
-				if ($t =~ /^#/) {
-					print ($OUT $t);
-					next;
-				} elsif ($t =~ /^\s*$/) {
-					print ($OUT $t);
-					last;
-				}
-
-				last;
-			}
-			close (IN);
-		} else {
-			# new file
-			print ($OUT "# \$Id\$\n# DON'T EDIT THIS FILE, IT IS AUTO GENERATED AND WILL GET OVERWRITTEN\n#\n\n");
-		}
-		
-		my $t_count = 0;
-		foreach my $host (@{$hosts{$profile}}) {
-			print_host ($OUT, $host, $debug) or warn ("$0: Could not write to file '$outfile.new': $!\n"), return undef;		
-			$t_count++;
-		}
-
-		warn ("$0: No hosts in $subnet_name profile $profile\n") if (! $t_count and ! $quiet);
-		$generated_files_ref->{$fn} = 1;
-		close ($OUT);
-		rename ("$outfile.new", $outfile) or warn ("$0: Could not rename '$outfile.new' to '$outfile': $!\n");
-	}
-	
-	return 1;
+    return 1;
 }
 
 
 sub remove_old_files
 {
-	my $subnet = shift;
-	my $output_dir = shift;
-	my $generated_files_ref = shift;
-	my $do_remove = shift;
-	my $debug = shift;
-	my $quiet = shift;
+    my $subnet = shift;
+    my $output_dir = shift;
+    my $generated_files_ref = shift;
+    my $do_remove = shift;
+    my $debug = shift;
+    my $quiet = shift;
 
-	opendir (DIR, $output_dir) or warn ("$0: Could not opendir () '$output_dir': $!\n"), return 0;
-	
-	my @files;
+    opendir (DIR, $output_dir) or warn ("$0: Could not opendir () '$output_dir': $!\n"), return 0;
 
-	if (defined ($subnet)) {
-		my $file_regexp = $subnet->subnet () . "_id" . $subnet->id () . "-";
-		$file_regexp =~ s#/#-#go;	# replace slash(es) with - (dash)
-	
-		@files = grep { /^$file_regexp/ } readdir DIR;
-	} else {
-		@files = readdir DIR;
+    my @files;
+
+    if (defined ($subnet)) {
+	my $file_regexp = $subnet->subnet () . "_id" . $subnet->id () . "-";
+	$file_regexp =~ s#/#-#go;	# replace slash(es) with - (dash)
+
+	@files = grep { /^$file_regexp/ } readdir DIR;
+    } else {
+	@files = readdir DIR;
+    }
+    close (DIR);
+
+    foreach my $fn (@files) {
+	next if ($fn eq "filelist");
+
+	my $file = "$output_dir/$fn";
+
+	next unless (-f $file);	# skip non-files
+
+	if (! defined ($generated_files_ref->{$fn})) {
+	    if ($do_remove) {
+		print ("Removing '$file'\n");
+		unlink ($file) or warn ("$0: Could not unlink () '$file': $!\n"), return 0;
+	    } else {
+		print ("NOT removing stale file '$file'\n") unless ($quiet);
+	    }
 	}
-	close (DIR);
-	
-	foreach my $fn (@files) {
-		next if ($fn eq "filelist");
+    }
 
-		my $file = "$output_dir/$fn";
-		
-		next unless (-f $file);	# skip non-files
-		
-		if (! defined ($generated_files_ref->{$fn})) {
-			if ($do_remove) {
-				print ("Removing '$file'\n");
-				unlink ($file) or warn ("$0: Could not unlink () '$file': $!\n"), return 0;
-			} else {
-				print ("NOT removing stale file '$file'\n") unless ($quiet);
-			}
-		}	
-	}
-	
-	return 1;
+    return 1;
 }
 
 
 sub print_host
 {
-	my $OUT = shift;
-	my $host = shift;
-	my $debug = shift;	
+    my $OUT = shift;
+    my $host = shift;
+    my $debug = shift;
 
-	my $hostname = $host->hostname () || 'NULL';
-	my $id = $host->id ();
-	my $ip = $host->ip ();
-	my $mac = $host->mac_address ();
+    my $hostname = $host->hostname () || 'NULL';
+    my $id = $host->id ();
+    my $ip = $host->ip ();
+    my $mac = $host->mac_address ();
 
-	if ($host->dhcpstatus () eq 'DISABLED') {
-		warn ("Host with ID $id (IP $ip, hostname $hostname) has DHCP DISABLED, skipping\n") if ($debug);
-		return 1;
-	}
-	if (! defined ($ip)) {
-		warn ("Host with ID $id (hostname $hostname) has NO IP ADDRESS, skipping\n") if ($debug);
-		return 1;
-	}
-	if (! defined ($mac)) {
-		warn ("Host with ID $id (hostname $hostname) has NO MAC ADDRESS, skipping\n") if ($debug);
-		return 1;
-	}
+    if ($host->dhcpstatus () eq 'DISABLED') {
+	warn ("Host with ID $id (IP $ip, hostname $hostname) has DHCP DISABLED, skipping\n") if ($debug);
+	return 1;
+    }
+    if (! defined ($ip)) {
+	warn ("Host with ID $id (hostname $hostname) has NO IP ADDRESS, skipping\n") if ($debug);
+	return 1;
+    }
+    if (! defined ($mac)) {
+	warn ("Host with ID $id (hostname $hostname) has NO MAC ADDRESS, skipping\n") if ($debug);
+	return 1;
+    }
 
-	print ($OUT <<EOD) or return undef;
+    print ($OUT <<EOD) or return undef;
 host ${hostname}_${id} { hardware ethernet $mac; fixed-address $ip; option host-name \"$hostname\"; }
 EOD
 
-	return 1;
+    return 1;
 }
