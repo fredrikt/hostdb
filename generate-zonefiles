@@ -12,6 +12,10 @@ use HOSTDB;
 use Getopt::Std;
 use vars qw ($opt_h $opt_d $opt_o $opt_q);
 use FileHandle;
+use Net::LDAP;
+use URI;
+use URI::Escape;
+use Net::ENUM;
 
 getopts ('hdo:q');
 
@@ -47,6 +51,8 @@ $zone_defaults{soa_retry} = $hostdbini->val ('zone', 'default_soa_retry');
 $zone_defaults{soa_expiry} = $hostdbini->val ('zone', 'default_soa_expiry');
 $zone_defaults{soa_minimum} = $hostdbini->val ('zone', 'default_soa_minimum');
 
+my $ldap_enumuri = $hostdbini->val ('zone', 'ldap_enumuri');
+
 my $hostdb = HOSTDB::DB->new (ini => $hostdbini, debug => $debug);
 my @generate = @ARGV;
 
@@ -56,6 +62,8 @@ foreach my $buildzone (sort @generate) {
 	my $zone;
 	my @zones;
 		
+	my $load_enum = 0;
+	
 	if ($buildzone eq "*") {
 		print ("build: ALL ZONES\n") if ($debug);
 		push (@zones, $hostdb->findallzones ());
@@ -66,6 +74,8 @@ foreach my $buildzone (sort @generate) {
 		}
 		print ("build: '$buildzone'\n") if ($debug);
 		push (@zones, $hostdb->findzonebyname ($buildzone));
+		
+		$load_enum = 1 if ($buildzone =~ /\.e164\.(arpa|sunet\.se)/);
 	}
 
 	foreach $zone (@zones) {
@@ -92,7 +102,7 @@ foreach my $buildzone (sort @generate) {
 		$zone_parameters{soa_rname} =~ s/\.+$//o;	# strip trailing dots
 		$zone_parameters{soa_rname} .= ".";
 
-		gen_zonefile ($hostdb, $zonename, \%zone_parameters) or die ("$0: Failed to generate zonefile for zone '$zonename'\n");
+		gen_zonefile ($hostdb, $zonename, \%zone_parameters, $ldap_enumuri, $debug) or die ("$0: Failed to generate zonefile for zone '$zonename'\n");
 	}
 
 	print ("\n") if ($debug);
@@ -111,7 +121,11 @@ sub gen_zonefile
 	my $hostdb = shift;
 	my $zonename = shift;
 	my $zone_param_ref = shift;
+	my $ldap_enumuri = shift;
+	my $debug = shift;
+	
 	my %zone_parameters = %$zone_param_ref;
+	
 	my $ZONEFILE = new FileHandle;
 
 	my $fn = zonefilename ($zonename);
@@ -129,7 +143,7 @@ sub gen_zonefile
 
 	open ($ZONEFILE, "> $fn") or warn ("$0: Couldn't open '$fn' for writing: $!\n"), return 0;
 	
-	close ($ZONEFILE), return 0 if (!soa_rr ($hostdb, $zonename, $zone_param_ref, $ZONEFILE, $fn));
+	close ($ZONEFILE), return 0 if (! soa_rr ($hostdb, $zonename, $zone_param_ref, $ZONEFILE, $fn));
 
 	if ($zonename =~ /\.in-addr\.arpa$/) {
 		if ($zonename =~ /.+\.\d+\.\d+\.\d+\.in-addr\.arpa$/) {
@@ -142,8 +156,10 @@ sub gen_zonefile
 			return 0;
 		}
 	} elsif ($zonename =~ /\.e164\.arpa$/) {
-		warn ("$0: zone '$zonename' - e164.arpa not implemented\n") unless ($quiet);
-		print ($ZONEFILE "; $0: HOSTDB - e164.arpa not implemented\n");
+		if (! enum_naptr_rr ($hostdb, $zonename, $zone_parameters{default_ttl}, $ZONEFILE, $fn, $ldap_enumuri)) {
+			close ($ZONEFILE);
+			return 0;
+		}
 	} elsif ($zonename =~ /\.ip6\.arpa$/) {
 		warn ("$0: zone '$zonename' - ip6.arpa not implemented\n") unless ($quiet);
 		print ($ZONEFILE "; $0: HOSTDB - ip6.arpa not implemented\n");
@@ -259,7 +275,6 @@ sub a_rr
 	my $fn = shift;
 	
 	my $included_hosts_count = 0;
-	my $skipped_hosts_count = 0;
 
 	my @hostlist = $hostdb->findhostbyzone ($zonename);
 
@@ -298,6 +313,122 @@ sub a_rr
 	print ("Found $included_hosts_count hosts in $zonename\n") unless ($quiet);
 
 	return 1;
+}
+
+sub enum_naptr_rr
+{
+	my $hostdb = shift;
+	my $zonename = shift;
+	my $default_ttl = shift;
+	my $FH = shift;
+	my $fn = shift;
+	my $ldap_enumuri = shift;
+
+	my (%enumdata, $e164base);
+	
+	my %staticmap = ('+468161225' => 'sip:ft@it.su.se',
+			 '+468164642' => 'sip:roland@it.su.se',
+			 '+468164648' => 'sip:lha@it.su.se',
+			 #'+468164541' => 'sip:leifj@it.su.se',
+			 '+468161060' => 'sip:swold@it.su.se',
+			 '+468164670' => 'sip:ualps@it.su.se',
+			 '+468161223' => 'sip:wikm@it.su.se',
+			 '+468161597' => 'sip:rjons@it.su.se',
+			 '+4686747653' => 'sip:max@it.su.se',
+			 '+4686747505' => 'sip:andreaso@it.su.se'
+			);
+
+	my $numbers_count = 0;
+	my $rrf = Net::ENUM::NAPTRFactory->new();
+	
+	if ($zonename =~ /^([\d\.]+)\.e164\.arpa$/) {
+		my @d = split (/\./, "$1");
+		$e164base = "+" . join ('', reverse (@d));
+	} else {
+		warn ("Can't figure out E.164 base from zonename '$zonename'\n");
+		return undef;
+	}
+	
+	warn ("E164 base for zone '$zonename' is '$e164base'\n") if ($debug);
+
+	load_enumdata ($e164base, \%enumdata, $ldap_enumuri);
+
+	foreach my $e164 (sort keys %enumdata) {
+		my $uri = "sip:${e164}\@pstnproxy.sip.su.se";
+		
+		if ($enumdata{$e164}{sipaddress}) {
+			$uri = $enumdata{$e164}{sipaddress};
+		} elsif (defined ($staticmap{$e164})) {
+			$uri = $staticmap{$e164};
+		}
+
+		print ($FH $rrf->create (e164 => $e164, uri => "$uri")->string . "\n") or
+			warn ("$0: Couldn't write data to '$fn': $!\n"), return 0;
+		print ($FH $rrf->create (e164 => $e164, uri => "$uri", rfc2916bis => 1)->string . "\n") or
+			warn ("$0: Couldn't write data to '$fn': $!\n"), return 0;
+
+		$numbers_count++;
+	}
+	
+	print ("Found $numbers_count E.164-numbers to NAPTRs to include in $zonename\n") unless ($quiet);
+
+	return 1;
+}
+
+sub load_enumdata
+{
+	my $e164base = shift;
+	my $enumdata_ref = shift;
+	my $ldap_enumuri = shift;
+
+	my $numbers_count = 0;
+	if (! defined ($ldap_enumuri)) {
+		printf ("Skipping load of ENUM data, no ldap_enumuri in section zone of hostdb.ini\n") if ($debug);
+		return undef;	
+	}
+	
+	print ("Loading ENUM data from URI '$ldap_enumuri'\n") if ($debug);
+	
+	my $uri = URI->new ($ldap_enumuri);
+	
+	my ($host, $port, $path) = $uri->opaque =~ /\/\/([^\/:]+):?([0-9]*)\/(.*)/;
+	my @pc = split(/\?/, uri_unescape ($path));
+
+	my $ldap = Net::LDAP->new($host, port => $port) or warn ("Unable to contact to LDAP server on $host:$port\n"), return undef;
+
+	my $scope = $pc[2] || 'sub';
+
+	my $res = $ldap->search (base => $pc[0],
+				 attrs => ['telephoneNumber', 'mail', 'uid', 'sipLocalAddress'],
+				 scope => $scope, filter => "telephoneNumber=${e164base}*");
+	if ($res->code ()) {
+		warn ("LDAP error ". $res->error () . " while searching below '$pc[0]'\n");
+		return undef;
+	}
+
+	$ldap->unbind ();
+	
+	foreach my $e ($res->all_entries ()) {
+		my @e164list = $e->get_value ('telephoneNumber');
+		
+		next if ! (@e164list);
+		
+		# XXX does not check for sub-ENUM-zone, will not understand
+		# that +468162000 belongs to zone 0.2.6.1.8.6.4.e164.arpa and not
+		# 2.6.1.8.6.4.e164.arpa, if both exists
+		my $r = "^\\${e164base}";
+		foreach my $e164 (grep (/$r/, @e164list)) {
+			#print ("Found ENUM data for E.164 number $e164\n") if ($debug);
+
+			$$enumdata_ref{$e164}{mail} = $e->get_value ('mail') || '';
+			$$enumdata_ref{$e164}{uid} = $e->get_value ('uid') || '';
+			$$enumdata_ref{$e164}{sipaddress} = $e->get_value ('sipLocalAddress') || '';		
+
+			$numbers_count++;
+		}
+	}
+	
+	print ("Loaded $numbers_count ENUM entrys from $ldap_enumuri for E.164 base $e164base\n") if ($debug);
 }
 
 sub tab_format
