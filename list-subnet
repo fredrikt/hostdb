@@ -47,7 +47,13 @@ while ($searchfor[0]) {
 			my $subnet;
 			
 			foreach $subnet (@subnets) {
-				printf ("%-23s (%s) :\n", $subnet->subnet(),
+				my $color = undef;
+
+				if ($subnet->htmlcolor ()) {
+					$color = " (color '" . $subnet->htmlcolor () . "')";
+				}
+				
+				printf ("%-23s (%s)$color :\n", $subnet->subnet(),
 					($subnet->description ()?$subnet->description ():"no description"));
 
 				my @subnet_hosts = get_hosts_in_subnet ($subnet->subnet(), @hosts);
