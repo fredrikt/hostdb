@@ -23,3 +23,6 @@ CREATE TABLE zone (
         owner VARCHAR(255),
         PRIMARY KEY (name)
 );
+
+# this is an EXAMPLE grant command, you need to replace $database, $user, example.org and $password
+GRANT select, insert, update, delete ON $database.* TO "$user"@"%.example.org" IDENTIFIED BY '$password';
