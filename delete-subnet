@@ -1,0 +1,44 @@
+#!/usr/bin/perl
+#
+# $Id$
+#
+# script to manually add a subnet to our database
+#
+
+use strict;
+use Config::IniFiles;
+#use lib 'blib/lib';
+use HOSTDB;
+
+my $debug = 0;
+
+my $subnet_name = shift;
+my $check = shift;
+
+if (! $subnet_name) {
+	die("Syntax: $0 subnet YES\n");
+}
+
+if ($check ne "YES") {
+	die ("Not removing subnet $subnet_name since you seem unsure.\n\nSyntax: $0 subnet YES\n");
+}
+
+my $hostdbini = Config::IniFiles->new (-file => '/usr/local/etc/hostdb.ini');
+
+my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
+			  db => $hostdbini->val ('db', 'database'),
+			  user => $hostdbini->val ('db', 'user'),
+			  password => $hostdbini->val ('db', 'password'),
+			  debug => $debug
+			 );
+
+my $subnet = $hostdb->findsubnet ($subnet_name);
+
+die ("Could not find subnet '$subnet_name' in database\n");
+
+
+if (! $subnet->delete ($check)) {
+	die ("Could not delete subnet '$subnet_name': $subnet->{error}\n");
+}
+
+exit (0);
