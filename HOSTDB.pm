@@ -662,6 +662,7 @@ sub init
 		$self->{_hostbypartof} =	$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.config WHERE partof = ? ORDER BY id") or die "$DBI::errstr";
 		$self->{_hostbymac} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.config WHERE mac = ? ORDER BY mac") or die "$DBI::errstr";
 		$self->{_hostbyname} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.config WHERE hostname = ? ORDER BY hostname") or die "$DBI::errstr";
+		$self->{_hostbywildcardname} =	$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.config WHERE hostname LIKE ? ORDER BY hostname") or die "$DBI::errstr";
 		$self->{_hostbyip} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.config WHERE ip = ? ORDER BY n_ip") or die "$DBI::errstr";
 		$self->{_hostbyiprange} =	$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.config WHERE n_ip >= ? AND n_ip <= ? ORDER BY n_ip") or die "$DBI::errstr";
 		$self->{_allhosts} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.config ORDER BY id") or die "$DBI::errstr";
@@ -1386,9 +1387,9 @@ sub init
 	$self->_debug_print ("creating object");
 
 	if ($hostdb->{_dbh}) {
-		$self->{_new_zone} = $hostdb->{_dbh}->prepare ("INSERT INTO $hostdb->{db}.zone (zonename, serial, refresh, retry, expiry, minimum, owner) VALUES (?, ?, ?, ?, ?, ?, ?)")
+		$self->{_new_zone} = $hostdb->{_dbh}->prepare ("INSERT INTO $hostdb->{db}.zone (zonename, delegated, serial, refresh, retry, expiry, minimum, owner) VALUES (?, ?, ?, ?, ?, ?, ?)")
 			or die "$DBI::errstr";
-		$self->{_update_zone} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.zone SET zonename = ?, serial = ?, refresh = ?, retry = ?, expiry = ?, minimum = ?, owner = ? WHERE zonename = ?")
+		$self->{_update_zone} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.zone SET zonename = ?, delegated = ?, serial = ?, refresh = ?, retry = ?, expiry = ?, minimum = ?, owner = ? WHERE zonename = ?")
 			or die "$DBI::errstr";
 
 		#$self->{_get_last_id} = $hostdb->{_dbh}->prepare ("SELECT LAST_INSERT_ID()")
@@ -1424,6 +1425,22 @@ sub zonename
 	}
 
 	return ($self->{zonename});
+}
+
+sub delegated
+{
+	my $self = shift;
+
+	if (@_) {
+		my $newvalue = shift;
+	
+		return 0 if ($newvalue ne "Y" and $newvalue ne "N");
+		$self->{delegated} = $newvalue;
+		
+		return 1;
+	}
+
+	return ($self->{delegated});
 }
 
 sub serial
@@ -1554,9 +1571,10 @@ sub commit
 	my $sth;
 	if (defined ($self->{in_db}) and $self->{in_db} >= 1) {
 		$sth = $self->{_update_zone};
-		$sth->execute ($self->{zonename}, $self->{serial}, $self->{refresh},
-			       $self->{retry}, $self->{expiry}, $self->{minimum},
-			       $self->{owner}, $self->{zonename})
+		$sth->execute ($self->{zonename}, $self->{delegated}, $self->{serial},
+			       $self->{refresh}, $self->{retry}, $self->{expiry},
+			       $self->{minimum}, $self->{owner},
+			       $self->{zonename})
 			or die "$DBI::errstr";
 		
 		# XXX check number of rows affected?
@@ -1566,9 +1584,9 @@ sub commit
 		# this is a new entry
 
 		$sth = $self->{_new_zone};
-		$sth->execute ($self->{zonename}, $self->{serial}, $self->{refresh},
-			       $self->{retry}, $self->{expiry}, $self->{minimum},
-			       $self->{owner})
+		$sth->execute ($self->{zonename}, $self->{delegated}, $self->{serial},
+			       $self->{refresh}, $self->{retry}, $self->{expiry},
+			       $self->{minimum}, $self->{owner})
 			or die "$DBI::errstr";
 
 		$sth->finish ();

@@ -21,6 +21,7 @@ CREATE TABLE config (
 
 CREATE TABLE zone (
 	zonename VARCHAR(255) NOT NULL,
+	delegated ENUM ('Y', 'N') NOT NULL DEFAULT 'N',
 	serial INT NOT NULL,
 	refresh INT,
 	retry INT,
