@@ -98,4 +98,19 @@ $zone->minimum ($opt_minimum)		or die ("$0: Invalid value - $zone->{error}\n") i
 
 $zone->commit () or die ("$0: Could not commit zone object - $zone->{error}\n");
 
+my @hosts_in_new_zone = $hostdb->findhostbywildcardname ("%.$zonename");
+
+if (@hosts_in_new_zone) {
+	print ("You should probably move the following hosts to the new zone '$zonename' :\n\n");
+
+	printf "%-7s %-7s %-16s %s\n", "id", "partof", "ip", "hostname";
+	foreach my $host (@hosts_in_new_zone) {
+		printf "%-7s %-7s %-16s %s\n", $host->id (),
+			defined ($host->partof ())?$host->partof ():"-",
+			$host->ip (), $host->hostname ();
+	}
+
+	print ("\n\nThe easiest way to do that is to simply run 'housekeep-dnszone' once.\n\n");
+}
+
 exit (0);
