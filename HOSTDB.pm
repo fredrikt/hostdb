@@ -417,7 +417,7 @@ sub init
 	$self->{_zonebyname} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.zone WHERE zonename = ? ORDER BY zonename") or die "$DBI::errstr";
 	$self->{_allzones} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.zone ORDER BY zonename") or die "$DBI::errstr";
 
-	$self->set_user (getpwuid("$<"));
+	$self->user (getpwuid("$<"));
 }
 
 sub DESTROY
@@ -428,21 +428,35 @@ sub DESTROY
 }
 
 
-=head2 set_user
+=head2 user
 
-	$hostdb->set_user("foo");
+	$hostdb->user("foo") or die("error");
 
 	Set username to use in logging to 'foo' - default is UNIX username.
 
+	-
+
+	$user = $hostdb->user ();
+
+	Get username used in logging.
+
+	
+
 =cut
-sub set_user
+sub user
 {
 	my $self = shift;
-	my $user = shift;
 
-	$self->_debug_print ("Changing username from '$self->{localuser}' to $user");
+	if (@_) {
+		my $user = shift;
 
-	$self->{localuser} = $user;
+		$self->_debug_print ("Changing username from '$self->{localuser}' to $user");
+		$self->{localuser} = $user;
+
+		return 1;
+	}
+
+	return ($self->{localuser});
 }
 
 
@@ -711,107 +725,154 @@ sub check_valid_ip
 	return 0;
 }
 
-sub set_mac_address
+sub mac_address
 {
 	my $self = shift;
-	my $mac = shift;
-	
-	return 0 if (! $self->clean_mac_address ($mac));
 
-	$self->{mac} = $mac;
+	if (@_) {
+		my $mac = shift;
+	
+		return 0 if (! $self->clean_mac_address ($mac));
+		$self->{mac} = $mac;
+
+		return 1;
+	}
+
+	return ($self->{mac});
 }
 
-sub set_hostname
+sub hostname
 {
 	my $self = shift;
-	my $hostname = shift;
-	
-	return 0 if (! $self->clean_hostname ($hostname));
 
-	$self->{hostname} = $hostname;
+	if (@_) {
+		my $hostname = shift;
 	
-	return 1;
+		return 0 if (! $self->clean_hostname ($hostname));
+		$self->{hostname} = $hostname;
+
+		return 1;
+	}
+
+	return ($self->{hostname});
 }
 
-sub set_ip
+sub ip
 {
 	my $self = shift;
-	my $ip = shift;
-	
-	return 0 if (! $self->check_valid_ip ($ip));
 
-	# XXX CHECK IP
-	# check if IP is
-	#
-	# 127.0.0.0/8
-	# 0.0.0.0/8
-	# 255.0.0.0/8
-	# 172.16.0.0/12
-	# 224.0.0.0/4
-	#
-	# and ideally the assigned test networks too
-	#
-	# (10.0.0.0/8 are IP telephones and 192.168.0.0/16 is used)
-	#
+	if (@_) {
+		my $ip = shift;
+	
+		return 0 if (! $self->check_valid_ip ($ip));
+
+		# XXX CHECK IP
+		# check if IP is
+		#
+		# 127.0.0.0/8
+		# 0.0.0.0/8
+		# 255.0.0.0/8
+		# 172.16.0.0/12
+		# 224.0.0.0/4
+		#
+		# and ideally the assigned test networks too
+		#
+		# (10.0.0.0/8 are IP telephones and 192.168.0.0/16 is used)
+		#
 		
-	$self->{ip} = $ip;
+		$self->{ip} = $ip;
 	
-	return 1;
-}
-
-sub set_ttl
-{
-	my $self = shift;
-	my $ttl = shift;
-
-	if ($ttl eq "NULL") {
-		$self->{ttl} = "NULL";
-	} else {
-		$self->{ttl} = int ($ttl);
+		return 1;
 	}
 
-	return 1;
+	return ($self->{ip});
 }
 
-sub set_user
+sub ttl
 {
 	my $self = shift;
-	my $user = shift;
 
-	$self->{user} = $user;
-	
-	return 1;
+	if (@_) {
+		my $ttl = shift;
+
+		if ($ttl eq "NULL") {
+			$self->{ttl} = "NULL";
+		} else {
+			$self->{ttl} = int ($ttl);
+		}
+
+		return 1;
+	}
+
+	return ($self->{ttl});
 }
 
-sub set_partof
+sub user
 {
 	my $self = shift;
-	my $partof = shift;
+
+	if (@_) {
+		my $user = shift;
+
+		$self->{user} = $user;
 	
-	if ((int($partof) == 0) and ($partof ne "0")) {
-		$self->set_error ("Invalid partof");
+		return 1;
+	}
+
+	return ($self->{user});
+}
+
+sub partof
+{
+	my $self = shift;
+
+	if (@_) {
+		my $partof = shift;
+	
+		if ((int($partof) == 0) and ($partof ne "0")) {
+			$self->set_error ("Invalid partof");
+			return 0;
+		}
+		$self->{partof} = int($partof);
+
+		return 1;
+	}
+
+	return ($self->{partof});
+}
+
+sub reverse
+{
+	my $self = shift;
+
+	if (@_) {
+		my $reverse = shift;
+	
+		if ($reverse =~ /^y/i or $reverse == 1) {
+			$self->{reverse} = "Y";
+		} elsif ($reverse =~ /^n/i or $reverse == 1) {
+			$self->{reverse} = "N";
+		} else {
+			$self->set_error ("Invalid reverse format");
+			return 0;
+		}
+
+		return 1;
+	}
+
+	return $self->{reverse};
+}
+
+sub id
+{
+	my $self = shift;
+
+	if (@_) {
+		$self->_set_error ("id is read only");
 		return 0;
 	}
-	$self->{partof} = int($partof);
 
-	return 1;
-}
-
-sub set_reverse
-{
-	my $self = shift;
-	my $reverse = shift;
-	
-	if ($reverse =~ /^y/i or $reverse == 1) {
-		$self->{reverse} = "Y";
-	} elsif ($reverse =~ /^n/i or $reverse == 1) {
-		$self->{reverse} = "N";
-	} else {
-		$self->set_error ("Invalid reverse format");
-		return 0;
-	}
-
-	return 1;
+	return ($self->{id});
 }
 
 sub commit
@@ -829,11 +890,11 @@ sub commit
 	$self->{partof} = undef if (defined ($self->{partof}) and $self->{partof} <= 0);
 
 	my $sth;
-	if (defined ($self->{id}) and $self->{id} >= 0) {
+	if (defined ($self->id ()) and $self->id () >= 0) {
 		$sth = $self->{_update_host};
-		$sth->execute ($self->{mac}, $self->{hostname}, $self->{ip},
-			       $self->{ttl}, $self->{user}, $self->{partof},
-			       $self->{reverse}, $self->{id})
+		$sth->execute ($self->mac (), $self->hostname (), $self->ip (),
+			       $self->ttl (), $self->user (), $self->partof (),
+			       $self->reverse (), $self->id ())
 			or die "$DBI::errstr";
 		
 		# XXX check number of rows affected?
@@ -843,9 +904,9 @@ sub commit
 		# this is a new entry
 
 		$sth = $self->{_new_host};
-		$sth->execute ($self->{mac}, $self->{hostname}, $self->{ip},
-			       $self->{ttl}, $self->{user}, $self->{partof},
-			       $self->{reverse})
+		$sth->execute ($self->mac (), $self->hostname (), $self->ip (),
+			       $self->ttl (), $self->user (), $self->partof (),
+			       $self->reverse ())
 			or die "$DBI::errstr";
 
 		$sth->finish ();

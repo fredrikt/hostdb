@@ -80,21 +80,21 @@ foreach my $file (@files) {
 			#warn ("IP $ip MAC $mac\n");
 			my $host = $hostdb->findhostbyip ($ip);
 		
-			if (! defined ($host->{id})) {
+			if (! defined ($host->id ())) {
 				warn ("$ip not found in database\n");
 				$failed_count++;
 				$total_failed_count++;
 			} else {
-				if ($host->{hostname} =~ /^.*dhcp.*/oi) {
+				if ($host->hostname () =~ /^.*dhcp.*/oi) {
 					warn ("Ignoring dynamic host $ip ($host->{hostname})\n");
 					$total_ignore_count++;
 				}
 
 				my $valid = 1;
 
-				next if ($host->{mac} eq $mac);
+				next if ($host->mac () eq $mac);
 				
-				$host->set_mac_address ($mac) or warn ($host->{error}), $valid = 0;
+				$host->mac_address ($mac) or warn ($host->{error}), $valid = 0;
 				if ($valid) {
 					$host->commit();
 					

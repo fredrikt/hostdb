@@ -89,11 +89,11 @@ sub add_host
 	}
 			
 	my $valid = 1;
-	$host->set_hostname ("$name") or warn ($host->{error}), $valid = 0;
-	$host->set_ip ("$ip") or warn ($host->{error}), $valid = 0;
-	$host->set_ttl ("$ttl") if ($ttl != $default_ttl);
-	$host->set_user ("import") or warn ($host->{error}), $valid = 0;
-	$host->set_reverse ("Y") or warn ($host->{error}), $valid = 0;
+	$host->hostname ("$name") or warn ($host->{error}), $valid = 0;
+	$host->ip ("$ip") or warn ($host->{error}), $valid = 0;
+	$host->ttl ("$ttl") if ($ttl != $default_ttl) or warn ($host->{error}), $valid = 0;
+	$host->user ("import") or warn ($host->{error}), $valid = 0;
+	$host->reverse ("Y") or warn ($host->{error}), $valid = 0;
 			
 	$host->commit() if ($valid);
 
