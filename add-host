@@ -58,7 +58,6 @@ EOT
 
 my $hostdbini = Config::IniFiles->new (-file => HOSTDB::get_inifile ());
 
-
 my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
 			  db => $hostdbini->val ('db', 'database'),
 			  user => $hostdbini->val ('db', 'user'),
@@ -103,6 +102,6 @@ $host->ttl ($opt_ttl)			or die ("$0: Invalid value - $host->{error}\n") if (defi
 $host->user ($opt_user)			or die ("$0: Invalid value - $host->{error}\n") if (defined ($opt_user));
 $host->partof ($opt_partof)		or die ("$0: Invalid value - $host->{error}\n") if (defined ($opt_partof));
 
-$host->commit or die ("$0: Could not commit host object - $host->{error}\n");
+$host->commit () or die ("$0: Could not commit host object - $host->{error}\n");
 
 exit (0);
