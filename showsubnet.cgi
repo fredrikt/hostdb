@@ -37,6 +37,7 @@ my $subnet = $q->param ('subnet');
 
 my $whois_path = $q->state_url ($hostdbini->val ('subnet', 'whois_uri'));
 my $modifyhost_path = $q->state_url ($hostdbini->val ('subnet', 'modifyhost_uri'));
+my $modifysubnet_path = $q->state_url ($hostdbini->val ('subnet', 'modifysubnet_uri'));
 
 $q->begin (title => "Subnet(s) matching $subnet");
 my $remote_user = '';
@@ -97,7 +98,8 @@ sub list_subnet
 
 				# check that user is allowed to list subnet
 
-				if (! $hostdb->auth->is_admin ($remote_user)) {
+				my $is_admin = $hostdb->auth->is_admin ($remote_user);
+				if (! $is_admin) {
 					if (! defined ($subnet) or ! $hostdb->auth->is_allowed_write ($subnet, $remote_user)) {
 						error_line ($q, "You do not have sufficient access to subnet '" . $subnet->subnet () . "'");
 						next;
@@ -105,15 +107,21 @@ sub list_subnet
 				}
 
 				# HTML
-				my $h_subnet = $subnet->subnet ();
+				my $subnet_name = $subnet->subnet ();
 				my $me = $q->state_url ();
+				my $id = $subnet->id ();
 
-				$h_subnet = "<a href='$me;subnet=$h_subnet'>$h_subnet</a>";
+				my $edit_subnet_link = '';
+				if ($is_admin) {
+					$edit_subnet_link = "[<a HREF='$modifysubnet_path;id=$id'>edit</a>]";
+				}
+
+				$subnet_name = "<a href='$me;subnet=$subnet_name'>$subnet_name</a>";
 				my $h_desc = $q->escapeHTML ($subnet->description ()?$subnet->description ():'no description');
 				$q->print (<<EOH);
 					<tr>
 					   <td NOWRAP>
-						<strong>$h_subnet</strong>
+						<strong>$subnet_name</strong> $edit_subnet_link
 					   </td>
 					   <td COLSPAN='3' ALIGN='center'>
 						<strong>$h_desc</strong>
@@ -331,32 +339,3 @@ sub error_line
 EOH
 }
 
-sub create_url
-{
-	my $q = shift;
-	my $base = shift;
-	my $in_url = shift;
-
-	return undef if (! $in_url);
-	
-	my $url;
-	if ($in_url !~ '^https*://') {
-		# in_url appears to be relative
-		$url = "$base/$in_url";
-	} else {
-		$url = $in_url;
-	}
-
-	$url =~ s#([^:])//#$1#;	# replace double slashes, but not the ones in http://
-
-	if ($q) {
-		$url .= '?_sucgi_sid=' . $q->getSID ();
-	} else {
-		# put this here since our users expects to be able to add
-		# all their parameters with ; as separator
-		$url .= '?';
-	}
-
-	return undef if ($url !~ '^https*://');
-	return $url;
-}
