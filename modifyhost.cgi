@@ -38,15 +38,17 @@ my $deletehost_path = $q->state_url ($hostdbini->val ('subnet', 'deletehost_uri'
 my $whois_path = $q->state_url ($hostdbini->val ('subnet', 'whois_uri'));
 
 $q->begin (title => 'Modify/Add Host');
-
 my $remote_user = '';
 if (defined ($ENV{REMOTE_USER}) and $ENV{REMOTE_USER} =~ /^[a-z0-9]{,50}$/) {
 	$remote_user = $ENV{REMOTE_USER};
 } else {
-	die ("$0: Invalid REMOTE_USER environment variable");
+	#$q->print ("&nbsp;<p><ul><font COLOR='red' SIZE='3'><strong>You are not logged in.</strong></font></ul>\n\n");
+	#$q->end ();
+	#die ("$0: Invalid REMOTE_USER environment variable '$ENV{REMOTE_USER}'");
+
+	# XXX JUST FOR DEBUGGING UNTIL PUBCOOKIE IS FINISHED
+	$remote_user = 'ft';
 }
-# XXX JUST FOR DEBUGGING UNTIL PUBCOOKIE IS FINISHED
-$remote_user = 'ft';
 
 
 my $me = $q->state_url ();

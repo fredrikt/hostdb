@@ -37,15 +37,17 @@ my $showsubnet_path = $q->state_url($hostdbini->val('subnet','showsubnet_uri'));
 my $modifyhost_path = $q->state_url($hostdbini->val('subnet','modifyhost_uri'));
 
 $q->begin (title => 'Delete Host');
-
 my $remote_user = '';
 if (defined ($ENV{REMOTE_USER}) and $ENV{REMOTE_USER} =~ /^[a-z0-9]{,50}$/) {
 	$remote_user = $ENV{REMOTE_USER};
 } else {
-	die ("$0: Invalid REMOTE_USER environment variable");
+	#$q->print ("&nbsp;<p><ul><font COLOR='red' SIZE='3'><strong>You are not logged in.</strong></font></ul>\n\n");
+	#$q->end ();
+	#die ("$0: Invalid REMOTE_USER environment variable '$ENV{REMOTE_USER}'");
+
+	# XXX JUST FOR DEBUGGING UNTIL PUBCOOKIE IS FINISHED
+	$remote_user = 'ft';
 }
-# XXX JUST FOR DEBUGGING UNTIL PUBCOOKIE IS FINISHED
-$remote_user = 'ft';
 
 
 $q->print (<<EOH);
@@ -58,6 +60,10 @@ $q->print (<<EOH);
 		</tr>
 		$table_blank_line
 EOH
+
+
+
+
 
 my $action = $q->param('action');
 $action = 'Search' unless $action;

@@ -34,22 +34,24 @@ if (-f $hostdbini->val ('sucgi', 'cfgfile')) {
 
 my $q = SUCGI->new ($sucgi_ini);
 
-my $remote_user = '';
-if (defined ($ENV{REMOTE_USER}) and $ENV{REMOTE_USER} =~ /^[a-z0-9]{,50}$/) {
-	$remote_user = $ENV{REMOTE_USER};
-} else {
-	die ("$0: Invalid REMOTE_USER environment variable");
-}
-# XXX JUST FOR DEBUGGING UNTIL PUBCOOKIE IS FINISHED
-$remote_user = 'andreaso';
-
-
 my $showsubnet_path = $q->state_url($hostdbini->val('subnet','showsubnet_uri'));
 my $modifyhost_path = $q->state_url($hostdbini->val('subnet','modifyhost_uri'));
 my $static_flag_days = $hostdbini->val ('subnet', 'static_flag_days');
 my $dynamic_flag_days = $hostdbini->val ('subnet', 'static_flag_days');
 
 $q->begin (title => "Whois");
+my $remote_user = '';
+if (defined ($ENV{REMOTE_USER}) and $ENV{REMOTE_USER} =~ /^[a-z0-9]{,50}$/) {
+	$remote_user = $ENV{REMOTE_USER};
+} else {
+	#$q->print ("&nbsp;<p><ul><font COLOR='red' SIZE='3'><strong>You are not logged in.</strong></font></ul>\n\n");
+	#$q->end ();
+	#die ("$0: Invalid REMOTE_USER environment variable '$ENV{REMOTE_USER}'");
+
+	# XXX JUST FOR DEBUGGING UNTIL PUBCOOKIE IS FINISHED
+	$remote_user = 'ft';
+}
+
 
 $q->print (<<EOH);
 	<table BORDER='0' CELLPADDING='0' CELLSPACING='0' WIDTH='600'>
