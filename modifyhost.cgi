@@ -499,6 +499,9 @@ sub host_form
 	$profile =	create_datafield ($host, 'profile', 	$q, 'popup_menu', @fielddata,
 					   -values => \@profiles);
 
+	$dnsmode = $dnsmode_labels{$dnsmode} || $dnsmode;
+	$dnsstatus = $enabled_labels{$dnsstatus} || $dnsstatus;
+
 	my $empty_td = '<td>&nbsp;</td>';
 	
 	my $required = "<font COLOR='red'>*</font>";
