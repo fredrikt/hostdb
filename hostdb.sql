@@ -14,6 +14,8 @@ CREATE TABLE config (
 	user VARCHAR(255),
 	partof INT,
 	reverse ENUM('Y', 'N') DEFAULT 'N',
+	last_modified TIMESTAMP,
+	mac_address_ts TIMESTAMP,
 	client_id VARCHAR(255),
 	options MEDIUMBLOB,
 	PRIMARY KEY (id)
@@ -22,7 +24,11 @@ CREATE TABLE config (
 CREATE TABLE zone (
 	zonename VARCHAR(255) NOT NULL,
 	delegated ENUM ('Y', 'N') NOT NULL DEFAULT 'N',
+	default_ttl INT,
+	ttl INT,
 	serial INT NOT NULL,
+	mname VARCHAR(255),
+	rname VARCHAR(255),
 	refresh INT,
 	retry INT,
 	expiry INT,
