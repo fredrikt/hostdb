@@ -233,25 +233,23 @@ sub subnet_form
 	my $commit = $q->submit ('action', 'Commit');
 
 	my $me = $q->state_url ();
-	if (defined ($subnet)) {
-		$id = $subnet->id ();
-		$description = $q->textfield (-name => 'description',
-					  -default => $subnet->description () || '',
-					  -size => 65,
-					  -maxlength => 255);
-		$short_description = $q->textfield (-name => 'short_description',
-					  -default => $subnet->short_description () || '',
-					  -size => 65,
-					  -maxlength => 255);
-		$htmlcolor = $q->popup_menu (-name => 'htmlcolor',
-					     -values => [sort keys %{$colors_ref}],
-					     -default => $subnet->htmlcolor ());
-		$owner = $q->textfield ('owner', $subnet->owner () || $remote_user);
-		$profilelist = $q->textfield (-name => 'profilelist',
-					  -default => $subnet->profilelist () || '',
-					  -size => 65,
-					  -maxlength => 255);
-	}
+	$id = $subnet->id ();
+	$description = $q->textfield (-name => 'description',
+				  -default => $subnet->description () || '',
+				  -size => 65,
+				  -maxlength => 255);
+	$short_description = $q->textfield (-name => 'short_description',
+				  -default => $subnet->short_description () || '',
+				  -size => 65,
+				  -maxlength => 255);
+	$htmlcolor = $q->popup_menu (-name => 'htmlcolor',
+				     -values => [sort keys %{$colors_ref}],
+				     -default => $subnet->htmlcolor ());
+	$owner = $q->textfield ('owner', $subnet->owner () || $remote_user);
+	$profilelist = $q->textfield (-name => 'profilelist',
+				  -default => $subnet->profilelist () || '',
+				  -size => 65,
+				  -maxlength => 255);
 
 	my $empty_td = '<td>&nbsp;</td>';
 	
