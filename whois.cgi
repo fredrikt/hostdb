@@ -653,7 +653,7 @@ sub print_host_info
 
     my $add_alias_link = '';
     if ($links{hostalias}) {
-	$add_alias_link = "[<a HREF='$links{hostalias};hostid=$id'>add alias</a>]";
+	$add_alias_link = $authorized?"[<a HREF='$links{hostalias};hostid=$id'>add alias</a>]":'<!-- not authorized to modify -->';
     }
 
     my $aliases_tr = '';
