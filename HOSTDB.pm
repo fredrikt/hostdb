@@ -1595,6 +1595,7 @@ sub reverse
 	Valid formats for setting are: yyyy-mm-dd hh:mm:ss
 				       NOW
 				       unixtime:nnnnnnnnnn
+
 =cut
 sub mac_address_ts
 {
@@ -1632,8 +1633,8 @@ sub mac_address_ts
 	Convert a unix time stamp to localtime () format yyyy-mm-dd hh:mm:ss
 
 	$now_as_string = $self->unixtime_to_datetime (time ());
-	
-	
+
+
 =cut
 sub unixtime_to_datetime
 {
@@ -1775,7 +1776,7 @@ sub zonename
 	print ("Zone is delegated\n") if ($zone->delegated () eq "Y");
 
 
-= cut
+=cut
 sub delegated
 {
 	my $self = shift;
