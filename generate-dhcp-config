@@ -16,7 +16,7 @@ getopts ('hdo:qR');
 sub usage
 {
 	die (<<EOD);
-Syntax: $0 [options] subnet ...
+Syntax: $0 [options] [subnet ...]
 	subnet is the subnet in slash notation (eg. 192.168.1.0/24)
 	
 	options :
@@ -42,8 +42,11 @@ my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
 			      debug => $debug
 			     );
 
-my @subnets;
-foreach my $subnet_name (@ARGV) {
+my @subnet_list = @ARGV;
+push (@subnet_list, '*') if (0 == @subnet_list);
+
+my (@subnets);
+foreach my $subnet_name (@subnet_list) {
 	if ($subnet_name eq '*') {
 		push (@subnets, $hostdb->findallsubnets ());
 	} else {
