@@ -65,6 +65,7 @@ print (HTML <<EOH);
 	<html>
 	<head>
 		<title>Netplan</title>
+		<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
 	</head>
 	
 	<body>
@@ -132,7 +133,7 @@ sub do_supernet
 				$fn =~ s#[\./]#-#go;
 				$fn .= ".png";
 				
-				print_row ($subnet_name, $fn, "$showsubnet_path&subnet=$subnet_name");
+				print_row ($subnet_name, $fn, "$showsubnet_path;subnet=$subnet_name");
 
 				$fn = "$output_dir/$fn" if ($output_dir);
 	
@@ -417,8 +418,8 @@ sub create_url
 		$url .= '?_sucgi_sid=' . $q->getSID ();
 	} else {
 		# put this here since our users expects to be able to add
-		# all their parameters with & as separator
-		$url .= '?_sucgi_foo=bar';
+		# all their parameters with ; as separator
+		$url .= '?';
 	}
 
 	return undef if ($url !~ '^https*://');
