@@ -1,0 +1,156 @@
+#!/usr/bin/perl
+#
+# $Id$
+#
+# script to read a "sh ip route ospf" and import suitable routes
+# into our database
+#
+
+use strict;
+use Config::IniFiles;
+#use lib 'blib/lib';
+use HOSTDB;
+
+my $debug = 0;
+my @files = @ARGV;
+my %done;
+
+if ($#files == -1) {
+	die ("Syntax: $0 router-configs\n");
+}
+
+
+my $hostdbini = Config::IniFiles->new (-file => '/usr/local/etc/hostdb.ini');
+
+my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
+			  db => $hostdbini->val ('db', 'database'),
+			  user => $hostdbini->val ('db', 'user'),
+			  password => $hostdbini->val ('db', 'password'),
+			  debug => $debug
+			 );
+
+
+foreach my $file (@files) {
+	open (FIL, "< $file") or die ("Could not open $file for reading: $!\n");
+
+	my $in_interface = 0;
+	my $interface_is_shut = 0;
+	my @subnets;
+	my $description;
+	
+	while (my $rad = <FIL>) {
+		chomp ($rad);
+
+		if ($in_interface) {
+			if ($rad =~ /^\s*description (.+)/) {
+				$description = $1;
+				
+				# strip quotations
+				$description =~ s/^['"]//go;
+				$description =~ s/['"]$//go;
+				
+				# strip leading and trailing spaces
+				$description =~ s/^\s*(.+?)\s*$/$1/o;
+				
+				# fix speling
+				$description =~ s/^Ldnk /Länk /o;
+				$description =~ s/^ldnk /länk /o;
+				$description =~ s/^L{nk /Länk /o;
+				$description =~ s/^l{nk /länk /o;
+				$description =~ s/^Lank /länk /o;
+				$description =~ s/^lank /länk /o;
+				
+				print ("description '$description'\n") if ($debug);
+				
+				next;
+			}
+
+			if ($rad =~ /^\s*ip address (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}) (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/) {
+				my $ip = $1;
+				my $netmask = $2;
+				
+				my $slash = $hostdb->netmasktoslash ($netmask);
+				my $subnet = $hostdb->get_netaddr ($ip . "/" . $slash) . "/" . $slash;
+				
+				if ($slash eq "32") {
+					print ("subnet '$subnet' skipped, too small (/32)\n\n") if ($debug);
+					next;
+				}
+				
+				# yes, when you want to use this you will have to contribute
+				# a more generic solution. remember you did not pay anything
+				# for these scripts.
+				my @ournets = ("130.237.", "194.237.117.",
+					       "193.10.6.", "193.10.72.",
+					       "193.10.144.", "193.10.147."
+					      );
+				my $s;
+				my $valid = 0;
+				foreach $s (@ournets) {
+					if ($subnet =~ /^$s/) {
+						$valid = 1;
+						last;
+					}
+				}	       
+
+				if (! $valid) {
+					print ("subnet '$subnet' skipped, not ours\n\n") if ($debug);
+					next;
+				}
+
+				push (@subnets, $subnet);
+				
+				print ("subnet '$subnet'\n") if ($debug);
+			}
+			
+			if ($rad =~ /^\s*shut/) {
+				$interface_is_shut = 1;
+				next;
+			}
+			
+			if ($rad =~ /^\s*!*\s*$/) {
+				$in_interface = 0;
+				
+				if ((! $interface_is_shut) and $description) {
+					my $subnet_name;
+					foreach $subnet_name (@subnets) {
+						if (defined ($done{$subnet_name})) {
+							printf (" %-23s (dup) %s\n", $subnet_name, $description);
+							next;
+						}
+						printf (" %-23s       %s\n", $subnet_name, $description);
+						
+						my $subnet = $hostdb->findsubnet ($subnet_name);
+						
+						if (! $subnet) {
+							warn ("Could not find subnet '$subnet_name' in database");
+							next;
+						}
+						
+						my $valid = 1;
+						
+						$subnet->description ($description) or warn ($subnet->{error}), $valid = 0;
+						$subnet->short_description ($description) or warn ($subnet->{error}), $valid = 0;
+						
+						$subnet->commit () if ($valid);
+						
+						$done{$subnet_name} = $description;
+						
+						undef ($subnet);
+					}
+				}
+				
+				print ("\n") if ($debug);
+				
+				next;
+			}
+		} elsif ($rad =~ /^interface /) {
+			$in_interface = 1;
+			undef (@subnets);
+			undef ($description);
+			$interface_is_shut = 0;
+		}
+	}
+
+	close (FIL);
+}
