@@ -29,6 +29,9 @@ CREATE TABLE zone (
         PRIMARY KEY (zonename)
 );
 
+# the use of unsigned int for n_netaddr and n_netmask is not enough for IPv6.
+# ipver in this table is only to think ahead - don't think this database and
+# scripts associated with it works with IPv6.
 CREATE TABLE subnet (
 	ipver TINYINT UNSIGNED NOT NULL,
 	netaddr	CHAR(20) NOT NULL,
@@ -36,8 +39,8 @@ CREATE TABLE subnet (
 	netmask CHAR(20) NOT NULL,
 	description VARCHAR(255),
 	short_description VARCHAR(255),
-	n_netaddr INT NOT NULL,
-	n_netmask INT NOT NULL,
+	n_netaddr INT UNSIGNED NOT NULL,
+	n_netmask INT UNSIGNED NOT NULL,
 	htmlcolor CHAR(20),
 	dhcpconfig MEDIUMBLOB,
 	PRIMARY KEY (netaddr)
