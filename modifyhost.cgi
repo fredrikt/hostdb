@@ -107,7 +107,7 @@ if ($@) {
 	error_line($q, "$@\n");
 } else {
 	if (defined ($host)) {
-		host_form ($q, $host, $subnet, $remote_user);
+		host_form ($q, $host, $remote_user);
 	}
 }
 
@@ -274,7 +274,6 @@ sub host_form
 {
 	my $q = shift;
 	my $host = shift;
-	my $h_subnet = shift;
 	my $remote_user = shift;
 
 	# HTML 
@@ -299,6 +298,8 @@ sub host_form
 		$dhcpmode = $q->popup_menu (-name => 'dhcpmode', -values => ['STATIC', 'DYNAMIC'], -default => $host->dhcpmode ());
 		$dhcpstatus = $q->popup_menu (-name => 'dhcpstatus', -values => ['ENABLED', 'DISABLED'], -default => $host->dhcpstatus ());
 	}
+
+	my $h_subnet = $hostdb->findsubnetclosestmatch ($ip);
 
 	if (defined ($h_subnet)) {
 		$subnet = $h_subnet->subnet ();
