@@ -111,6 +111,31 @@ sub is_allowed_write
 	return 0;
 }
 
+sub is_owner
+{
+	my $self = shift;
+	my $o = shift;
+	my $candidate = shift;
+
+	$self->_debug_print ("Checking if '$candidate' owns object '$o'");
+
+	if (defined ($self->{authorization}) and $self->{authorization} eq 'DISABLED') {
+		$self->_debug_print ("Authorization DISABLED (through configuration)");
+		return 1;
+	}
+
+	my $owner = $o->owner ();
+
+	$self->_debug_print ("Owner of object is '$owner'");
+
+	$self->_debug_print ("Object has no owner, returning undef"), return undef unless ($owner);
+
+	return 1 if $self->_is_in_list ($candidate, "object owner", split (',', $owner));
+	return 1 if $self->_is_in_list ($candidate, "LDAP object owner", $self->_ldap_explode (split (',', $owner)));
+
+	return 0;
+}
+
 
 =head2 is_admin
 
