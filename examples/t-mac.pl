@@ -1,4 +1,4 @@
-#!/usr/local/bin/perl
+#!/usr/local/bin/perl -w
 #
 # $Id$
 #
@@ -16,8 +16,10 @@ if ($#M == -1) {
 	push (@M, "2:b39a:89dF");
 }
 
+my $hostdb = HOSTDB->new ();
+
 foreach my $mac (sort @M) {
-	my $valid = HOSTDB::clean_mac_address($mac);
+	my $valid = $hostdb->clean_mac_address ($mac);
 
 	print ("MAC address $mac is " . ($valid == 1 ? "":"NOT ") . "valid\n");
 }
