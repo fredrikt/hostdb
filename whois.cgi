@@ -36,6 +36,7 @@ my $q = SUCGI->new ($sucgi_ini);
 
 my $showsubnet_path = $q->state_url($hostdbini->val('subnet','showsubnet_uri'));
 my $modifyhost_path = $q->state_url($hostdbini->val('subnet','modifyhost_uri'));
+my $modifyzone_path = $q->state_url($hostdbini->val('subnet','modifyzone_uri'));
 my $static_flag_days = $hostdbini->val ('subnet', 'static_flag_days');
 my $dynamic_flag_days = $hostdbini->val ('subnet', 'static_flag_days');
 
@@ -116,6 +117,25 @@ sub perform_search
 
 		my @host_refs;
 		if (lc ($whoisdatatype) eq 'zone') {
+			my $zone = $hostdb->findzonebyname ($search_for);
+
+			if (defined ($zone)) {
+				my $zonename = $zone->zonename ();
+				
+				# do access control
+				my $is_admin = $hostdb->auth->is_admin ($remote_user);
+				if (! $is_admin) {
+					if (! $hostdb->auth->is_allowed_write ($zone, $remote_user)) {
+						error_line ($q, "You do not have sufficient access to zone '$zonename'");
+						my $i = localtime () . " modifyhost.cgi[$$]";
+						warn ("$i User '$remote_user' (from $ENV{REMOTE_ADDR}) tried to list zone '$zonename'\n"); 
+						return 0;
+					}
+				}
+
+				print_zone_info ($q, $hostdb, $zone, $is_admin);
+			}
+
 			@host_refs = $hostdb->findhostbyzone ($search_for);
 		} else {
 			@host_refs = $hostdb->findhost ($whoisdatatype, $search_for);
@@ -205,6 +225,134 @@ EOH
 		$q->print ("<!-- no whoisdata, not searching -->\n");
 		return undef;
 	}
+}
+
+sub print_zone_info
+{
+	my $q = shift;
+	my $hostdb = shift;
+	my $zone = shift;
+	my $is_admin = shift;
+
+	my ($zonename, $id, $delegated, $default_ttl, $serial, $ttl, $mname, $rname,
+	    $refresh, $retry, $expiry, $minimum, $owner);
+
+	my $hostdbini = $hostdb->inifile ();
+
+	my %zone_defaults;
+	$zone_defaults{default_ttl} = $hostdbini->val ('zone', 'default_zone_ttl');
+	$zone_defaults{soa_ttl} = $hostdbini->val ('zone', 'default_soa_ttl');
+	$zone_defaults{soa_mname} = $hostdbini->val ('zone', 'default_soa_mname');
+	$zone_defaults{soa_rname} = $hostdbini->val ('zone', 'default_soa_rname');
+	$zone_defaults{soa_refresh} = $hostdbini->val ('zone', 'default_soa_refresh');
+	$zone_defaults{soa_retry} = $hostdbini->val ('zone', 'default_soa_retry');
+	$zone_defaults{soa_expiry} = $hostdbini->val ('zone', 'default_soa_expiry');
+	$zone_defaults{soa_minimum} = $hostdbini->val ('zone', 'default_soa_minimum');
+	
+	# HTML
+	$zonename = $zone->zonename ();
+	$id = $zone->id ();
+	$delegated = $zone->delegated ();
+	$default_ttl = $zone->default_ttl () || 'default';
+	$serial = $zone->serial () || 'NULL';
+	$ttl = $zone->ttl () || 'default';
+	$mname = $zone->mname () || 'default';
+	$rname = $zone->rname () || 'default';
+	$refresh = $zone->refresh () || 'default';
+	$retry = $zone->retry () || 'default';
+	$expiry = $zone->expiry () || 'default';
+	$minimum = $zone->minimum () || 'default';
+	$owner = $zone->owner ();
+	
+	my $modifyzone_link = '';
+	if ($is_admin) {
+		$modifyzone_link = "[<a HREF='$modifyzone_path;id=$id'>edit</a>]";
+	}
+	
+	if ($delegated eq 'N') {
+		$delegated = 'No';
+	} elsif ($delegated eq 'Y') {
+		$delegated = '<font COLOR=\'red\'>Yes</font>';
+	}
+	
+	$q->print (<<EOH);
+		<tr>
+			<td><strong>Zone</strong></td>
+			<td><strong>$zonename</strong></td>
+			<td>$modifyzone_link&nbsp;</td>
+			$empty_td
+		</tr>
+		<tr>
+			<td>&nbsp;&nbsp;Delegated</td>
+			<td>$delegated</td>
+			$empty_td
+			$empty_td
+		</tr>
+		<tr>
+			<td>&nbsp;&nbsp;Default TTL</td>
+			<td>$default_ttl</td>
+			<td>($zone_defaults{default_ttl})</td>
+			$empty_td
+		</tr>
+		<tr>
+			<td>&nbsp;&nbsp;SOA ttl</td>
+			<td>$ttl</td>
+			<td>($zone_defaults{soa_ttl})</td>
+			$empty_td
+		</tr>
+		<tr>
+			<td><strong>SOA parameters</strong></td>
+			$empty_td
+			$empty_td
+			$empty_td
+		</tr>
+		<tr>
+			<td>&nbsp;&nbsp;serial</td>
+			<td>$serial</td>
+			<td>-</td>
+			$empty_td
+		</tr>
+		<tr>
+			<td>&nbsp;&nbsp;mname</td>
+			<td>$mname</td>
+			<td>($zone_defaults{soa_mname})</td>
+			$empty_td
+		</tr>
+		<tr>
+			<td>&nbsp;&nbsp;rname</td>
+			<td>$rname</td>
+			<td>($zone_defaults{soa_rname})</td>
+			$empty_td
+		</tr>
+		<tr>
+			<td>&nbsp;&nbsp;refresh</td>
+			<td>$refresh</td>
+			<td>($zone_defaults{soa_refresh})</td>
+			$empty_td
+		</tr>
+		<tr>
+			<td>&nbsp;&nbsp;retry</td>
+			<td>$retry</td>
+			<td>($zone_defaults{soa_retry})</td>
+			$empty_td
+		</tr>
+		<tr>
+			<td>&nbsp;&nbsp;expiry</td>
+			<td>$expiry</td>
+			<td>($zone_defaults{soa_expiry})</td>
+			$empty_td
+		</tr>
+		<tr>
+			<td>&nbsp;&nbsp;minimum</td>
+			<td>$minimum</td>
+			<td>($zone_defaults{soa_minimum})</td>
+			$empty_td
+		</tr>
+		
+		$table_hr_line
+	
+EOH
+	return 1;
 }
 
 sub print_host_info
