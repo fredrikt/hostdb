@@ -121,7 +121,7 @@ sub clean_hostname
 		$_[0] = $new;
 	}
 
-	return $valid;
+	return ($valid);
 }
 
 
@@ -154,7 +154,7 @@ sub clean_zonename
 		$_[0] = $new;
 	}
 
-	return $valid;
+	return ($valid);
 }
 
 
@@ -314,7 +314,7 @@ sub clean_mac_address
 		$_[0] = $new;
 	}
 
-	return $valid;
+	return ($valid);
 }
 
 =head2 valid_mac_address
@@ -395,11 +395,28 @@ sub check_valid_subnet
 	return 1;
 }
 
+
+=head2 check_valid_ip
+
+	die ("Invalid IP '$user_input'\n") if (! $hostdb->check_valid_ip ($user_input));
+
+	Do some checking to determine if this is a valid IP address or not.
+	
+	This routine does it's checking in a strange way. It appears one of the thoughts
+	behind it was to not return valid if the input is a network address/broadcast.
+	At least not net 0/8 and 255/8. Investigate.
+
+
+=cut
 sub check_valid_ip
 {
 	my $self = shift;
 	my $ip = shift;
 	
+	# XXX this routine needs some serious thought... it is not
+	# exactly self explanatory and even I don't remember the reasoning
+	# any more
+
 	$self->_debug_print ("ip '$ip'");
 
 	if ($ip =~ /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/o) {
@@ -418,6 +435,7 @@ sub check_valid_ip
 	return 0;
 }
 
+
 =head2 aton
 
 	$n_ip = $hostdb->ntoa($ip);
@@ -432,7 +450,7 @@ sub aton
 	my $self = shift;
 	my $val = shift;
 
-	return unpack ('N', Socket::inet_aton ($val));
+	return (unpack ('N', Socket::inet_aton ($val)));
 }
 
 
@@ -450,7 +468,7 @@ sub ntoa
 	my $self = shift;
 	my $val = shift;
 	
-	return Socket::inet_ntoa (pack ('N', $val));
+	return (Socket::inet_ntoa (pack ('N', $val)));
 }
 
 
@@ -476,7 +494,7 @@ sub slashtonetmask
 	return ("0.0.0.0") if ($slash == 0);
 	return ("255.255.255.255") if ($slash == 32);
 	
-	return $self->ntoa (-(1 << (32 - $slash)));
+	return ($self->ntoa (-(1 << (32 - $slash))));
 }
 
 
@@ -507,7 +525,7 @@ sub netmasktoslash
 		}
 	}
 
-	return $slash;
+	return ($slash);
 }
 
 =head2 get_num_addresses
@@ -526,7 +544,7 @@ sub get_num_addresses
 	my $slash = shift;
 	
 	# XXX make unsigned
-	return int (1 << (32 - $slash));
+	return (int (1 << (32 - $slash)));
 }
 
 
@@ -546,7 +564,7 @@ sub get_netaddr
 	
 	my ($netaddr, $slash) = split('/', $subnet);
 	
-	return $self->ntoa ($self->aton ($netaddr) & $self->aton ($self->slashtonetmask ($slash)));
+	return ($self->ntoa ($self->aton ($netaddr) & $self->aton ($self->slashtonetmask ($slash))));
 
 }
 
@@ -567,7 +585,7 @@ sub get_broadcast
 	
 	my ($netaddr, $slash) = split('/', $subnet);
 	
-	return $self->ntoa ($self->aton ($self->get_netaddr ($subnet)) + $self->get_num_addresses ($slash) - 1);
+	return ($self->ntoa ($self->aton ($self->get_netaddr ($subnet)) + $self->get_num_addresses ($slash) - 1));
 }
 
 
@@ -745,7 +763,7 @@ sub create_host
 	$o->{debug} = $self->{debug};
 	$self->_set_error ($o->{error}), return undef if (! $o->init());
 	
-	return $o;
+	return ($o);
 }
 
 
@@ -766,7 +784,7 @@ sub create_zone
 	$o->{debug} = $self->{debug};
 	$self->_set_error ($o->{error}), return undef if (! $o->init());
 	
-	return $o;
+	return ($o);
 }
 
 
@@ -795,7 +813,7 @@ sub create_subnet
 
 	$self->_set_error ($o->{error}), return undef if (! $o->init());
 	
-	return $o;
+	return ($o);
 }
 
 
@@ -845,7 +863,7 @@ sub findhostbyname
 	
 	# return all matching hosts
 	$self->_debug_print ("Returning " . $#res + 1 . " references to hosts");
-	return @res;
+	return (@res);
 }
 
 
@@ -1151,14 +1169,36 @@ sub init
 	$self->_debug_print ("creating object");
 
 	if ($hostdb->{_dbh}) {
-		$self->{_new_host} = $hostdb->{_dbh}->prepare ("INSERT INTO $hostdb->{db}.host (mac, hostname, ip, n_ip, owner, ttl, user, partof, reverse, last_modified_ts, mac_address_ts) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)")
+		$self->{_new_host} = $hostdb->{_dbh}->prepare ("INSERT INTO $hostdb->{db}.host (dynamic, mac, hostname, ip, n_ip, owner, ttl, user, partof, reverse, last_modified_ts, mac_address_ts) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)")
 			or die "$DBI::errstr";
-		$self->{_update_host} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.host SET mac = ?, hostname = ?, ip = ?, n_ip = ?, owner = ?, ttl = ?, user = ?, partof = ?, reverse = ?, last_modified_ts = NOW(), mac_address_ts = ?, WHERE id = ?")
+		$self->{_update_host} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.host SET dynamic = ?, mac = ?, hostname = ?, ip = ?, n_ip = ?, owner = ?, ttl = ?, user = ?, partof = ?, reverse = ?, last_modified_ts = NOW(), mac_address_ts = ?, WHERE id = ?")
 			or die "$DBI::errstr";
 
 		$self->{_get_last_id} = $hostdb->{_dbh}->prepare ("SELECT LAST_INSERT_ID()")
 			or die "$DBI::errstr";
 	}
+}
+
+sub dynamic
+{
+	my $self = shift;
+
+	if (@_) {
+		my $newvalue = shift;
+	
+		if ($newvalue =~ /^y/i or $newvalue == 1) {
+			$self->{dynamic} = "Y";
+		} elsif ($newvalue =~ /^n/i or $newvalue == 1) {
+			$self->{dynamic} = "N";
+		} else {
+			$self->set_error ("Invalid dynamic format");
+			return 0;
+		}
+
+		return 1;
+	}
+
+	return ($self->{dynamic});
 }
 
 sub mac_address
@@ -1327,7 +1367,7 @@ sub reverse
 		return 1;
 	}
 
-	return $self->{reverse};
+	return ($self->{reverse});
 }
 
 sub id
@@ -1361,7 +1401,7 @@ sub mac_address_ts
 		return 1;
 	}
 
-	return $self->{mac_address_ts};
+	return ($self->{mac_address_ts});
 }
 
 sub commit
@@ -1452,7 +1492,7 @@ sub check_valid_zonename
 	
 	$self->_debug_print ("zone '$zone'");
 
-	return valid_zonename ($zone);
+	return (valid_zonename ($zone));
 }
 
 sub zonename
@@ -1510,7 +1550,7 @@ sub default_ttl
 		return 1;
 	}
 
-	return $self->{default_ttl};
+	return ($self->{default_ttl});
 }
 
 sub serial
@@ -1534,7 +1574,7 @@ sub serial
 		return 1;
 	}
 
-	return $self->{serial};
+	return ($self->{serial});
 }
 
 sub mname
@@ -1560,7 +1600,7 @@ sub mname
 		return 1;
 	}
 
-	return $self->{mname};
+	return ($self->{mname});
 }
 
 sub rname
@@ -1591,7 +1631,7 @@ sub rname
 		return 1;
 	}
 
-	return $self->{mname};
+	return ($self->{mname});
 }
 
 sub refresh
@@ -1610,7 +1650,7 @@ sub refresh
 		return 1;
 	}
 
-	return $self->{refresh};
+	return ($self->{refresh});
 }
 
 # this is the SOA record itselfs TTL
@@ -1630,7 +1670,7 @@ sub ttl
 		return 1;
 	}
 
-	return $self->{ttl};
+	return ($self->{ttl});
 }
 
 sub retry
@@ -1649,7 +1689,7 @@ sub retry
 		return 1;
 	}
 
-	return $self->{retry};
+	return ($self->{retry});
 }
 
 sub expiry
@@ -1668,7 +1708,7 @@ sub expiry
 		return 1;
 	}
 
-	return $self->{expiry};
+	return ($self->{expiry});
 }
 
 sub minimum
@@ -1687,7 +1727,7 @@ sub minimum
 		return 1;
 	}
 	
-	return $self->{minimum};
+	return ($self->{minimum});
 }
 
 sub owner
@@ -1702,7 +1742,7 @@ sub owner
 		return 1;
 	}
 		
-	return $self->{owner};
+	return ($self->{owner});
 }
 
 sub commit
@@ -1803,7 +1843,7 @@ sub init
 		$hostdb->_debug_print ("NOT preparing database stuff");
 	}
 
-	return $self;
+	return ($self);
 }
 
 sub subnet
@@ -1836,7 +1876,7 @@ sub subnet
 		return 1;
 	}
 	
-	return $self->netaddr () . "/" . $self->slashnotation ();
+	return ($self->netaddr () . "/" . $self->slashnotation ());
 }
 
 sub id
