@@ -555,7 +555,7 @@ sub init
 	if ($hostdb->{_dbh}) {
 		$self->{_new_host} = $hostdb->{_dbh}->prepare ("INSERT INTO $hostdb->{db}.config (mac, hostname, ip, ttl, user, partof, reverse) VALUES (?, ?, ?, ?, ?, ?, ?)")
 			or die "$DBI::errstr";
-		$self->{_update_host} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.config SET mac = ?, hostname = ?, ip = ?, ttl = ?, user = ?, partof = ?, reverse = ?) WHERE id = ?")
+		$self->{_update_host} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.config SET mac = ?, hostname = ?, ip = ?, ttl = ?, user = ?, partof = ?, reverse = ? WHERE id = ?")
 			or die "$DBI::errstr";
 
 		$self->{_get_last_id} = $hostdb->{_dbh}->prepare ("SELECT LAST_INSERT_ID()")
