@@ -24,6 +24,7 @@ if ($ARGV[0] eq "-d") {
 }
 
 my $hostdbini = Config::IniFiles->new (-file => HOSTDB::get_inifile ());
+die ("$0: Config file access problem.\n") unless ($hostdbini);
 
 my $output_dir;
 if ($ARGV[0] eq "-o") {

@@ -20,6 +20,7 @@ my $subnet_name = shift;
 $debug = 1 if (defined ($opt_D));
 
 my $hostdbini = Config::IniFiles->new (-file => HOSTDB::get_inifile ());
+die ("$0: Config file access problem.\n") unless ($hostdbini);
 
 my %colors = load_colors ($hostdbini);
 

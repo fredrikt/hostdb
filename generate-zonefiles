@@ -35,6 +35,7 @@ $output_dir =~ s/\/$//o;	# remove trailing slash
 die ("$0: Output dir '$output_dir' is not a directory\n") if (! -d $output_dir);
 
 my $hostdbini = Config::IniFiles->new (-file => HOSTDB::get_inifile ());
+die ("$0: Config file access problem.\n") unless ($hostdbini);
 
 my %zone_defaults;
 $zone_defaults{default_ttl} = $hostdbini->val ('zone', 'default_zone_ttl');
