@@ -198,6 +198,7 @@ EOH
 			    $static_flag_days, $dynamic_flag_days,
 			    \$static_hosts, \$dynamic_hosts,
 			    \$static_in_use, \$dynamic_in_use);
+		print_hostaliases (\@o, $host);
 		$dup = 1;
 	    }
 	}
@@ -353,6 +354,7 @@ sub get_hosts_with_ip
     wantarray ? @retval : $retval[0];
 }
 
+
 sub parentchildsort
 {
     my $a_partof = $a->partof () || 0;
@@ -366,6 +368,37 @@ sub parentchildsort
     }
 
     return $a->id () <=> $b->id ();
+}
+
+sub print_hostaliases
+{
+    my $o = shift;
+    my $host = shift;
+
+    my @aliases = $host->init_aliases ();
+
+    foreach my $a (@aliases) {
+	my $aliasname = $a->aliasname ();
+	my $id = $a->id ();
+	my $alias_link = "<a HREF='$links{whois};type=aliasid;data=$id'>$aliasname</a>";
+	my $a_dnsstatus = $a->dnsstatus ();
+
+	if ($a_dnsstatus eq 'ENABLED') {
+	    $a_dnsstatus = '';
+	} else {
+	    $a_dnsstatus = "&nbsp;(dns <font color='red'><strong>DISABLED</strong></font>)";
+	}
+
+	push (@$o, <<EOH);
+                <tr>
+                   <td ALIGN='center'>alias</td>
+                   <td COLSPAN='3'>$alias_link $a_dnsstatus</td>
+                </tr>
+
+EOH
+    }
+
+    return 1;
 }
 
 sub safe_div
