@@ -212,7 +212,7 @@ sub print_host_info
 	   </tr>
 	   <tr>
 		<td>IP address</td>
-		<td>$ip</td>
+		<td><strong>$ip</strong></td>
 	   </tr>	
 	   <tr>
 		<td>MAC Address</td>
@@ -220,7 +220,7 @@ sub print_host_info
 	   </tr>	
 	   <tr>
 		<td>Hostname</td>
-		<td>$hostname</td>
+		<td><strong>$hostname</strong></td>
 	   </tr>	
 	   <tr>
 		<td>User</td>
