@@ -108,7 +108,8 @@ EOH
 				}
 
 				# loop from first to last host address in subnet
-				my ($i, @o, $in_use_count);
+				my ($i, @o);
+				my $in_use_count = 0;
 				push (@o, <<EOH);
 					<tr>
 						<th ALIGN='left'>IP</th>
@@ -155,11 +156,14 @@ EOH
 						my $ts_flag_color = '#dd0000';
 						
 						my $h_u_t = $host->unix_mac_address_ts ();
-						if ($h_u_t and time () - $h_u_t >= ($ts_flag_days * 86400)) {
+						if (defined ($h_u_t) and
+						    (time () - $h_u_t) >= ($ts_flag_days * 86400)) {
+							# host has not been seen in active use
+							# for $ts_flag_days days
 							$ts_font = "<font COLOR='$ts_flag_color'>";
 							$ts_font_end = "</font>";
 						} else {
-							$in_use_count++;
+							$in_use_count++ if (defined ($h_u_t));
 						}
 						
 						push (@o, <<EOH);
