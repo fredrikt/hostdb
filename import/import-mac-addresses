@@ -97,10 +97,10 @@ if ($filelistfile or $read_db) {
 	if ($dump_db) {
 		dump_db (\%ip_to_mac, \%ip_mac_to_ts, \%ip_mac_to_count, $debug);
 	} else {
-		parse_files ($hostdb, \%ip_to_mac, \%ip_mac_to_ts, \%ip_mac_to_count, $debug, @files);
+		update_db ($hostdb, \%ip_to_mac, \%ip_mac_to_ts, \%ip_mac_to_count, $debug);	
 	}
 } elsif ($write_db) {
-	update_db ($hostdb, \%ip_to_mac, \%ip_mac_to_ts, \%ip_mac_to_count, $debug);	
+	parse_files ($hostdb, \%ip_to_mac, \%ip_mac_to_ts, \%ip_mac_to_count, $debug, @files);
 } else {
 	die ("$0: Nothing to do.\n");
 }
@@ -196,32 +196,30 @@ sub update_db
 		
 		my $host = $hostdb->findhostbyip ($ip);
 		
-		if (! defined ($host->id ())) {
+		if (! defined ($host)) {
 			warn ("$ip not found in database\n");
 			$failed_count++;
 			$total_failed_count++;
 		} else {
 			my $valid = 1;
 
-			my $is_dynamic = 1 if ($host->hostname () =~ /^.*dhcp.*/oi);
-				
+			my @mac_l = split (";", $ip_to_mac->{$ip});
+			my $mac_count = $#mac_l + 1;
+
+			my $is_dynamic = 1 if ($host->hostname () =~ /^.*dhcp.*/oi or
+					       $mac_count >= 5);
+					
 			if ($is_dynamic) {
-				printf ("Set IP $ip to dynamic\n");
+				print ("Set IP $ip to dynamic\n") if ($debug);
 
-				$host->mac_address ("") or warn ($host->{error}), $valid = 0;
-				$host->dynamic ("Y") or warn ($host->{error}), $valid = 0;
+				$host->mac_address ("NULL") or warn ($host->{error}), $valid = 0;
+				$host->dhcpmode ("DYNAMIC") or warn ($host->{error}), $valid = 0;
 
-				$host->commit () if ($valid);
-
-				$set_count++;
-				$total_set_count++;
-
-				printf ("%-6d %-16s dynamic\n", $total_set_count, $ip);
-
-				next;
+				$mac = "dynamic";
+			} else {
+				$host->mac_address ($mac) or warn ($host->{error}), $valid = 0;
 			}
-
-			$host->mac_address ($mac) or warn ($host->{error}), $valid = 0;
+			
 			if ($valid) {
 				$host->commit();
 					
