@@ -79,7 +79,7 @@ sub init
 
 
 	if (! defined ($self->{netaddr}) and defined ($self->{subnet})) {
-		$self->subnet ($self->{subnet});
+		return undef if (! $self->subnet ($self->{subnet}));
 	} else {
 		$hostdb->_debug_print ("creating object (IPv$self->{ipver} subnet '$self->{netaddr}/$self->{slashnotation}')");
 	}
