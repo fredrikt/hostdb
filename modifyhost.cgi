@@ -44,11 +44,19 @@ my $deletehost_path = $q->state_url ($hostdbini->val ('subnet', 'deletehost_uri'
 
 $q->begin (title => 'Modify/Add Host');
 
-$q->print ("<table BORDER='0' CELLPADDING='0' CELLSPACING='3' WIDTH='600'>\n" .
-	   "$table_blank_line");
+my $me = $q->state_url ();
 
-$q->print ("<tr><td COLSPAN='2' ALIGN='center'><h3>HOSTDB: Add/Modify Host</h3></td></tr>\n" .
-	   "$table_blank_line");
+$q->print (<<EOH);
+	<form ACTION='$me' METHOD='post'>
+	<table BORDER='0' CELLPADDING='0' CELLSPACING='3' WIDTH='600'>
+		$table_blank_line
+		<tr>
+			<td COLSPAN='2' ALIGN='center'>
+				<h3>HOSTDB: Add/Modify Host</h3>
+			</td>
+		</tr>
+		$table_blank_line
+EOH
 
 my $action = $q->param('action');
 $action = 'Search' unless $action;
@@ -59,13 +67,11 @@ SWITCH:
 		my $id = $q->param('id');
 		my $host;
 
-		#die "No ID specified for commit" unless $id;
 		if (defined ($id) and $id ne '') {
-			#warn ("GET HOST: $id\n");
 			$host = get_host ($hostdb,'ID',$id);
 		} else {
 			$host = $hostdb->create_host ();
-			die ("$0: Could not create host entry: $hostdb->{error}\n") unless (defined ($host));
+			error_line ($q, "$0: Could not create host entry: $hostdb->{error}\n"), last SWITCH unless (defined ($host));
 		}
 
 		if (modify_host ($hostdb, $host, $q)) {
@@ -75,12 +81,13 @@ SWITCH:
 			};
 			if ($@) {
 				error_line ($q, "Could not commit changes: $@");
+				last SWITCH;
 			}
 		}
 
 		$id = $host->id () unless ($id);
 		$host = get_host($hostdb,'ID',$id); # read-back
-		die "Host mysteriously vanished" unless $host;
+		error_line ($q, "Host mysteriously vanished"), last SWITCH unless $host;
 		host_form($q, $host);
 	},last SWITCH;
 
@@ -96,6 +103,10 @@ SWITCH:
 if ($@) {
 	error_line($q, "$@\n");
 }
+
+$q->print (<<EOH);
+	</table></form>
+EOH
 
 $q->end();
 
@@ -236,7 +247,7 @@ sub host_form
 		if ($h_subnet) {
 			$subnet = $h_subnet->subnet ();
 			if ($showsubnet_path) {
-				$subnet = "<a HREF='$showsubnet_path&subnet=$subnet'>$subnet</a>";
+				$subnet = "<a HREF='$showsubnet_path;subnet=$subnet'>$subnet</a>";
 			}
 		} else {
 			$subnet = "not in database";
@@ -248,15 +259,16 @@ sub host_form
 	my $required = "<font COLOR='red'>*</font>";
 
 	my $delete = "[delete]";
-	$delete = "[<a href='$deletehost_path&id=$id'>delete</a>]" if (defined ($id));
+	$delete = "[<a HREF='$deletehost_path;id=$id'>delete</a>]" if (defined ($id));
+
+	my $id_if_any = "<input TYPE='hidden' NAME='id' VALUE='$id'>" if (defined ($id) and ($id ne ''));
 
 	$q->print (<<EOH);
-	   <form METHOD='post'>
 		$state_field
-                <input type="hidden" name="id" value="$id"/>
+                $id_if_any
 		<tr>
 			<td>ID</td>
-			<td><a href="$me&id=$id">$id</a></td>
+			<td><a HREF="$me;id=$id">$id</a></td>
 			$empty_td
 			$empty_td
 		</tr>	
@@ -299,7 +311,7 @@ sub host_form
 			<td>$dnsmode</td>
 			<td>DHCP mode</td>
 			<td>$dhcpmode</td>
-		<tr>
+		</tr>
 		<tr>
 			<td>User</td>
 			<td>$user</td>
@@ -318,7 +330,6 @@ sub host_form
 		</tr>
 		
 		$table_blank_line
-	   </form>	   
 
 EOH
 
