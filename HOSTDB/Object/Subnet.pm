@@ -563,7 +563,7 @@ sub htmlcolor
 	if (@_) {
 		my $newvalue = lc (shift);
 	
-		if ($self->is_valid_htmlcolor ($newvalue)) {
+		if (! $self->is_valid_htmlcolor ($newvalue)) {
 			$self->_set_error ("Invalid htmlcolor '$newvalue'");
 			return 0;
 		}
