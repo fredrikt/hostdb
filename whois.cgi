@@ -188,10 +188,6 @@ sub print_host_info
 		}
 	}
 
-	my $modify_link = "[<a HREF='$modifyhost_path;id=$id'>modify</a>]";
-
-	# now check if user actually may modify the host, if not - don't show
-	# a '[modify]' link
 
 	# get subnet
 	my $subnet = $hostdb->findsubnetclosestmatch ($host->ip () || $q->param ('ip'));
@@ -200,16 +196,17 @@ sub print_host_info
 	my $zone = $hostdb->findzonebyhostname ($host->hostname ());
 
 	# check that user is allowed to edit both current zone and subnet
-	#
-	# the reason to not demand subnet and host to be defined is to not
-	# make it impossible to move hosts to a new subnet if the old subnet
-	# is renamed or such... but maybe that is a bad idea. XXX
 
-	if (defined ($subnet) and ! $hostdb->auth->is_allowed_write ($subnet, $remote_user)) {
-		$modify_link = "<!-- '$remote_user' subnet ACL -->";
-	} elsif (defined ($zone) and ! $hostdb->auth->is_allowed_write ($zone, $remote_user)) {
-		$modify_link = "<!-- '$remote_user' zone ACL -->";
+	my $authorized = 1;
+
+	if (! $hostdb->auth->is_admin ($remote_user)) {
+		$authorized = 0 if (! defined ($subnet) or ! $hostdb->auth->is_allowed_write ($subnet, $remote_user));
+
+		$authorized = 0 if (! defined ($zone) or ! $hostdb->auth->is_allowed_write ($zone, $remote_user));
 	}
+
+	
+	my $modify_link = $authorized?"[<a HREF='$modifyhost_path;id=$id'>modify</a>]":'<!-- not authorized to modify -->';
 
 	$q->print (<<EOH);
 	   <tr>
