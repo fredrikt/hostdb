@@ -71,7 +71,7 @@ sub init
 			or die "$DBI::errstr";
 	}
 
- 
+
 	return 1;
 }
 
@@ -111,7 +111,7 @@ sub commit
 		$sth = $self->{_update_zone};
 		$sth->execute (@db_values, $self->id ())
 			or die "$DBI::errstr";
-		
+
 		# XXX check number of rows affected?
 
 		$sth->finish();
@@ -122,7 +122,7 @@ sub commit
 		$sth->execute (@db_values) or die "$DBI::errstr";
 
 		$sth->finish ();
-	}	
+	}
 
 	return 1;
 }
@@ -148,11 +148,11 @@ sub delete
 	if (defined ($self->{id})) {
 		$sth = $self->{_delete_zone};
 		$sth->execute ($self->id ()) or die "$DBI::errstr";
-		
+
 		my $rowcount = $sth->rows ();
 
 		$sth->finish();
-		
+
 		if ($rowcount != 1) {
 			$self->_set_error ("Delete operation of zone with id '$self->{id}' did not affect the expected number of database rows ($rowcount, not 1)");
 			return 0;
@@ -335,7 +335,7 @@ sub retry
 sub expiry
 {
 	my $self = shift;
-	
+
 	$self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_nameserver_time_or_null, @_);
 }
 
@@ -366,7 +366,7 @@ sub minimum
 =cut
 sub owner
 {
-	my $self = shift;
+    my $self = shift;
 
     if (@_) {
 	my $l = join (',', @_);
@@ -398,7 +398,7 @@ sub _validate_soa_rname
 	if ($newvalue =~ /@/) {
 	    return ("SOA rname should not contain '\@' signs.");
 	}
-	
+
 	my $illegal_chars = $newvalue;
 	$illegal_chars =~ s/[a-zA-Z0-9\.\-]//og;
 	if ($illegal_chars) {
