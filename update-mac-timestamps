@@ -36,8 +36,6 @@ my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
 			      debug => $debug
 			     );
 
-parse_files ($hostdb, $debug, $quiet, @files);
-
 print ("*** Parsing " . ($#files + 1) . " files\n") unless ($quiet);
 
 my %data;
