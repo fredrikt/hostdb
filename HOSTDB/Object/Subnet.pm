@@ -83,7 +83,7 @@ sub init
 	} else {
 		$hostdb->_debug_print ("creating object (IPv$self->{ipver} subnet '$self->{netaddr}/$self->{slashnotation}')");
 	}
-	
+
 	if ($hostdb->{_dbh}) {
 		$self->{_new_subnet} = $hostdb->{_dbh}->prepare ("INSERT INTO $hostdb->{db}.subnet " .
 			"(ipver, netaddr, slashnotation, netmask, broadcast, addresses, description, " .
@@ -143,7 +143,7 @@ sub commit
 	if (defined ($self->{id})) {
 		$sth = $self->{_update_subnet};
 		$sth->execute (@db_values, $self->id ()) or die "$DBI::errstr";
-		
+
 		# XXX check number of rows affected?
 
 		$sth->finish();
@@ -153,17 +153,17 @@ sub commit
 
 		my $hostdb = $self->{hostdb};
 		my @subnets = $hostdb->findsubnetlongerprefix ($self->subnet ());
-		
+
 		if ($#subnets != -1) {
 			my ($t, @names);
-			
+
 			foreach $t (@subnets) {
 				push (@names, $t->subnet ());
 			}
-			
+
 			$self->_set_error ($self->subnet () . " overlaps with subnet(s) " .
 					   join (", ", @names));
-					   
+
 			return 0;
 		}
 
@@ -171,7 +171,7 @@ sub commit
 		$sth->execute (@db_values) or die "$DBI::errstr";
 
 		$sth->finish ();
-	}	
+	}
 
 	return 1;
 }
@@ -197,11 +197,11 @@ sub delete
 	if (defined ($self->{id})) {
 		$sth = $self->{_delete_subnet};
 		$sth->execute ($self->id ()) or die "$DBI::errstr";
-		
+
 		my $rowcount = $sth->rows ();
 
 		$sth->finish();
-		
+
 		if ($rowcount != 1) {
 			$self->_set_error ("Delete operation of subnet with id '$self->{id}' did not affect the expected number of database rows ($rowcount, not 1)");
 			return 0;
@@ -249,7 +249,7 @@ sub subnet
 			$self->_set_error ("Invalid subnet '$subnet'");
 			return 0;
 		}
-	
+
 		my ($netaddr, $slash) = split ('/', $subnet);
 
 		$self->{netaddr} = $netaddr;
@@ -268,7 +268,7 @@ sub subnet
 
 		return 1;
 	}
-	
+
 	return ($self->netaddr () . "/" . $self->slashnotation ());
 }
 
@@ -281,152 +281,102 @@ sub subnet
 =cut
 sub id
 {
-	my $self = shift;
-
-	if (@_) {
-		$self->_set_error ('id is a read-only function, it is a database auto increment');
-		return undef;
-	}
-
-	return ($self->{id});
+    my $self = shift;
+    $self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_read_only, @_);
 }
 
 
 =head2 ipver
 
-	Not yet documented, saving that for a rainy day.
+    Not yet documented, saving that for a rainy day.
 
 
 =cut
 sub ipver
 {
-	my $self = shift;
-
-	if (@_) {
-		my $newvalue = int (shift);
-	
-		if ($newvalue != 4 && $newvalue != 6) {
-			$self->_set_error ("IP version " . $self->ipver () . " invalid (let's keep to 4 or 6 please)");
-			return 0;
-		}
-		
-		$self->{ipver} = $newvalue;
-		
-		return 1;
-	}
-
-	return ($self->{ipver});
+    my $self = shift;
+    $self->_set_or_get_attribute (undef, \&_validate_ipver, @_);
 }
 
 
 =head2 netaddr
 
-	Read only function, see 'subnet' above.
-	
+    Read only function, see 'subnet' above.
+
 	printf "Network address: %s\n", $subnet->netaddr ();
 
 
 =cut
 sub netaddr
 {
-	my $self = shift;
-
-	if (@_) {
-		$self->_set_error ('netaddr is a read-only function, it gets set by subnet()');
-		return undef;
-	}
-
-	return ($self->{netaddr});
+    my $self = shift;
+    $self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_read_only, @_);
 }
 
 
 =head2 slashnotation
 
-	Read only function, see 'subnet' above.
-	
+    Read only function, see 'subnet' above.
+
 	printf "Slash notation: %s\n", $subnet->slashnotation ();
 
 
 =cut
 sub slashnotation
 {
-	my $self = shift;
-
-	if (@_) {
-		$self->_set_error ('slashnotation is a read-only function, it gets set by subnet()');
-		return undef;
-	}
-
-	return ($self->{slashnotation});
+    my $self = shift;
+    $self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_read_only, @_);
 }
 
 
 =head2 netmask
 
-	Read only function, see 'subnet' above.
-	
+    Read only function, see 'subnet' above.
+
 	printf "Netmask: %s\n", $subnet->netmask ();
 
 
 =cut
 sub netmask
 {
-	my $self = shift;
-
-	if (@_) {
-		$self->_set_error ('netmask is a read-only function, it gets set by subnet()');
-		return undef;
-	}
-
-	return ($self->{netmask});
+    my $self = shift;
+    $self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_read_only, @_);
 }
 
 
 =head2 broadcast
 
-	Read only function, see 'subnet' above.
-	
+    Read only function, see 'subnet' above.
+
 	printf "Broadcast: %s\n", $subnet->broadcast ();
 
 
 =cut
 sub broadcast
 {
-	my $self = shift;
-
-	if (@_) {
-		$self->_set_error ('broadcast is a read-only function, it gets set by subnet()');
-		return undef;
-	}
-
-	return ($self->{broadcast});
+    my $self = shift;
+    $self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_read_only, @_);
 }
 
 
 =head2 addresses
 
-	Read only function, see 'subnet' above.
-	
+    Read only function, see 'subnet' above.
+
 	printf "Number of addresses in subnet: %d\n", $subnet->addresses ();
 
 
 =cut
 sub addresses
 {
-	my $self = shift;
-
-	if (@_) {
-		$self->_set_error ('addresses is a read-only function, it gets set by subnet()');
-		return undef;
-	}
-
-	return ($self->{addresses});
+    my $self = shift;
+    $self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_read_only, @_);
 }
 
 
 =head2 description
 
-	Get or set subnet description.
+    Get or set subnet description.
 
 	printf "Old description: %s\n", $subnet->description ();
 	$subnet->description ($new_desc) or warn ("Failed setting value\n");
@@ -435,28 +385,14 @@ sub addresses
 =cut
 sub description
 {
-	my $self = shift;
-
-	if (@_) {
-		my $newvalue = shift;
-	
-		if (length ($newvalue) > 255) {
-			$self->_set_error ('Description too long (max 255 chars)');
-			return 0;
-		}
-
-		$self->{description} = $newvalue;
-		
-		return 1;
-	}
-
-	return ($self->{description});
+    my $self = shift;
+    $self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_string_comment, @_);
 }
 
 
 =head2 short_description
 
-	Get or set subnet short description.
+    Get or set subnet short description.
 
 	printf "Old short description: %s\n", $subnet->description ();
 	$subnet->description ($new_short_desc) or warn ("Failed setting value\n");
@@ -465,29 +401,15 @@ sub description
 =cut
 sub short_description
 {
-	my $self = shift;
-
-	if (@_) {
-		my $newvalue = shift;
-	
-		if (length ($newvalue) > 255) {
-			$self->_set_error ('Short description too long (max 255 chars)');
-			return 0;
-		}
-
-		$self->{short_description} = $newvalue;
-		
-		return 1;
-	}
-
-	return ($self->{short_description});
+    my $self = shift;
+    $self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_string_comment, @_);
 }
 
 
 =head2 n_netaddr
 
-	Read only function, see 'subnet' above.
-	
+    Read only function, see 'subnet' above.
+
 	printf "Network address %s (numerically: %d)\n",
 		$hostdb->ntoa ($subnet->n_netaddr ()),
 		$subnet->n_netaddr ();
@@ -496,21 +418,15 @@ sub short_description
 =cut
 sub n_netaddr
 {
-	my $self = shift;
-
-	if (@_) {
-		$self->_set_error ('n_netaddr is a read-only function, it gets set by subnet()');
-		return undef;
-	}
-
-	return ($self->{n_netaddr});
+    my $self = shift;
+    $self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_read_only, @_);
 }
 
 
 =head2 n_netmask
 
-	Read only function, see 'subnet' above.
-	
+    Read only function, see 'subnet' above.
+
 	printf "Netmask %s (numerically: %d)\n",
 		$hostdb->ntoa ($subnet->n_netmask ()),
 		$subnet->n_netmask ();
@@ -519,21 +435,15 @@ sub n_netaddr
 =cut
 sub n_netmask
 {
-	my $self = shift;
-
-	if (@_) {
-		$self->_set_error ('n_netmask is a read-only function, it gets set by subnet()');
-		return undef;
-	}
-
-	return ($self->{n_netmask});
+    my $self = shift;
+    $self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_read_only, @_);
 }
 
 
 =head2 n_broadcast
 
-	Read only function, see 'subnet' above.
-	
+    Read only function, see 'subnet' above.
+
 	printf "Broadcast %s (numerically: %d)\n",
 		$hostdb->ntoa ($subnet->n_broadcast ()),
 		$subnet->n_broadcast ();
@@ -542,14 +452,8 @@ sub n_netmask
 =cut
 sub n_broadcast
 {
-	my $self = shift;
-
-	if (@_) {
-		$self->_set_error ('n_broadcast is a read-only function, it gets set by subnet()');
-		return undef;
-	}
-
-	return ($self->{n_broadcast});
+    my $self = shift;
+    $self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_read_only, @_);
 }
 
 
@@ -566,22 +470,8 @@ sub n_broadcast
 =cut
 sub htmlcolor
 {
-	my $self = shift;
-
-	if (@_) {
-		my $newvalue = lc (shift);
-	
-		if (! $self->is_valid_htmlcolor ($newvalue)) {
-			$self->_set_error ("Invalid htmlcolor '$newvalue'");
-			return 0;
-		}
-		
-		$self->{htmlcolor} = $newvalue;
-		
-		return 1;
-	}
-
-	return ($self->{htmlcolor});
+    my $self = shift;
+    $self->_set_or_get_attribute (undef, \&_validate_htmlcolor, @_);
 }
 
 
@@ -596,29 +486,16 @@ sub htmlcolor
 =cut
 sub dhcpconfig
 {
-	my $self = shift;
+    my $self = shift;
 
-	if (@_) {
-		my $newvalue = shift;
-
-		if (length ($newvalue) > 4096) {
-			$self->_set_error ('dhcpconfig too long (max 4096 chars)');
-			return 0;
-		}
-		
-		$self->{dhcpconfig} = $newvalue;
-		
-		return 1;
-	}
-
-	return ($self->{dhcpconfig});
+    $self->_set_or_get_attribute (undef, \&_validate_dhcpconfig, @_);
 }
 
 
 =head2 owner
 
-	Get or set owner. Owner can either be a single username or a
-	comma-separated list of usernames.
+    Get or set owner. Owner can either be a single username or a
+    comma-separated list of usernames.
 
 	printf "Old owner: %s\n", $subnet->owner ();
 	$subnet->owner ($new_owner) or warn ("Failed setting value\n");
@@ -627,36 +504,15 @@ sub dhcpconfig
 =cut
 sub owner
 {
-	my $self = shift;
+    my $self = shift;
 
-	if (@_) {
-		my %newlist;
-		foreach my $tt (@_) {
-			my $t = $tt;
-			# remove spaces around commas
-			$t =~ s/\s*,\s*/,/o;
-			
-			foreach my $newvalue (split (',', $t)) {
-				if (! $self->is_valid_username ($newvalue)) {
-					$self->_set_error ("Invalid owner list member '$newvalue'");
-					return 0;
-				}
-				$newlist{$newvalue} = 1;
-			}
-		}
-
-		my $newvalue = join (',', sort keys %newlist);
-
-		if (length ($newvalue) > 255) {
-			$self->_set_error ('Owner too long (max 255 chars)');
-		}
-
-		$self->{owner} = $newvalue;
-		
-		return 1;
-	}
-
-	return ($self->{owner});
+    if (@_) {
+	my $l = join (',', @_);
+	$self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_list_of_usernames, $l);
+    } else {
+	# get
+	$self->_set_or_get_attribute ();
+    }
 }
 
 
@@ -672,47 +528,131 @@ sub owner
 =cut
 sub profilelist
 {
-	my $self = shift;
+    my $self = shift;
 
-	sub _profilelist_sort
-	{
-		# sort 'default' before anything else
-		return -1 if ($a eq 'default');
-		return 1 if ($b eq 'default');
-		return $a cmp $b;
-	}
-
-	if (@_) {
-		my %newlist;
-		foreach my $tt (@_) {
-			my $t = $tt;
-			# remove spaces around commas
-			$t =~ s/\s*,\s*/,/o;
-			
-			foreach my $newvalue (split (',', $t)) {
-				if (! $self->is_valid_profilename ($newvalue)) {
-					$self->_set_error ("Invalid profilelist member '$newvalue'");
-					return 0;
-				}
-				$newlist{$newvalue} = 1;
-			}
-		}
-		$newlist{default} = 1;
-
-		my $newvalue = join (',', sort _profilelist_sort keys %newlist);
-
-		if (length ($newvalue) > 255) {
-			$self->_set_error ('profilelist too long (max 255 chars)');
-		}
-
-		$self->{profilelist} = $newvalue;
-		
-		return 1;
-	}
-
-	return (join (',', sort _profilelist_sort split (',', $self->{profilelist})));
+    if (@_) {
+	my $l = join (',', @_);
+	$self->_set_or_get_attribute (undef, \&_validate_profilelist, $l);
+    } else {
+        # get
+	$self->_set_or_get_attribute ();
+    }
 }
 
+
+=head1 INTERNAL FUNCTIONS
+
+=head2 _validate_dhcpconfig
+
+    _set_or_get_attribute validator for dhcpconfig.
+    Check that dhcpconfig is not exceedingly long (max 4096).
+
+
+=cut
+sub _validate_dhcpconfig
+{
+    my $self = shift;
+    my $key = shift;
+    my $newvalue = shift;
+
+    if (length ($newvalue) > 4096) {
+        return ('Too long (max 4096 chars)');
+    }
+
+    return 0;
+}
+
+
+=head2 _profilelist_sort
+
+    Sort a number of strings alphabetically, with the exception of 'default' which beats all.
+
+
+=cut
+sub _profilelist_sort
+{
+    # sort 'default' before anything else
+    return -1 if ($a eq 'default');
+    return 1 if ($b eq 'default');
+    return $a cmp $b;
+}
+
+
+=head2 _validate_profilelist
+
+    _set_or_get_attribute validator for profilelist.
+
+
+=cut
+sub _validate_profilelist
+{
+    my $self = shift;
+    my $key = shift;
+    my $in = lc ($_[0]);
+
+    my %newlist;
+    # remove spaces around commas
+    $in =~ s/\s*,\s*/,/o;
+    # remove double commas
+    $in =~ s/,+/,/o;
+
+    foreach my $elem (split (',', $in)) {
+	if (! $self->is_valid_profilename ($elem)) {
+	    return ("Invalid profilelist member '$elem'");
+	}
+	$newlist{$elem} = 1;
+    }
+    $newlist{default} = 1;
+
+    my $newvalue = join (',', sort _profilelist_sort keys %newlist);
+
+    if (length ($newvalue) > 255) {
+	return ('profilelist too long (max 255 chars)');
+    }
+
+    $_[0] = $newvalue;
+
+    return 0;
+}
+
+=head2 _validate_htmlcolor
+
+    _set_or_get_attribute validator for htmlcolor.
+
+
+=cut
+sub _validate_htmlcolor
+{
+    my $self = shift;
+    my $key = shift;
+    my $newvalue = lc ($_[0]);
+
+    if (! $self->is_valid_htmlcolor ($newvalue)) {
+	return ('Invalid htmlcolor');
+    }
+
+    return 0;
+}
+
+=head2 _validate_ipver
+
+    _set_or_get_attribute validator for ipver.
+
+
+=cut
+sub _validate_ipver
+{
+    my $self = shift;
+    my $key = shift;
+    my $newvalue = int ($_[0]);
+
+    if ($newvalue != 4 && $newvalue != 6) {
+	return ("IP version '$newvalue' invalid (let's keep to 4 or 6 please)");
+    }
+
+    $_[0] = $newvalue;
+    return 0;
+}
 
 
 1;
