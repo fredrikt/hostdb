@@ -9,8 +9,8 @@ use strict;
 use HOSTDB;
 use SUCGI;
 
-my $table_blank_line = "<tr><td COLSPAN='3'>&nbsp;</td></tr>\n";
-my $table_hr_line = "<tr><td COLSPAN='3'><hr></td></tr>\n";
+my $table_blank_line = "<tr><td COLSPAN='2'>&nbsp;</td></tr>\n";
+my $table_hr_line = "<tr><td COLSPAN='2'><hr></td></tr>\n";
 
 my $debug = 0;
 if (defined ($ARGV[0]) and ($ARGV[0] eq "-d")) {
@@ -117,8 +117,7 @@ sub perform_search
 			if (1 == @host_refs) {
 				# only one host, show detailed information
 				foreach my $host (@host_refs) {
-					$q->print ("<tr><th COLSPAN='3' ALIGN='left'>Host :</th></tr>");
-					$q->print ("<tr><td COLSPAN='3'>&nbsp;</td></tr>\n");
+					$q->print ("<tr><th COLSPAN='2' ALIGN='left'>Host :</th></tr>");
 		
 					print_host_info ($q, $hostdb, $remote_user, $host);
 				}
@@ -176,6 +175,21 @@ sub print_host_info
 	my $hostname = $host->hostname () || 'NULL';
 	my $user = $host->user () || 'NULL';
 	my $owner = $host->owner ();
+	my $dhcpstatus = $host->dhcpstatus ();
+	my $dhcpmode = $host->dhcpmode ();
+	my $dnsstatus = $host->dnsstatus ();
+	my $dnsmode = $host->dnsmode ();
+	my $ttl = $host->ttl () || 'default';
+	#my $dhcpprofile = $host->dhcpprofile () || 'default';
+
+	my $zone;
+	my $z = $hostdb->findzonebyhostname ($host->hostname ());
+
+	if (defined ($z)) {
+		$zone = $z->zonename ();
+	} else {
+		$zone = 'No zone found';
+	}
 	
 	if ($host->partof ()) {
 		my @host_refs  = $hostdb->findhost ('id', $host->partof ());
@@ -202,19 +216,35 @@ sub print_host_info
 	if (! $hostdb->auth->is_admin ($remote_user)) {
 		$authorized = 0 if (! defined ($subnet) or ! $hostdb->auth->is_allowed_write ($subnet, $remote_user));
 
-		$authorized = 0 if (! defined ($zone) or ! $hostdb->auth->is_allowed_write ($zone, $remote_user));
+		# if there is no zone, only base desicion on subnet rights
+		$authorized = 0 if (defined ($zone) and ! $hostdb->auth->is_allowed_write ($zone, $remote_user));
 	}
 
+	my $zone_link;
+	if (defined ($zone)) {
+		my $z = $zone->zonename ();
+		$zone_link = "<a HREF='http://not-implemented-yet.example.org?zone=$z'>$z</a>";
+	} else {
+		$zone_link = "<font COLOR='red'>No zone found for hostname</font>";
+	}
 	
 	my $modify_link = $authorized?"[<a HREF='$modifyhost_path;id=$id'>modify</a>]":'<!-- not authorized to modify -->';
 
+	if ($dhcpstatus ne 'ENABLED') {
+		$dhcpstatus = "<font COLOR='red'>$dhcpstatus</font>";
+	}
+
+	if ($dnsstatus ne 'ENABLED') {
+		$dnsstatus = "<font COLOR='red'>$dnsstatus</font>";
+	}
+
 	$q->print (<<EOH);
 	   <tr>
-		<td>ID</td>
+		<td>&nbsp;&nbsp;ID</td>
 		<td>$id&nbsp;$modify_link</td>
 	   </tr>	
 	   <tr>
-		<td>Parent</td>
+		<td>&nbsp;&nbsp;Parent</td>
 		<td>$parent</td>
 	   </tr>
 EOH
@@ -227,35 +257,84 @@ EOH
 		
 		$q->print (<<EOH);
 			<tr>
-				<td>Child</td>
+				<td>&nbsp;&nbsp;Child</td>
 				<td>$child</td>
 			</tr>
 EOH
 	}
 
 	$q->print (<<EOH);
+
+
 	   <tr>
 		<td ALIGN='center'>---</td>
 		<td>&nbsp;</td>
 	   </tr>
 	   <tr>
-		<td>IP address</td>
+		<th ALIGN='left'>DNS</th>
+		<td>&nbsp;</td>
+	   </tr>
+	   <tr>
+		<td>&nbsp;&nbsp;IP address</td>
 		<td><strong>$ip</strong></td>
 	   </tr>	
 	   <tr>
-		<td>MAC Address</td>
-		<td>$mac</td>
-	   </tr>	
-	   <tr>
-		<td>Hostname</td>
+		<td>&nbsp;&nbsp;Hostname</td>
 		<td><strong>$hostname</strong></td>
 	   </tr>	
 	   <tr>
-		<td>User</td>
+		<td>&nbsp;&nbsp;Zone</td>
+		<td>$zone_link</td>
+	   </tr>	
+	   <tr>
+		<td>&nbsp;&nbsp;TTL</td>
+		<td>$ttl</td>
+	   </tr>
+	   <tr>
+	   	<td>&nbsp;&nbsp;Mode</td>
+	   	<td>$dnsmode</td>
+	   </tr>	
+	   <tr>
+	   	<td>&nbsp;&nbsp;Status</td>
+	   	<td>$dnsstatus</td>
+	   </tr>	
+
+
+	   <tr>
+		<td ALIGN='center'>---</td>
+		<td>&nbsp;</td>
+	   </tr>
+	   <tr>
+		<th ALIGN='left'>DHCP</th>
+		<td>&nbsp;</td>
+	   </tr>
+	   <tr>
+		<td>&nbsp;&nbsp;MAC Address</td>
+		<td>$mac</td>
+	   </tr>
+	   <tr>
+	   	<td>&nbsp;&nbsp;Mode</td>
+	   	<td>$dhcpmode</td>
+	   </tr>	
+	   <tr>
+	   	<td>&nbsp;&nbsp;Status</td>
+	   	<td>$dhcpstatus</td>
+	   </tr>	
+	   	
+	   <tr>
+		<td ALIGN='center'>---</td>
+		<td>&nbsp;</td>
+	   </tr>
+	   <tr>
+		<th ALIGN='left'>General</th>
+		<td>&nbsp;</td>
+	   </tr>
+	   <tr>
+		<td>&nbsp;&nbsp;User</td>
 		<td>$user</td>
 	   </tr>	
 	   <tr>
-		<td>Owner</td>
+		<td>&nbsp;&nbsp;Owner</td>
 		<td>$owner</td>
 	   </tr>	
 	   
@@ -273,15 +352,15 @@ EOH
 	
 		$q->print (<<EOH);
 			<tr>
-			   <td><strong>Subnet</strong></td>
+			   <th ALIGN='left'>Subnet</th>
 			   <td>$s</td>
 			</tr>
 			<tr>
-			   <td>Netmask</td>
-			   <td>$netmask</td>
+			   <td>&nbsp;&nbsp;Netmask</td>
+			   <td>&nbsp;&nbsp;$netmask</td>
 			</tr>
 			<tr>
-			   <td>Description</td>
+			   <td>&nbsp;&nbsp;Description</td>
 			   <td>$desc</td>
 			</tr>
 EOH
@@ -301,7 +380,7 @@ sub error_line
 	my $error = shift;
 	$q->print (<<EOH);
 	   <tr>
-		<td COLSPAN='3'>
+		<td COLSPAN='2'>
 		   <font COLOR='red'>
 			<strong>$error</strong>
 		   </font>
