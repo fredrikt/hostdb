@@ -1,5 +1,11 @@
 Changes
 HOSTDB.pm
+HOSTDB/Auth.pm
 MANIFEST
 Makefile.PL
 test.pl
+HOSTDB/Db.pm
+HOSTDB/Object.pm
+HOSTDB/Object/Host.pm
+HOSTDB/Object/Subnet.pm
+HOSTDB/Object/Zone.pm
