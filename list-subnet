@@ -28,40 +28,36 @@ my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
 my @searchfor = @ARGV;
 
 if ($#searchfor == -1) {
-	die ("Syntax: $0 [-d] netaddr/slash [longer-prefixes] ...\n");
+	die ("Syntax: $0 [-d] netaddr/slash ...\n");
 }
 
-my $first = 1;
 while ($ARGV[0]) {
-	my $longer_prefix = 0;
-
 	my $subnet = shift;
-
-	if (defined ($ARGV[0]) and $ARGV[0] =~ /^l/o) {
-		$longer_prefix = 1;
-		shift (@ARGV);
-	}
 
 	if ($hostdb->check_valid_subnet ($subnet)) {
 		my @subnets;
 		
-		if ($longer_prefix) {
-			@subnets = $hostdb->findsubnetlongerprefix ($subnet);
-		} else {
-			@subnets = $hostdb->findsubnet ($subnet);
-		}
+		@subnets = $hostdb->findsubnetlongerprefix ($subnet);
 		
 		if ($#subnets != -1) {
 			my $subnet;
 			
-			if ($first) {
-				$first = 0;
-				printf ("%-23s %-20s %s\n", "subnet", "netmask", "description");
-			}
-				
 			foreach $subnet (@subnets) {
-				printf ("%-23s %-20s %s\n", $subnet->subnet(),
-					$subnet->netmask (), $subnet->description ());
+				printf ("%-23s (%s) :\n", $subnet->subnet(),
+					$subnet->description ());
+
+				my @hosts = $hostdb->findhostbyiprange(
+						$subnet->netaddr (),
+						$subnet->broadcast ());
+				if (@hosts) {
+					my $host;
+					foreach $host (@hosts) {
+						printf ("	%-20s %s\n",
+							$host->ip (),
+							$host->hostname ()
+						       );
+					}
+				}
 			}
 			
 			print ("\n");
