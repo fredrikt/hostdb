@@ -239,7 +239,7 @@ sub update_db
 		my @mac_l = split (";", $ip_to_mac->{$ip});
 		my $mac_count = $#mac_l + 1;
 
-		my $is_dynamic = 1 if ($host->hostname () =~ /^.*dhcp.*/oi or
+		my $is_dynamic = ((defined ($host->hostname ()) and $host->hostname () =~ /^.*dhcp.*/oi) or
 				       $mac_count >= 5);
 				
 		my $ts = "";	
