@@ -111,19 +111,16 @@ if ($action eq 'commit') {
 		{
 			$zone->commit ();
 		};
+		$id = $zone->id () if (! defined ($id) and defined ($zone));
 		if ($@) {
 			error_line ($q, "Could not commit changes: $@");
-			warn ("$i: Changes to zone with id '$id' could not be committed ($@)\n");
+			warn ("$i Changes to zone with id '$id' could not be committed ($@)\n");
 		} else {
-			warn ("$i: Changes to zone with id '$id' committed successfully\n");
+			warn ("$i Changes to zone with id '$id' committed successfully\n");
 		}
 	}
-	$id = $zone->id () unless ($id);
+	$id = $zone->id () if (! defined ($id) and defined ($host));
 	$zone = get_zone ($hostdb, $id); # read-back
-
-	if (! defined ($zone)) {
-		error_line ($q, "Zone mysteriously vanished (id '$id')");
-	}
 } elsif ($action eq 'search') {
 	# call modify_zone but don't commit () afterwards to get
 	# stuff supplied to us as CGI parameters

@@ -103,19 +103,16 @@ if ($action eq 'commit') {
 		{
 			$subnet->commit ();
 		};
+		$id = $subnet->id () if (! defined ($id) and defined ($subnet));
 		if ($@) {
 			error_line ($q, "Could not commit changes: $@");
-			warn ("$i: Changes to subnet with id '$id' could not be committed ($@)\n");
+			warn ("$i Changes to subnet with id '$id' could not be committed ($@)\n");
 		} else {
-			warn ("$i: Changes to subnet with id '$id' committed successfully\n");
+			warn ("$i Changes to subnet with id '$id' committed successfully\n");
 		}
 	}
-	$id = $subnet->id () unless ($id);
+	$id = $subnet->id () if (! defined ($id) and defined ($subnet));
 	$subnet = get_subnet ($hostdb, $id); # read-back
-
-	if (! defined ($subnet)) {
-		error_line ($q, "Subnet mysteriously vanished (id '$id')");
-	}
 } elsif ($action eq 'search') {
 	# call modify_subnet but don't commit () afterwards to get
 	# stuff supplied to us as CGI parameters

@@ -97,14 +97,16 @@ if ($action eq 'commit') {
 		{
 			$host->commit ();
 		};
+		$id = $host->id () if (! defined ($id) and defined ($host));
 		if ($@) {
 			error_line ($q, "Could not commit changes: $@");
-			warn ("$i: Changes to host with id '$id' could not be committed ($@)\n");
+			warn ("$i Changes to host with id '$id' could not be committed ($@)\n");
 		} else {
-			warn ("$i: Changes to host with id '$id' committed successfully\n");
+			
+			warn ("$i Changes to host with id '$id' committed successfully\n");
 		}
 	}
-	$id = $host->id () unless ($id);
+	$id = $host->id () if (! defined ($id) and defined ($host));
 	$host = get_host ($hostdb, 'ID', $id) if ($id);	# read-back
 } elsif	($action eq 'search') {
 	# call modify_host but don't commit () afterwards to get
