@@ -67,6 +67,18 @@ sub DESTROY
 =head1 PUBLIC FUNCTIONS
 
 
+=head2 is_owner
+
+	Takes a candidate and any object that has a owner () function as argument.
+	Checks for the candidate in what is returned by the owner () function. If
+	an LDAP server is supplied in the config file, then all elements of the
+	lists are looked up in LDAP so that you can have groups in LDAP that are
+	allowed to access HOSTDB objects.
+
+	$is_allowed = $hostdb->auth->is_allowed_write ($host, $user);
+
+
+=cut
 sub is_owner
 {
 	my $self = shift;
@@ -113,6 +125,31 @@ sub is_admin
 
 	return 1 if $self->_is_in_list ($candidate, "admin", $self->admin_list ());
 	return 1 if $self->_is_in_list ($candidate, "LDAP admin", $self->_ldap_explode ($self->admin_list ()));
+
+	return 0;
+}
+
+
+=head2 is_helpdesk
+
+	Works like is_allowed_write but only checks if a user is in the helpdesk-list.
+
+
+=cut
+sub is_helpdesk
+{
+	my $self = shift;
+	my $candidate = shift;
+
+	$self->_debug_print ("Checking if '$candidate' is in HOSTDB helpdesk list");
+
+	if (defined ($self->{authorization}) and $self->{authorization} eq 'DISABLED') {
+		$self->_debug_print ("Authorization DISABLED (through configuration)");
+		return 1;
+	}
+
+	return 1 if $self->_is_in_list ($candidate, "helpdesk", $self->helpdesk_list ());
+	return 1 if $self->_is_in_list ($candidate, "LDAP helpdesk", $self->_ldap_explode ($self->helpdesk_list ()));
 
 	return 0;
 }
@@ -198,6 +235,27 @@ sub admin_list
 	}
 
 	return (wantarray ? @{$self->{admins}} : join (",", @{$self->{admins}}));
+}
+
+
+=head2 helpdesk_list
+
+	A list of users with rights to look at all objects, typically.
+
+
+=cut
+sub helpdesk_list
+{
+	my $self = shift;
+
+	if (defined ($_[0])) {
+		my @newvalue = @_;
+
+		$self->{helpdesk} = \@newvalue;
+		return 1;
+	}
+
+	return (wantarray ? @{$self->{helpdesk}} : join (",", @{$self->{helpdesk}}));
 }
 
 
