@@ -139,7 +139,7 @@ sub commit
 	if (defined ($self->id ()) and $self->id () >= 0) {
 		$sth = $self->{_update_host};
 		$sth->execute (@db_values, $self->id ())
-			or die "$DBI::errstr";
+			or die "$DBI::errstr\n";
 		
 		# XXX check number of rows affected?
 
@@ -537,12 +537,12 @@ sub owner
 	if (@_) {
 		my $newvalue = shift;
 
-		$self->{user} = $newvalue;
+		$self->{owner} = $newvalue;
 	
 		return 1;
 	}
 
-	return ($self->{user});
+	return ($self->{owner});
 }
 
 
