@@ -1,0 +1,114 @@
+#!/usr/local/bin/perl -w
+#
+# $Id$
+#
+# script to modify host aliases in the database
+#
+
+use strict;
+use HOSTDB;
+use Getopt::Long;
+
+my %opt = ();
+my $res = GetOptions (\%opt,
+		      'aliasname=s',
+		      'dnsstatus=s',
+		      'ttl=s',
+		      'comment=s',
+		      'debug',
+		      'force'
+		      );
+
+#die ("$0: Parsing options failed\n") if ($res);
+
+my $debug = defined ($opt{debug});
+my $search_for = shift;
+
+sub usage
+{
+	my $msg = shift;
+	# interpolation
+
+	die(<<EOT);
+${msg}Syntax: $0 [options] <ID/FQDN>
+	options:
+		--debug		debug
+		--force		well, force
+	object modifiers :
+		--aliasname		FQDN
+		--dnsstatus		ENABLED or DISABLED
+		--ttl			DNS TTL
+		--comment		Comment abou host
+
+EOT
+}
+
+usage('') if (! $search_for);
+
+my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
+			      debug => $debug
+			      );
+
+my $alias = get_alias ($hostdb, $search_for);
+
+die ("$0: Could not find host alias object\n") unless ($alias);
+
+if (! $opt{force}) {
+    # do some extra sanity checks if not forced
+
+    if ($opt{aliasname}) {
+	my @h = $hostdb->findhost ('guess', $opt{aliasname});
+
+	if (@h) {
+	    my $id = $h[0]->id ();
+	    my $name = $h[0]->hostname ();
+	    die ("$0: At least one host ($name, id $id) matching that name ($opt{aliasname}) already exists\n");
+	}
+    }
+}
+
+$alias->dnsstatus ($opt{dnsstatus})	or die ("$0: Invalid dnsstatus - $alias->{error}\n") if (defined ($opt{dnsstatus}));
+$alias->ttl ($opt{ttl})			or die ("$0: Invalid ttl - $alias->{error}\n") if (defined ($opt{ttl}));
+$alias->comment ($opt{comment})		or die ("$0: Invalid comment - $alias->{error}\n") if (defined ($opt{comment}));
+
+if (defined ($opt{aliasname})) {
+    # setting aliasname. also set dns zone.
+    my $z = $hostdb->findzonebyhostname ($opt{aliasname});
+
+    die ("$0: Could not find a suitable dnszone for new aliasname '$opt{aliasname}'\n") unless ($z);
+    my $zonename = $z->zonename ();
+    $alias->aliasname ($opt{aliasname})	or die ("$0: Invalid aliasname - $alias->{error}\n");
+    $alias->dnszone ($zonename)		or die ("$0: Invalid zonename - $alias->{error}\n");
+}
+
+$alias->commit () or die ("$0: Could not commit host alias object - $alias->{error}\n");
+
+exit (0);
+
+
+sub get_alias
+{
+    my $hostdb = shift;
+    my $search_for = shift;
+
+    my @alias_refs;
+
+    if ($search_for =~ /^\d+$/) {
+	# all numeric, look for alias using id
+	@alias_refs = $hostdb->findhostaliasbyid ($search_for);
+    } else {
+	@alias_refs = $hostdb->findhostaliasbyname ($search_for);
+    }
+
+    if (! @alias_refs) {
+	warn ("$0: Search for '$search_for' failed - no match\n");
+	return undef;
+    }
+    if (0 + @alias_refs != 1) {
+	my $count = 0 + @alias_refs;
+	warn ("$0: Search for '$search_for' failed - more than one ($count) match\n");
+	return undef;
+    }
+
+    return $alias_refs[0];
+}
