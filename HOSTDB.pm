@@ -11,6 +11,7 @@ use vars qw($VERSION @ISA @EXPORT @EXPORT_OK);
 use HOSTDB::Db;
 use HOSTDB::Auth;
 use HOSTDB::Object::Host;
+use HOSTDB::Object::HostAttribute;
 use HOSTDB::Object::Zone;
 use HOSTDB::Object::Subnet;
 
