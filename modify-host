@@ -165,7 +165,7 @@ sub get_host
 			return undef;
 		}
 	} else {
-		warn ("Search failed: don't recognize whois datatype '$datatype'");
+		warn ("Search failed: don't recognize datatype '$datatype'");
 		return undef;
 	}
 
