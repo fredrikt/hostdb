@@ -531,8 +531,9 @@ sub print_host_info
 	my $hostattributes_link = '';
 	if ($is_admin or $is_helpdesk) {
 		my @attrs = $host->init_attributes ();
+		my $numattrs = scalar @attrs;
 
-		if (scalar @attrs > 0) {
+		if ($numattrs > 0) {
 			if ($links{hostattributes}) {
 				$hostattributes_link = "[<a HREF='$links{hostattributes};id=$id'>attributes</a>]";
 			} else {
