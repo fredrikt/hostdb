@@ -72,6 +72,8 @@ foreach my $file (@files) {
 				
 				if ($lhs ne $saved_soa[0] or $rhs ne $saved_soa[2]) {
 					# something more than the serial number changed
+
+					print ("$zonename :\n\n") if ($print_zonename);
 					
 					print ("$saved_soa_str$line\n\n");
 				}
