@@ -45,7 +45,8 @@ while ($ARGV[0]) {
 		@host_refs = $hostdb->findhostbymac ($search_for);
 	} elsif ($hostdb->is_valid_ip ($search_for)) {
 		@host_refs = $hostdb->findhostbyip ($search_for);
-	} elsif ($hostdb->is_valid_fqdn ($search_for)) {
+	} elsif ($hostdb->clean_hostname ($t)) {
+		$search_for = $t;
 		@host_refs = $hostdb->findhostbyname ($search_for);
 	} else {
 		die ("Don't recognize '$search_for'\n");
