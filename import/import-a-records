@@ -8,13 +8,37 @@
 
 use strict;
 use HOSTDB;
+use Getopt::Std;
+use vars qw ($opt_h $opt_o $opt_n $opt_d);
 
-my $debug = 0;
+getopts ('ho:nd');
+
+if (defined ($opt_h)) {
+    die (<<EOT);
+Syntax : $0 [options] zonefile ...
+
+    Options :
+
+	-d	debug
+	-n	hostdb dry run
+	-o fn	output zonefile name, works only with a single zone
+
+EOT
+}
+
+my $debug = defined ($opt_d);
+my $db_dry_run = defined ($opt_n);
+my $output_filename = $opt_o || '';
+
 my @files = @ARGV;
 my $default_ttl;
 
 if ($#files == -1) {
     die ("Syntax: $0 zonefiles\n");
+}
+
+if ($output_filename and $#files != 0) {
+    die ("$0: You can't specify output filename when you have more than one input zone\n");
 }
 
 my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
