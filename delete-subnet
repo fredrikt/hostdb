@@ -7,23 +7,28 @@
 
 use strict;
 use HOSTDB;
+use Getopt::Long;
+use vars qw ($opt_debug $opt_force $opt_quiet);
 
-my $debug = 0;
-if ($ARGV[0] eq "-d") {
-	shift (@ARGV);
-	$debug = 1;
-}
+my %o = ();
+my $res = GetOptions (
+	    "debug",
+	    "force",
+	    "quiet"
+	   );
 
+
+my $debug = defined ($opt_debug);
 
 my $subnet_name = shift;
-my $check = shift || 'unsure';
 
 if (! $subnet_name) {
-	die("Syntax: $0 subnet YES\n");
-}
+	die(<<EOT);
+Syntax: [options] $0 subnet
+	options:
+		--force	really delete the subnet
 
-if ($check ne "YES") {
-	die ("Not removing subnet $subnet_name since you seem unsure.\n\nSyntax: $0 subnet YES\n");
+EOT
 }
 
 my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
@@ -34,7 +39,11 @@ my $subnet = $hostdb->findsubnet ($subnet_name);
 
 die ("Could not find subnet '$subnet_name' in database\n") if (! $subnet);
 
-if (! $subnet->delete ($check)) {
+if (! defined ($opt_force)) {
+	die ("Not removing subnet $subnet_name, you have to delete with force.\n");
+}
+
+if (! $subnet->delete ($opt_force?"YES":"WELL, UHH")) {
 	die ("Could not delete subnet '$subnet_name': $subnet->{error}\n");
 }
 
