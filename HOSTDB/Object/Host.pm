@@ -631,8 +631,13 @@ sub owner
 {
     my $self = shift;
 
-    my $l = join (',', @_) if (@_);
-    $self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_list_of_usernames, $l);
+    if (@_) {
+	my $l = join (',', @_);
+	$self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_list_of_usernames, $l);
+    } else {
+	# get
+	$self->_set_or_get_attribute ();
+    }
 }
 
 
