@@ -623,6 +623,97 @@ sub get_broadcast
 }
 
 
+=head2 is_valid_htmlcolor
+
+	XXX
+
+
+=cut
+sub is_valid_htmlcolor
+{
+	my $self = shift;
+	my $in = shift;
+	
+	if ($in =~ /^#[0-9a-f]{6,6}$/i or $in =~ /^\w{1,25}$/) {
+		$self->_debug_print ("$in is a valid htmlcolor");
+		return 1 
+	}
+
+	$self->_debug_print ("$in is NOT a valid htmlcolor");
+	return 0;
+}
+
+
+=head2 is_valid_username
+
+	Checks that a single username is syntactically reasonable.
+
+
+=cut
+sub is_valid_username
+{
+	my $self = shift;
+	my $in = lc (shift);
+	
+	if ($in =~ /^[a-z0-9_\.-]{1,20}$/) {
+		$self->_debug_print ("$in is a valid username");
+		return 1 
+	}
+
+	$self->_debug_print ("$in is NOT a valid username");
+	return 0;
+}
+
+
+=head2 is_valid_nameserver_time
+
+	Checks if the specified value is either a positive integer
+	or a BIND9 syntax parseable value like 1w2d3h4m5s.
+
+
+=cut
+sub is_valid_nameserver_time
+{
+	my $self = shift;
+	my $in = lc (shift);
+	
+	if ($in =~ /^0+$/ or (int ($in) > 0)) {
+		$self->_debug_print ("$in is a valid nameserver time");
+		return 1 
+	}
+
+	# check for BIND9 time like 1w2d3h4m5s
+	my $seconds = 0;
+	if ($in =~ /^(\d+)w(.*)$/) {
+		$seconds += int ($1) * (86400 * 7);
+		$in = $2;
+	}
+	if ($in =~ /^(\d+)d(.*)$/) {
+		$seconds += int ($1) * 86400;
+		$in = $2;
+	}
+	if ($in =~ /^(\d+)h(.*)$/) {
+		$seconds += int ($1) * 3600;
+		$in = $2;
+	}
+	if ($in =~ /^(\d+)m(.*)$/) {
+		$seconds += int ($1) * 60;
+		$in = $2;
+	}
+	if ($in =~ /^\d+$/) {
+		$seconds += int ($in);
+		$in = '';
+	}
+	
+	if (! $in and int ($seconds) > 0) {
+		$self->_debug_print ("$in is a valid nameserver time ($seconds seconds)");
+		return 1;
+	}
+
+	$self->_debug_print ("$in is NOT a valid nameserver time");
+	return 0;
+}
+
 =head2 dump
 
 	$hostdb->dump();
