@@ -384,6 +384,127 @@ sub v_blob
 }
 
 
+=head2 lastupdated
+
+	Blah
+
+
+=cut
+sub lastupdated
+{
+	my $self = shift;
+
+	if (@_) {
+		my $newvalue = shift;
+
+		my $fmtvalue = $self->_format_datetime ($newvalue);
+		if (defined ($fmtvalue)) {
+			if ($fmtvalue eq 'NULL') {
+				$self->{lastupdated} = undef;
+			} else {
+				$self->{lastupdated} = $fmtvalue;
+			}
+
+			return 1;
+		} else {
+			$self->_set_error ("Invalid mac_address timestamp format");
+			return 0;
+		}
+
+		return 1;
+	}
+
+	return ($self->{lastupdated});
+}
+
+
+=head2 unix_lastupdated
+
+	unix_lastupdated is lastupdated but expressed as a UNIX
+	timestamp. It is not stored in the database, but calculated at
+	the time a host attribute object is fetched from the database. The only
+	purpose of this is to make it easier for applications using
+	host attribute objects to perform date calculations.
+
+	printf "The attribute was last updated %i seconds ago.\n",
+	       time () - $attr->unix_lastupdated ();
+
+
+=cut
+sub unix_lastupdated
+{
+	my $self = shift;
+
+	if (@_) {
+		$self->_set_error ("unix_lastupdated is read only");
+		return 0;
+	}
+
+	return ($self->{unix_lastupdated});
+}
+
+
+=head2 lastmodified
+
+	Blah
+
+
+=cut
+sub lastmodified
+{
+	my $self = shift;
+
+	if (@_) {
+		my $newvalue = shift;
+
+		my $fmtvalue = $self->_format_datetime ($newvalue);
+		if (defined ($fmtvalue)) {
+			if ($fmtvalue eq 'NULL') {
+				$self->{lastmodified} = undef;
+			} else {
+				$self->{lastmodified} = $fmtvalue;
+			}
+
+			return 1;
+		} else {
+			$self->_set_error ("Invalid mac_address timestamp format");
+			return 0;
+		}
+
+		return 1;
+	}
+
+	return ($self->{lastmodified});
+}
+
+
+=head2 unix_lastmodified
+
+	unix_lastmodified is lastmodified but expressed as a UNIX
+	timestamp. It is not stored in the database, but calculated at
+	the time a host attribute object is fetched from the database. The only
+	purpose of this is to make it easier for applications using
+	host attribute objects to perform date calculations.
+
+	printf "The attribute was last modified %i seconds ago.\n",
+	       time () - $attr->unix_lastmodified ();
+
+
+=cut
+sub unix_lastmodified
+{
+	my $self = shift;
+
+	if (@_) {
+		$self->_set_error ("unix_lastmodified is read only");
+		return 0;
+	}
+
+	return ($self->{unix_lastmodified});
+}
+
+
+
 
 1;
 __END__
