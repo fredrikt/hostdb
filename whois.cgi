@@ -34,9 +34,9 @@ if (-f $hostdbini->val ('sucgi', 'cfgfile')) {
 
 my $q = SUCGI->new ($sucgi_ini);
 
-my $showsubnet_path = $q->state_url($hostdbini->val('subnet','showsubnet_uri'));
-my $modifyhost_path = $q->state_url($hostdbini->val('subnet','modifyhost_uri'));
-my $modifyzone_path = $q->state_url($hostdbini->val('subnet','modifyzone_uri'));
+my $showsubnet_path = $q->state_url ($hostdbini->val('subnet','showsubnet_uri')) if ($hostdbini->val('subnet','showsubnet_uri'));
+my $modifyhost_path = $q->state_url ($hostdbini->val('subnet','modifyhost_uri')) if ($hostdbini->val('subnet','modifyhost_uri'));
+my $modifyzone_path = $q->state_url ($hostdbini->val('subnet','modifyzone_uri')) if ($hostdbini->val('subnet','modifyzone_uri'));
 my $static_flag_days = $hostdbini->val ('subnet', 'static_flag_days');
 my $dynamic_flag_days = $hostdbini->val ('subnet', 'static_flag_days');
 

@@ -33,7 +33,7 @@ if (-f $hostdbini->val ('sucgi', 'cfgfile')) {
 
 my $q = SUCGI->new ($sucgi_ini);
 
-my $showsubnet_path = $q->state_url ($hostdbini->val ('subnet', 'showsubnet_uri'));
+my $showsubnet_path = $q->state_url ($hostdbini->val ('subnet', 'showsubnet_uri')) if ($hostdbini->val ('subnet', 'showsubnet_uri'));
 
 my %colors = load_colors ($hostdbini);
 

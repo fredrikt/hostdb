@@ -79,9 +79,9 @@ if (! $subnet) {
 	die ("No subnet found\n");
 }
 
-my $whois_path = $q->state_url ($hostdbini->val ('subnet', 'whois_uri'));
-my $modifyhost_path = $q->state_url ($hostdbini->val ('subnet', 'modifyhost_uri'));
-my $modifysubnet_path = $q->state_url ($hostdbini->val ('subnet', 'modifysubnet_uri'));
+my $whois_path = $q->state_url ($hostdbini->val ('subnet', 'whois_uri')) if ($hostdbini->val ('subnet', 'whois_uri'));
+my $modifyhost_path = $q->state_url ($hostdbini->val ('subnet', 'modifyhost_uri')) if ($hostdbini->val ('subnet', 'modifyhost_uri'));
+my $modifysubnet_path = $q->state_url ($hostdbini->val ('subnet', 'modifysubnet_uri')) if ($hostdbini->val ('subnet', 'modifysubnet_uri'));
 
 my $subnetname = $subnet->subnet ();
 
@@ -135,7 +135,7 @@ sub list_subnet
 	my $id = $subnet->id ();
 
 	my $edit_subnet_link = '';
-	if ($is_admin) {
+	if ($is_admin and $modifysubnet_path) {
 		$edit_subnet_link = "[<a HREF='$modifysubnet_path;id=$id'>edit</a>]";
 	}
 

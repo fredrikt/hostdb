@@ -33,9 +33,9 @@ if (-f $hostdbini->val ('sucgi', 'cfgfile')) {
 
 my $q = SUCGI->new ($sucgi_ini);
 
-my $showsubnet_path = $q->state_url ($hostdbini->val ('subnet', 'showsubnet_uri'));
-my $deletehost_path = $q->state_url ($hostdbini->val ('subnet', 'deletehost_uri'));
-my $whois_path = $q->state_url ($hostdbini->val ('subnet', 'whois_uri'));
+my $showsubnet_path = $q->state_url ($hostdbini->val ('subnet', 'showsubnet_uri')) if ($hostdbini->val ('subnet', 'showsubnet_uri'));
+my $deletehost_path = $q->state_url ($hostdbini->val ('subnet', 'deletehost_uri')) if ($hostdbini->val ('subnet', 'deletehost_uri'));
+my $whois_path = $q->state_url ($hostdbini->val ('subnet', 'whois_uri')) if ($hostdbini->val ('subnet', 'whois_uri'));
 
 $q->begin (title => 'Modify/Add Host');
 my $remote_user = '';

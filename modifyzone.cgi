@@ -43,7 +43,7 @@ $zone_defaults{soa_minimum} = $hostdbini->val ('zone', 'default_soa_minimum');
 
 my $q = SUCGI->new ($sucgi_ini);
 
-my $whois_path = $q->state_url ($hostdbini->val ('subnet', 'whois_uri'));
+my $whois_path = $q->state_url ($hostdbini->val ('subnet', 'whois_uri')) if ($hostdbini->val ('subnet', 'whois_uri'));
 
 $q->begin (title => 'Modify Zone');
 my $remote_user = '';

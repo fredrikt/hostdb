@@ -33,8 +33,8 @@ if (-f $hostdbini->val ('sucgi', 'cfgfile')) {
 
 my $q = SUCGI->new ($sucgi_ini);
 
-my $showsubnet_path = $q->state_url($hostdbini->val('subnet','showsubnet_uri'));
-my $modifyhost_path = $q->state_url($hostdbini->val('subnet','modifyhost_uri'));
+my $showsubnet_path = $q->state_url ($hostdbini->val('subnet','showsubnet_uri')) if ($hostdbini->val('subnet','showsubnet_uri'));
+my $modifyhost_path = $q->state_url ($hostdbini->val('subnet','modifyhost_uri')) if ($hostdbini->val('subnet','modifyhost_uri'));
 my $netplan_uri = $hostdbini->val('subnet', 'netplan_uri');
 
 $q->begin (title => 'Delete Host');
