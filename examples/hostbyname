@@ -35,7 +35,7 @@ my $first = 1;
 my $match_count = 0;
 
 foreach my $t_search (sort @searchfor) {
-	if (! $hostdb->valid_fqdn ($t_search)) {
+	if (! $hostdb->is_valid_fqdn ($t_search)) {
 		warn ("Invalid FQDN '$t_search'\n");
 		next;
 	}

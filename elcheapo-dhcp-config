@@ -254,7 +254,7 @@ sub parse_cfgfile
 			print ("$infile:$.	'$ip' '$fixedaddress' '$mac'\n") if ($debug);
 
 			die ("$infile:$. Invalid IP address '$ip'\n") if (! $hostdb->check_valid_ip ($ip));
-			die ("$infile:$. Invalid FQDN '$fixedaddress'\n") if (! $hostdb->valid_fqdn ($fixedaddress));
+			die ("$infile:$. Invalid FQDN '$fixedaddress'\n") if (! $hostdb->is_valid_fqdn ($fixedaddress));
 
 			die ("$infile:$. IP '$ip' not in subnet " . $subnet->subnet () . "\n") if (! ip_in_subnet ($hostdb, $ip, $subnet));;
 

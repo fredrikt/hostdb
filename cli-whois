@@ -51,7 +51,7 @@ while ($ARGV[0]) {
 		my @gaah;
 		push (@gaah, $host);
 		push (@host_refs, \@gaah);
-	} elsif ($hostdb->valid_fqdn ($search_for)) {
+	} elsif ($hostdb->is_valid_fqdn ($search_for)) {
 		@host_refs = $hostdb->findhostbyname ($search_for);
 	} else {
 		die ("Don't recognize '$search_for'\n");

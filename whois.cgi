@@ -109,7 +109,7 @@ sub perform_search
 				$whoisdatatype = "MAC";
 			} elsif ($hostdb->check_valid_ip ($search_for)) {
 				$whoisdatatype = "IP";
-			} elsif ($hostdb->valid_fqdn ($search_for)) {
+			} elsif ($hostdb->is_valid_fqdn ($search_for)) {
 				$whoisdatatype = "FQDN";
 			} elsif ($search_for =~ /^\d+$/) { 
 				$whoisdatatype = "ID";
@@ -132,7 +132,7 @@ sub perform_search
 				return undef;
 			}
 		} elsif ($whoisdatatype eq "FQDN") {
-			if ($hostdb->valid_fqdn ($search_for)) {
+			if ($hostdb->is_valid_fqdn ($search_for)) {
 				@host_refs = $hostdb->findhostbyname ($search_for);
 			} else {
 				error_line ($q, "Search failed: '$search_for' is not a valid FQDN");

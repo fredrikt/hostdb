@@ -101,7 +101,7 @@ sub get_inifile
 	This function modified the variable passed to it, like chomp().
 
 	It converts the hostname to lower case, strips any trailing dots
-	and finally returns the result of valid_fqdn ($new_hostname).
+	and finally returns the result of is_valid_fqdn ($new_hostname).
 
 =cut
 sub clean_hostname
@@ -114,7 +114,7 @@ sub clean_hostname
 
 	$new =~ s/\.+$//o;	# strip trailing dots
 
-	$valid = $self->valid_fqdn ("$new");
+	$valid = $self->is_valid_fqdn ("$new");
 	
 	if ($valid and ($new ne $_[0])) {
 		$self->_debug_print ("changed '$_[0]' into '$new'");
@@ -158,14 +158,14 @@ sub clean_zonename
 }
 
 
-=head2 valid_fqdn
+=head2 is_valid_fqdn
 
-	$is_valid = $hostdb->valid_fqdn ($hostname);
+	$is_valid = $hostdb->is_valid_fqdn ($hostname);
 
 	Checks with some regexps if $hostname is a valid FQDN host name.
 
 =cut
-sub valid_fqdn
+sub is_valid_fqdn
 {
 	my $self = shift;
 	my $hostname = shift;
@@ -224,7 +224,7 @@ ERROR:
 	$is_valid = $hostdb->valid_zonename ($zonename);
 
 	Checks with some regexps if $zonename is a valid domain name.
-	This is nearly the same thing as valid_fqdn but a bit more relaxed.
+	This is nearly the same thing as is_valid_fqdn but a bit more relaxed.
 
 =cut
 sub valid_zonename
