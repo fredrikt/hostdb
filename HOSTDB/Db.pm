@@ -598,9 +598,6 @@ sub findzonebyhostname
 
 	return undef if (! $self->clean_hostname ($hostname));
 
-	# append trailing dot
-	$checkzone .= '.';
-
 	while ($checkzone) {
 		my $zone = $self->findzonebyname ($checkzone);
 		if (defined ($zone)) {
@@ -608,6 +605,8 @@ sub findzonebyhostname
 			$self->_debug_print ("Hostname $hostname belongs to zone $checkzone");
 			return $zone;
 		}
+
+		last if (index ($checkzone, '.') == -1);
 
 		# strip up to and including the first dot (min.it.su.se -> it.su.se)
 		$checkzone =~ s/^.+?\.(.*)/$1/;
@@ -645,15 +644,14 @@ sub findzonenamebyhostname
 
 	return undef if (! $self->clean_hostname ($hostname));
 
-	# append trailing dot
-	$checkzone .= '.';
-
 	while ($checkzone) {
 		if (grep (/^$checkzone$/, @all_zones)) {
 			# we have a match
 			$self->_debug_print ("Hostname $hostname belongs to zone $checkzone");
 			return $checkzone;
 		}
+
+		last if (index ($checkzone, '.') == -1);
 
 		# strip up to and including the first dot (min.it.su.se -> it.su.se)
 		$checkzone =~ s/^.+?\.(.*)/$1/;
