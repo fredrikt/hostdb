@@ -899,102 +899,135 @@ sub check_valid_zonename
 	return valid_zonename ($zone);
 }
 
-sub set_zonename
+sub zonename
 {
 	my $self = shift;
-	my $zonename = shift;
-	
-	return 0 if (! $self->clean_zonename ($zonename));
 
-	$self->{zonename} = $zonename;
+	if (@_) {
+		my $zonename = shift;
 	
-	return 1;
+		return 0 if (! $self->clean_zonename ($zonename));
+		$self->{zonename} = $zonename;
+		
+		return 1;
+	}
+
+	return ($self->{zonename});
 }
 
-sub set_serial
+sub serial
 {
 	my $self = shift;
-	my $serial = shift;
+	if (@_) {
+		my $serial = shift;
 
-	$self->_debug_print ("Setting SOA serial '$serial'");
+		$self->_debug_print ("Setting SOA serial '$serial'");
 
-	if ($serial eq "NULL") {
-		$self->{serial} = "NULL";
-	} else {
-		if ($serial !~ /^\d{10,10}$/) {
-			$self->_set_error("Invalid serial number (should be 10 digits, todays date and two incrementing)");
-			return 0;
+		if ($serial eq "NULL") {
+			$self->{serial} = "NULL";
+		} else {
+			if ($serial !~ /^\d{10,10}$/) {
+				$self->_set_error("Invalid serial number (should be 10 digits, todays date and two incrementing)");
+				return 0;
+			}
+			$self->{serial} = int ($serial);
 		}
-		$self->{serial} = int ($serial);
+		
+		return 1;
 	}
 
-	return 1;
+	return $self->{serial};
 }
 
-sub set_refresh
+sub refresh
 {
 	my $self = shift;
-	my $refresh = shift;
 
-	if ($refresh eq "NULL") {
-		$self->{refresh} = "NULL";
-	} else {
-		$self->{refresh} = int ($refresh);
+	if (@_) {
+		my $refresh = shift;
+
+		if ($refresh eq "NULL") {
+			$self->{refresh} = "NULL";
+		} else {
+			$self->{refresh} = int ($refresh);
+		}
+		
+		return 1;
 	}
 
-	return 1;
+	return $self->{refresh};
 }
 
-sub set_retry
+sub retry
 {
 	my $self = shift;
-	my $retry = shift;
 
-	if ($retry eq "NULL") {
-		$self->{retry} = "NULL";
-	} else {
-		$self->{retry} = int ($retry);
+	if (@_) {
+		my $retry = shift;
+
+		if ($retry eq "NULL") {
+			$self->{retry} = "NULL";
+		} else {
+			$self->{retry} = int ($retry);
+		}
+		
+		return 1;
 	}
 
-	return 1;
+	return $self->{retry};
 }
 
-sub set_expiry
+sub expiry
 {
 	my $self = shift;
-	my $expiry = shift;
-
-	if ($expiry eq "NULL") {
-		$self->{expiry} = "NULL";
-	} else {
-		$self->{expiry} = int ($expiry);
-	}
-
-	return 1;
-}
-
-sub set_minimum
-{
-	my $self = shift;
-	my $minimum = shift;
-
-	if ($minimum eq "NULL") {
-		$self->{minimum} = "NULL";
-	} else {
-		$self->{minimum} = int ($minimum);
-	}
-
-	return 1;
-}
-
-sub set_owner
-{
-	my $self = shift;
-	my $owner = shift;
-
-	$self->{owner} = $owner;
 	
-	return 1;
+	if (@_) {
+		my $expiry = shift;
+
+		if ($expiry eq "NULL") {
+			$self->{expiry} = "NULL";
+		} else {
+			$self->{expiry} = int ($expiry);
+		}
+		
+		return 1;
+	}
+
+	return $self->{expiry};
+}
+
+sub minimum
+{
+	my $self = shift;
+
+	if (@_) {
+		my $minimum = shift;
+
+		if ($minimum eq "NULL") {
+			$self->{minimum} = "NULL";
+		} else {
+			$self->{minimum} = int ($minimum);
+		}
+		
+		return 1;
+	}
+	
+	return $self->{minimum};
+}
+
+sub owner
+{
+	my $self = shift;
+
+	if (@_) {
+		my $owner = shift;
+
+		$self->{owner} = $owner;
+		
+		return 1;
+	}
+		
+	return $self->{owner};
 }
 
 sub commit

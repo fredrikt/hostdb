@@ -40,11 +40,11 @@ foreach my $searchzone (sort @searchfor) {
 
 	if ($searchzone eq "*") {
 		foreach my $zone ($hostdb->findallzones ()) {
-			printf ("%-25s %-10s %s\n", $zone->{zonename}, $zone->{serial}, $zone->{owner});
+			printf ("%-25s %-10s %s\n", $zone->zonename (), $zone->serial (), $zone->owner ());
 		}
 	} else {
 		foreach my $zone ($hostdb->findzonebyname ($searchzone)) {
-			printf ("%-25s %-10s %s\n", $zone->{zonename}, $zone->{serial}, $zone->{owner});
+			printf ("%-25s %-10s %s\n", $zone->zonename (), $zone->serial (), $zone->owner ());
 		}
 	}
 

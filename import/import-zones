@@ -64,9 +64,9 @@ sub add_zone
 		my $zone = $hostdb->create_zone ();
 
 		my $valid = 1;
-		$zone->set_zonename ("$zonename") or warn ($zone->{error}), $valid = 0;
-		$zone->set_serial (2002081901) or warn ($zone->{error}), $valid = 0; # XXX FIX ME
-		$zone->set_owner ("import") or warn ($zone->{error}), $valid = 0;
+		$zone->zonename ("$zonename") or warn ($zone->{error}), $valid = 0;
+		$zone->serial (2002081901) or warn ($zone->{error}), $valid = 0; # XXX FIX ME
+		$zone->owner ("import") or warn ($zone->{error}), $valid = 0;
 
 		$zone->commit() if ($valid);
 	
