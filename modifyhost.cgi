@@ -174,7 +174,8 @@ sub modify_host
 			       'ttl' =>		'ttl',
 			       'comment' =>	'comment',
 			       'partof' =>	'partof',
-			       'ip' =>		'ip'
+			       'ip' =>		'ip',
+			       'profile' =>	'profile'
 			      );
 			      
 		foreach my $name (keys %changer) {
@@ -311,31 +312,12 @@ sub host_form
 	my $q = shift;
 	my $host = shift;
 	my $remote_user = shift;
-
-	# HTML 
-        my $state_field = $q->state_field ();
-	my $commit = $q->submit ('action', 'Commit');
-
 	my ($id, $partof, $ip, $mac, $hostname, $comment, $owner, 
-	    $dnsmode, $dnsstatus, $dhcpmode, $dhcpstatus, $subnet);
+	    $dnsmode, $dnsstatus, $dhcpmode, $dhcpstatus, $subnet,
+	    $profile);
 	
-	# HTML
-	my $me = $q->state_url ();
-	if (defined ($host)) {
-		$id = $host->id ();
-		$partof = $q->textfield ('partof', $host->partof ());
-		$ip = $q->textfield ('ip', $host->ip ());
-		$mac = $q->textfield ('mac_address', $host->mac_address ());
-		$hostname = $q->textfield ('hostname', $host->hostname ());
-		$comment = $q->textfield ('comment', $host->comment ());
-		$owner = $q->textfield ('owner', $host->owner () || $remote_user);
-		$dnsmode = $q->popup_menu (-name => 'dnsmode', -values => ['A_AND_PTR', 'A'], -default => $host->dnsmode ());
-		$dnsstatus = $q->popup_menu (-name => 'dnsstatus', -values => ['ENABLED', 'DISABLED'], -default => $host->dnsstatus ());
-		$dhcpmode = $q->popup_menu (-name => 'dhcpmode', -values => ['STATIC', 'DYNAMIC'], -default => $host->dhcpmode ());
-		$dhcpstatus = $q->popup_menu (-name => 'dhcpstatus', -values => ['ENABLED', 'DISABLED'], -default => $host->dhcpstatus ());
-	}
 
-	my $h_subnet = $hostdb->findsubnetclosestmatch ($ip);
+	my $h_subnet = $hostdb->findsubnetclosestmatch ($host->ip ());
 
 	if (defined ($h_subnet)) {
 		$subnet = $h_subnet->subnet ();
@@ -347,6 +329,53 @@ sub host_form
 		$subnet = "not in database";
 	}
 		
+
+	# HTML 
+        my $state_field = $q->state_field ();
+	my $commit = $q->submit ('action', 'Commit');
+
+	my %dnsmode_labels = ('A_AND_PTR' => 'Forward and reverse',
+			      'A'	  => 'Only forward');
+	my %enabled_labels = ('ENABLED'	  => 'Enabled',
+			      'DISABLED'  => 'Disabled');
+	my %dhcpmode_labels = ('STATIC'	  => 'Static',
+			       'DYNAMIC'  => 'Dynamic');
+			      
+	my $me = $q->state_url ();
+	if (defined ($host)) {
+		my @profiles = split (',', $h_subnet->profilelist ());
+		
+		$id = $host->id ();
+		$partof = $q->textfield ('partof', $host->partof ());
+		$ip = $q->textfield ('ip', $host->ip ());
+		$mac = $q->textfield ('mac_address', $host->mac_address ());
+		$hostname = $q->textfield ('hostname', $host->hostname ());
+		$comment = $q->textfield (-name => 'comment',
+					  -default => $host->comment (),
+					  -size => 45,
+					  -maxlength => 255);
+		$owner = $q->textfield ('owner', $host->owner () || $remote_user);
+		$dnsmode = $q->popup_menu (-name => 'dnsmode',
+					   -values => ['A_AND_PTR', 'A'],
+					   -labels => \%dnsmode_labels,
+					   -default => $host->dnsmode ());
+		$dnsstatus = $q->popup_menu (-name => 'dnsstatus',
+					     -values => ['ENABLED', 'DISABLED'],
+					     -labels => \%enabled_labels,
+					     -default => $host->dnsstatus ());
+		$dhcpmode = $q->popup_menu (-name => 'dhcpmode',
+					    -values => ['STATIC', 'DYNAMIC'],
+					    -labels => \%dhcpmode_labels,
+					    -default => $host->dhcpmode ());
+		$dhcpstatus = $q->popup_menu (-name => 'dhcpstatus',
+					      -values => ['ENABLED', 'DISABLED'],
+					      -labels => \%enabled_labels,
+					      -default => $host->dhcpstatus ());
+		$profile = $q->popup_menu (-name => 'profile',
+					   -values => \@profiles,
+					   -default => $host->profile ());
+	}
+
 	my $empty_td = '<td>&nbsp;</td>';
 	
 	my $required = "<font COLOR='red'>*</font>";
@@ -414,10 +443,14 @@ sub host_form
 			<td>$dhcpmode</td>
 		</tr>
 		<tr>
+			$empty_td
+			$empty_td
+			<td>Profile</td>
+			<td>$profile</td>
+		</tr>
+		<tr>
 			<td>Comment</td>
-			<td>$comment</td>
-			$empty_td
-			$empty_td
+			<td COLSPAN='3'>$comment</td>
 		</tr>	
 		<tr>
 			<td>Owner $required</td>
