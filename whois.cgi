@@ -171,7 +171,7 @@ sub perform_search
 					$q->print ("<tr><th COLSPAN='2' ALIGN='left'>Host :</th></tr>");
 					$q->print ("<tr><td COLSPAN='2'>&nbsp;</td></tr>\n");
 		
-					print_host_info ($q, $host);
+					print_host_info ($q, $hostdb, $host);
 
 					$q->print ($table_blank_line);
 		
@@ -224,6 +224,7 @@ EOH
 sub print_host_info
 {
 	my $q = shift;
+	my $hostdb = shift;
 	my $host = shift;
 	
 	return undef if (! defined ($host));
@@ -248,6 +249,22 @@ sub print_host_info
 		<td>Parent</td>
 		<td>$parent</td>
 	   </tr>
+EOH
+
+	my $t_host;
+	foreach $t_host ($hostdb->findhostbypartof ($id)) {
+		my $child = $t_host->id ()?$t_host->id ():'-';
+		$child = "<a href='$me&whoisdatatype=ID&whoisdata=$child'>$child</a>";
+		
+		$q->print (<<EOH);
+			<tr>
+				<td>Child</td>
+				<td>$child</td>
+			</tr>
+EOH
+	}
+
+	$q->print (<<EOH);
 	   <tr>
 		<td ALIGN='center'>---</td>
 		<td>&nbsp;</td>
