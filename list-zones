@@ -8,23 +8,33 @@
 use strict;
 use HOSTDB;
 use Getopt::Std;
-use vars qw ($opt_h $opt_d $opt_r);
+use vars qw ($opt_h $opt_d $opt_r $opt_x $opt_X);
 
-getopts ('hdr');
+getopts ('hdrxX');
 
 my $debug = 0;
 my $raw = 0;
+my $skip_delegated = 0;
+my $skip_non_delegated = 0;
 
 $debug = 1 if (defined ($opt_d));
 $raw = 1 if (defined ($opt_r));
+$skip_non_delegated = 1 if (defined ($opt_x));
+$skip_delegated = 1 if (defined ($opt_X));
 
 if ($opt_h) {
-	die ("Syntax: $0 [options]\n" .
-	     "	options :\n" .
-	     "		-d debug output\n" .
-	     "		-r raw mode, just zone names (for scripting)\n"
+	die (<<EOT);
+Syntax: $0 [options]
+	options :
+		-d debug output
+		-r raw mode, just zone names (for scripting)
+		-x skip NON-delegated zones
+		-X skip delegated zones
 	    );
+EOT
 }
+
+die ("$0: -x and -X contradicts each other\n") if ($skip_delegated and $skip_non_delegated);
 
 my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
 			      debug => $debug
@@ -47,6 +57,9 @@ foreach my $searchzone (sort @searchfor) {
 
 	if ($searchzone eq "*") {
 		foreach my $zone ($hostdb->findallzones ()) {
+			next if ($skip_delegated and $zone->delegated () eq 'Y');
+			next if ($skip_non_delegated and $zone->delegated () eq 'N');
+
 			$exit_code = 0;
 			if ($raw) {
 				print ($zone->zonename () . "\n");
@@ -57,6 +70,9 @@ foreach my $searchzone (sort @searchfor) {
 		}
 	} else {
 		foreach my $zone ($hostdb->findzonebyname ($searchzone)) {
+			next if ($skip_delegated and $zone->delegated () eq 'Y');
+			next if ($skip_non_delegated and $zone->delegated () eq 'N');
+
 			$exit_code = 0;
 			if ($raw) {
 				print ($zone->zonename () . "\n");
