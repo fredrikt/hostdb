@@ -130,7 +130,7 @@ sub update_serial
 		
 		print ("$zonename: Changed SOA serial from $old_serial to $new_serial\n") if (! $quiet);
 	} else {
-		print ("$zonename: SOA serial not changed\n") if (! $quiet);
+		print ("$zonename: SOA serial not changed ($old_serial)\n") if (! $quiet);
 	}
 
 	return 1;
