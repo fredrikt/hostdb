@@ -9,14 +9,14 @@ use strict;
 use HOSTDB;
 
 my $debug = 0;
-if ($ARGV[0] eq "-d") {
+if (defined ($ARGV[0]) and $ARGV[0] eq "-d") {
 	shift (@ARGV);
 	$debug = 1;
 }
 
 if ($#ARGV != 2) {
 	die (<<EOT);
-Syntax: $0 subnet short-desc long-desc
+Syntax: $0 subnet owner short-desc long-desc
 	subnet is the subnet in slash notation (eg. 192.168.1.0/24)
 	short-desc is what is shown in the overview netplan
 	long-desc is the long description of the subnet
@@ -32,8 +32,9 @@ my $subnet = $hostdb->create_subnet (4, $ARGV[0]);
 
 die ("Could not create subnet object: " . $hostdb->{error} . "\n") if (! $subnet);
 
-$subnet->short_description ($ARGV[1]);
-$subnet->description ($ARGV[2]);
+$subnet->owner ($ARGV[1]);
+$subnet->short_description ($ARGV[2]);
+$subnet->description ($ARGV[3]);
 
 $subnet->commit() or die ("Could not commit subnet object: " . $subnet->{error} . "\n");
 
