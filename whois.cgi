@@ -92,12 +92,31 @@ sub whois_form
 {
     my $q = shift;
 
-    # HTML 
+    my @popup_values = ('Guess', 'IP', 'FQDN', 'MAC', 'ID', 'Zone', 'Subnet');
+
+    my $popup_value = '';
+    my $whoisdata;
+
+    $whoisdata = $q->param ('whoisdata') || $q->param ('data') || '';
+    my $t = $q->param ('whoisdatatype') || $q->param ('datatype') || $q->param ('type') || '';
+    my $in = lc ($t);
+    # since we have multiple possible form parameter names, and the input may have mixed
+    # case we must do some work to find out which value of the popup that should be pre-selected
+    foreach $t (@popup_values) {
+	if (lc ($t) eq $in) {
+	    $popup_value = $t;
+	    last;
+	}
+    }
+    # default to the first entry in @popup_values
+    $popup_value = $popup_values[0] if (! $popup_value);
+
+    # HTML
     my $state_field = $q->state_field ();
     my $me = $q->state_url ();
-    my $popup = $q->popup_menu (-name => 'whoisdatatype', -values => ['Guess', 'IP', 'FQDN', 'MAC', 'ID', 'Zone', 'Subnet'], -default => 'Guess');
-    my $datafield = $q->textfield ('whoisdata');
-    my $submit = $q->submit (-name=>'Search',-class=>'button');
+    my $popup = $q->popup_menu (-name => 'whoisdatatype', -values => [@popup_values], -default => $popup_value);
+    my $datafield = $q->textfield ('whoisdata', $whoisdata);
+    my $submit = $q->submit (-name => 'Search', -class => 'button');
 
     $q->print (<<EOH);
 		<tr>
@@ -126,9 +145,11 @@ sub perform_search
     my $static_flag_days = shift;
     my $dynamic_flag_days = shift;
 
-    if ($q->param ('whoisdata')) {
-	my $search_for = lc ($q->param ('whoisdata'));
-	my $whoisdatatype = lc ($q->param ('whoisdatatype'));
+    my $whoisdata = $q->param ('whoisdata') || $q->param ('data') || '';
+    if ($whoisdata) {
+	my $search_for = lc ($whoisdata);
+	my $t = $q->param ('whoisdatatype') || $q->param ('datatype') || $q->param ('type') || '';
+	my $whoisdatatype = lc ($t);
 	
 	$search_for =~ s/^\s*(\S+)\s*$/$1/o;	# trim spaces
 	
