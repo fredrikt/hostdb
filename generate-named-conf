@@ -69,5 +69,5 @@ sub tab_format
 
 	my $minus_tabs = int (length ($string) / 8);
 
-	return $string . "	" x ($tab_count - $minus_tabs);
+	return $string . "\t" x ($tab_count - $minus_tabs);
 }
