@@ -347,39 +347,37 @@ sub host_form
 			       'DYNAMIC'  => 'Dynamic');
 			      
 	my $me = $q->state_url ();
-	if (defined ($host)) {
-		my @profiles = split (',', $h_subnet->profilelist ());
+	my @profiles = split (',', $h_subnet->profilelist ());
 		
-		$id = $host->id ();
-		$partof = $q->textfield ('partof', $host->partof () || '');
-		$ip = $q->textfield ('ip', $host->ip ());
-		$mac = $q->textfield ('mac_address', $host->mac_address () || '');
-		$hostname = $q->textfield ('hostname', $host->hostname () || '');
-		$comment = $q->textfield (-name => 'comment',
-					  -default => $host->comment () || '',
-					  -size => 45,
-					  -maxlength => 255);
-		$owner = $q->textfield ('owner', $host->owner () || $remote_user);
-		$dnsmode = $q->popup_menu (-name => 'dnsmode',
-					   -values => ['A_AND_PTR', 'A'],
-					   -labels => \%dnsmode_labels,
-					   -default => $host->dnsmode ());
-		$dnsstatus = $q->popup_menu (-name => 'dnsstatus',
-					     -values => ['ENABLED', 'DISABLED'],
-					     -labels => \%enabled_labels,
-					     -default => $host->dnsstatus ());
-		$dhcpmode = $q->popup_menu (-name => 'dhcpmode',
-					    -values => ['STATIC', 'DYNAMIC'],
-					    -labels => \%dhcpmode_labels,
-					    -default => $host->dhcpmode ());
-		$dhcpstatus = $q->popup_menu (-name => 'dhcpstatus',
-					      -values => ['ENABLED', 'DISABLED'],
-					      -labels => \%enabled_labels,
-					      -default => $host->dhcpstatus ());
-		$profile = $q->popup_menu (-name => 'profile',
-					   -values => \@profiles,
-					   -default => $host->profile () || 'default');
-	}
+	$id = $host->id ();
+	$partof = $q->textfield ('partof', $host->partof () || '');
+	$ip = $q->textfield ('ip', $host->ip ());
+	$mac = $q->textfield ('mac_address', $host->mac_address () || '');
+	$hostname = $q->textfield ('hostname', $host->hostname () || '');
+	$comment = $q->textfield (-name => 'comment',
+				  -default => $host->comment () || '',
+				  -size => 45,
+				  -maxlength => 255);
+	$owner = $q->textfield ('owner', $host->owner () || $remote_user);
+	$dnsmode = $q->popup_menu (-name => 'dnsmode',
+				   -values => ['A_AND_PTR', 'A'],
+				   -labels => \%dnsmode_labels,
+				   -default => $host->dnsmode ());
+	$dnsstatus = $q->popup_menu (-name => 'dnsstatus',
+				     -values => ['ENABLED', 'DISABLED'],
+				     -labels => \%enabled_labels,
+				     -default => $host->dnsstatus ());
+	$dhcpmode = $q->popup_menu (-name => 'dhcpmode',
+				    -values => ['STATIC', 'DYNAMIC'],
+				    -labels => \%dhcpmode_labels,
+				    -default => $host->dhcpmode ());
+	$dhcpstatus = $q->popup_menu (-name => 'dhcpstatus',
+				      -values => ['ENABLED', 'DISABLED'],
+				      -labels => \%enabled_labels,
+				      -default => $host->dhcpstatus ());
+	$profile = $q->popup_menu (-name => 'profile',
+				   -values => \@profiles,
+				   -default => $host->profile () || 'default');
 
 	my $empty_td = '<td>&nbsp;</td>';
 	
