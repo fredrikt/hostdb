@@ -38,10 +38,8 @@ my $dhcp_signal_directory = $hostdbini->val('signals','dhcp_directory') if ($hos
 my $dns_signal_directory = $hostdbini->val('signals','dns_directory') if ($hostdbini->val('signals','dns_directory'));
 
 $q->begin (title => "HOSTDB home");
-my $remote_user = '';
-if (defined ($ENV{REMOTE_USER}) and $ENV{REMOTE_USER} =~ /^[a-z0-9]{,50}$/) {
-	$remote_user = $ENV{REMOTE_USER};
-} else {
+my $remote_user = $q->user(); 
+unless ($remote_user) {
 	$q->print ("&nbsp;<p><ul><font COLOR='red' SIZE='3'><strong>You are not logged in.</strong></font></ul>\n\n");
 	$q->end ();
 	die ("$0: Invalid REMOTE_USER environment variable '$ENV{REMOTE_USER}'");

@@ -36,10 +36,8 @@ my $q = SUCGI2->new ($sucgi_ini,'hostdb');
 my %links = $hostdb->html_links ($q);
 
 $q->begin (title => "Subnet details");
-my $remote_user = '';
-if (defined ($ENV{REMOTE_USER}) and $ENV{REMOTE_USER} =~ /^[a-z0-9]{,50}$/) {
-	$remote_user = $ENV{REMOTE_USER};
-} else {
+my $remote_user = $q->user();
+unless ($remote_user) {
 	$q->print ("&nbsp;<p><ul><font COLOR='red' SIZE='3'><strong>You are not logged in.</strong></font></ul>\n\n");
 	$q->end ();
 	die ("$0: Invalid REMOTE_USER environment variable '$ENV{REMOTE_USER}'");
