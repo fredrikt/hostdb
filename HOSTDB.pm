@@ -371,7 +371,7 @@ sub check_valid_ip
 	
 	$self->_debug_print ("ip '$ip'");
 
-	if ($ip =~ /^(\d)\.(\d)\.(\d)\.(\d)$/) {
+	if ($ip =~ /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/o) {
 		my @ip = ($1, $2, $3, $4);
 
 		return 0 if (int($ip[0]) < 1 or int($ip[0]) > 254);
@@ -380,6 +380,7 @@ sub check_valid_ip
 		return 0 if (int($ip[3]) < 1 or int($ip[3]) > 255);
 		#return 0 if ("$1.$2" eq "192.168");
 
+		$self->_debug_print ("is a valid IP");
 		return 1;
 	}
 
