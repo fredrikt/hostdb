@@ -35,11 +35,6 @@ my $first = 1;
 my $match_count = 0;
 
 foreach my $t_search (sort @searchfor) {
-	if (! $hostdb->is_valid_fqdn ($t_search)) {
-		warn ("Invalid FQDN '$t_search'\n");
-		next;
-	}
-
 	my @hostlist = $hostdb->findhostbyname ($t_search);
 	if ($#hostlist == -1) {
 		warn ("No entrys matching '$t_search'\n");
