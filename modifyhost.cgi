@@ -69,6 +69,9 @@ if (defined ($id) and $id ne '') {
 		$host->manual_dnszone ('N');
 		$host->dnsmode ('A_AND_PTR');
 		$host->dnsstatus ('ENABLED');
+
+		# set owner to $remote_user for people who are not administrators or helpdesk personell
+		$host->owner ($remote_user) unless ($is_admin or $is_helpdesk);
 	}
 }
 
