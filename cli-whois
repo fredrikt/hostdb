@@ -70,7 +70,7 @@ while (@searchfor) {
 		    my $a_ttl = $alias->ttl ();
 		    push (@a, sprintf ("\t  %-30s TTL %s seconds", $a_name, $a_ttl));
 		}
-		$aliases_info = join ("\n", @a);
+		$aliases_info = join ("\n", @a) . "\n";
 	    }
 
 	    print (<<EOH);
@@ -87,7 +87,6 @@ while (@searchfor) {
 	  Mode		$dnsmode
 	  Status	$dnsstatus
 	$aliases_info
-
 	DHCP :
 	  MAC address	$mac (last seen $mac_ts)
 	  Mode		$dhcpmode
