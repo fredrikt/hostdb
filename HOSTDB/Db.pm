@@ -85,7 +85,21 @@ sub init
 		$self->{_hostbyiprange} =	$self->{_dbh}->prepare ("$SELECT_host WHERE n_ip >= ? AND n_ip <= ? ORDER BY n_ip")	or die "$DBI::errstr";
 		$self->{_allhosts} =		$self->{_dbh}->prepare ("$SELECT_host ORDER BY id")					or die "$DBI::errstr";
 
-		my $SELECT_hostattr = "SELECT * FROM $self->{db}.hostattribute";
+		my $SELECT_hostwithattr = "SELECT host.*, UNIX_TIMESTAMP(host.mac_address_ts) AS unix_mac_address_ts FROM $self->{db}.host, $self->{db}.hostattribute WHERE host.id = hostattribute.hostid AND hostattribute.v_key = ? AND hostattribute.v_section = ?";
+		$self->{_hostswithattr_streq} = $self->{_dbh}->prepare ("$SELECT_hostwithattr AND hostattribute.v_type = 'string' AND hostattribute.v_string = ?");
+		$self->{_hostswithattr_strne} = $self->{_dbh}->prepare ("$SELECT_hostwithattr AND hostattribute.v_type = 'string' AND hostattribute.v_string != ?");
+		$self->{_hostswithattr_strlike} = $self->{_dbh}->prepare ("$SELECT_hostwithattr AND hostattribute.v_type = 'string' AND hostattribute.v_string LIKE ?");
+		$self->{_hostswithattr_strnotlike} = $self->{_dbh}->prepare ("$SELECT_hostwithattr AND hostattribute.v_type = 'string' AND hostattribute.v_string NOT LIKE ?");
+		$self->{_hostswithattr_inteq} = $self->{_dbh}->prepare ("$SELECT_hostwithattr AND hostattribute.v_type = 'int' AND hostattribute.v_int = ?");
+		$self->{_hostswithattr_intne} = $self->{_dbh}->prepare ("$SELECT_hostwithattr AND hostattribute.v_type = 'int' AND hostattribute.v_int != ?");
+		$self->{_hostswithattr_intgt} = $self->{_dbh}->prepare ("$SELECT_hostwithattr AND hostattribute.v_type = 'int' AND hostattribute.v_int > ?");
+		$self->{_hostswithattr_intlt} = $self->{_dbh}->prepare ("$SELECT_hostwithattr AND hostattribute.v_type = 'int' AND hostattribute.v_int < ?");
+		$self->{_hostswithattr_blobeq} = $self->{_dbh}->prepare ("$SELECT_hostwithattr AND hostattribute.v_type = 'blob' AND hostattribute.v_blob = ?");
+		$self->{_hostswithattr_blobne} = $self->{_dbh}->prepare ("$SELECT_hostwithattr AND hostattribute.v_type = 'blob' AND hostattribute.v_blob != ?");
+		$self->{_hostswithattr_bloblike} = $self->{_dbh}->prepare ("$SELECT_hostwithattr AND hostattribute.v_type = 'blob' AND hostattribute.v_blob LIKE ?");
+		$self->{_hostswithattr_blobnotlike} = $self->{_dbh}->prepare ("$SELECT_hostwithattr AND hostattribute.v_type = 'blob' AND hostattribute.v_blob NOT LIKE ?");
+
+		my $SELECT_hostattr = "SELECT *, UNIX_TIMESTAMP(lastmodified) AS unix_lastmodified, UNIX_TIMESTAMP(lastupdated) AS unix_lastupdated FROM $self->{db}.hostattribute";
 		$self->{_hostattributebyid} =		$self->{_dbh}->prepare ("$SELECT_hostattr WHERE id = ? ORDER BY id")		or die "$DBI::errstr";
 		$self->{_hostattributesbyhostid} =	$self->{_dbh}->prepare ("$SELECT_hostattr WHERE hostid = ? ORDER BY v_section, v_key")	or die "$DBI::errstr";
 
@@ -599,6 +613,234 @@ sub findhost
 	}
 	
 	return @host_refs;
+}
+
+
+=head2 findhostswithattr_streq
+
+	@hosts = $hostdb->findhostswithattr_streq($attribute, $section, $match);
+
+
+=cut
+sub findhostswithattr_streq
+{
+	my $self = shift;
+	my $attribute = shift;
+	my $section = shift;
+	my $match = shift;
+
+	$self->_debug_print ("Find hosts with attribute '$attribute' (section '$section') string matching '$match'");
+	
+	$self->_find(_hostswithattr_streq => 'HOSTDB::Object::Host', $attribute, $section, $match);
+}
+
+
+=head2 findhostswithattr_strne
+
+	@hosts = $hostdb->findhostswithattr_strne($attribute, $section, $match);
+
+
+=cut
+sub findhostswithattr_strne
+{
+	my $self = shift;
+	my $attribute = shift;
+	my $section = shift;
+	my $match = shift;
+
+	$self->_debug_print ("Find hosts with attribute '$attribute' (section '$section') string NOT matching '$match'");
+	
+	$self->_find(_hostswithattr_strne => 'HOSTDB::Object::Host', $attribute, $section, $match);
+}
+
+
+=head2 findhostswithattr_strlike
+
+	@hosts = $hostdb->findhostswithattr_strlike($attribute, $section, $match);
+
+
+=cut
+sub findhostswithattr_strlike
+{
+	my $self = shift;
+	my $attribute = shift;
+	my $section = shift;
+	my $match = shift;
+
+	$self->_debug_print ("Find hosts with attribute '$attribute' (section '$section') string matching wildcard pattern '$match'");
+	
+	$self->_find(_hostswithattr_strlike => 'HOSTDB::Object::Host', $attribute, $section, $match);
+}
+
+
+=head2 findhostswithattr_strnotlike
+
+	@hosts = $hostdb->findhostswithattr_strnotlike($attribute, $section, $match);
+
+
+=cut
+sub findhostswithattr_strnotlike
+{
+	my $self = shift;
+	my $attribute = shift;
+	my $section = shift;
+	my $match = shift;
+
+	$self->_debug_print ("Find hosts with attribute '$attribute' (section '$section') string NOT matching wildcard pattern '$match'");
+	
+	$self->_find(_hostswithattr_strnotlike => 'HOSTDB::Object::Host', $attribute, $section, $match);
+}
+
+
+=head2 findhostswithattr_inteq
+
+	@hosts = $hostdb->findhostswithattr_inteq($attribute, $section, $match);
+
+
+=cut
+sub findhostswithattr_inteq
+{
+	my $self = shift;
+	my $attribute = shift;
+	my $section = shift;
+	my $match = shift;
+
+	$self->_debug_print ("Find hosts with attribute '$attribute' (section '$section') integer == '$match'");
+	
+	$self->_find(_hostswithattr_inteq => 'HOSTDB::Object::Host', $attribute, $section, $match);
+}
+
+
+=head2 findhostswithattr_intne
+
+	@hosts = $hostdb->findhostswithattr_intne($attribute, $section, $match);
+
+
+=cut
+sub findhostswithattr_intne
+{
+	my $self = shift;
+	my $attribute = shift;
+	my $section = shift;
+	my $match = shift;
+
+	$self->_debug_print ("Find hosts with attribute '$attribute' (section '$section') integer != '$match'");
+	
+	$self->_find(_hostswithattr_intne => 'HOSTDB::Object::Host', $attribute, $section, $match);
+}
+
+
+=head2 findhostswithattr_intgt
+
+	@hosts = $hostdb->findhostswithattr_intgt($attribute, $section, $match);
+
+
+=cut
+sub findhostswithattr_intgt
+{
+	my $self = shift;
+	my $attribute = shift;
+	my $section = shift;
+	my $match = shift;
+
+	$self->_debug_print ("Find hosts with attribute '$attribute' (section '$section') integer == '$match'");
+	
+	$self->_find(_hostswithattr_intgt => 'HOSTDB::Object::Host', $attribute, $section, $match);
+}
+
+
+=head2 findhostswithattr_intlt
+
+	@hosts = $hostdb->findhostswithattr_intlt($attribute, $section, $match);
+
+
+=cut
+sub findhostswithattr_intlt
+{
+	my $self = shift;
+	my $attribute = shift;
+	my $section = shift;
+	my $match = shift;
+
+	$self->_debug_print ("Find hosts with attribute '$attribute' (section '$section') integer != '$match'");
+	
+	$self->_find(_hostswithattr_intlt => 'HOSTDB::Object::Host', $attribute, $section, $match);
+}
+
+
+=head2 findhostswithattr_blobeq
+
+	@hosts = $hostdb->findhostswithattr_blobeq($attribute, $section, $match);
+
+
+=cut
+sub findhostswithattr_blobeq
+{
+	my $self = shift;
+	my $attribute = shift;
+	my $section = shift;
+	my $match = shift;
+
+	$self->_debug_print ("Find hosts with attribute '$attribute' (section '$section') blob matching '$match'");
+	
+	$self->_find(_hostswithattr_blobeq => 'HOSTDB::Object::Host', $attribute, $section, $match);
+}
+
+
+=head2 findhostswithattr_blobne
+
+	@hosts = $hostdb->findhostswithattr_blobne($attribute, $section, $match);
+
+
+=cut
+sub findhostswithattr_blobne
+{
+	my $self = shift;
+	my $attribute = shift;
+	my $section = shift;
+	my $match = shift;
+
+	$self->_debug_print ("Find hosts with attribute '$attribute' (section '$section') blob NOT matching '$match'");
+	
+	$self->_find(_hostswithattr_blobne => 'HOSTDB::Object::Host', $attribute, $section, $match);
+}
+
+
+=head2 findhostswithattr_bloblike
+
+	@hosts = $hostdb->findhostswithattr_bloblike($attribute, $section, $match);
+
+
+=cut
+sub findhostswithattr_bloblike
+{
+	my $self = shift;
+	my $attribute = shift;
+	my $section = shift;
+	my $match = shift;
+
+	$self->_debug_print ("Find hosts with attribute '$attribute' (section '$section') blob matching wildcard pattern '$match'");
+	
+	$self->_find(_hostswithattr_bloblike => 'HOSTDB::Object::Host', $attribute, $section, $match);
+}
+
+
+=head2 findhostswithattr_blobnotlike
+
+	@hosts = $hostdb->findhostswithattr_blobnotlike($attribute, $section, $match);
+
+
+=cut
+sub findhostswithattr_blobnotlike
+{
+	my $self = shift;
+	my $attribute = shift;
+	my $section = shift;
+	my $match = shift;
+
+	$self->_debug_print ("Find hosts with attribute '$attribute' (section '$section') blob NOT matching wildcard pattern '$match'");
+	
+	$self->_find(_hostswithattr_blobnotlike => 'HOSTDB::Object::Host', $attribute, $section, $match);
 }
 
 
