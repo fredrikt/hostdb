@@ -697,7 +697,7 @@ sub print_host_info
 	   <tr>
 		$empty_td
 		<td>ID</td>
-		<td>$id&nbsp;$modify_link $hostattributes_link $add_alias_link</td>
+		<td NOWRAP>$id&nbsp;$modify_link $hostattributes_link $add_alias_link</td>
 	   </tr>	
 	   <tr>
 		$empty_td
