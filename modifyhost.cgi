@@ -43,6 +43,7 @@ unless ($remote_user) {
         die ("$0: Invalid REMOTE_USER environment variable '$ENV{REMOTE_USER}'");
 }
 my $is_admin = $hostdb->auth->is_admin ($remote_user);
+my $is_helpdesk = $hostdb->auth->is_helpdesk ($remote_user);
 
 
 my $host;
@@ -95,7 +96,7 @@ my $action = lc ($q->param('action'));
 $action = 'search' unless $action;
 
 if ($action eq 'commit') {
-	if (modify_host ($hostdb, $host, $q, $remote_user, $is_admin)) {
+	if (modify_host ($hostdb, $host, $q, $remote_user, $is_admin, $is_helpdesk)) {
 		my $i = localtime () . " modifyhost.cgi[$$]";
 		eval
 		{
@@ -116,7 +117,7 @@ if ($action eq 'commit') {
 	# call modify_host but don't commit () afterwards to get
 	# ip and other stuff supplied to us as CGI parameters
 	# set on the host before we call host_form () below.
-	modify_host ($hostdb, $host, $q, $remote_user, $is_admin);
+	modify_host ($hostdb, $host, $q, $remote_user, $is_admin, $is_helpdesk);
 } else {
 	error_line ($q, 'Unknown action');
 	$host = undef;
@@ -142,6 +143,7 @@ sub modify_host
 	my $q = shift;
 	my $remote_user = shift;
 	my $is_admin = shift;
+	my $is_helpdesk = shift;
 	
 	my (@changelog, @warning);
 	
@@ -158,7 +160,7 @@ sub modify_host
 
 		# check that user is allowed to edit both current zone and subnet
 
-		if (! $is_admin) {
+		if (! $is_admin and ! $is_helpdesk) {
 			if (! defined ($subnet) or ! $hostdb->auth->is_allowed_write ($subnet, $remote_user)) {
 				die ("You do not have sufficient access to subnet '" . $subnet->subnet () . "'");
 			}
@@ -210,7 +212,8 @@ sub modify_host
 				
 						die ("Invalid new IP address '$ip': no subnet for that IP found in database") if (! defined ($new_subnet));
 				
-						if (! $hostdb->auth->is_allowed_write ($new_subnet, $remote_user)) {
+						if (! $is_admin and ! $is_helpdesk and
+						    ! $hostdb->auth->is_allowed_write ($new_subnet, $remote_user)) {
 							die ("You do not have sufficient access to the new IP's subnet '" . 
 							     $new_subnet->subnet () . "'");
 						}
@@ -227,7 +230,8 @@ sub modify_host
 						my $new_zone = $hostdb->findzonebyhostname ($hostname);
 				
 						if (defined ($new_zone)) {
-							if (! $hostdb->auth->is_allowed_write ($new_zone, $remote_user)) {
+							if (! $is_admin and ! $is_helpdesk and
+							    ! $hostdb->auth->is_allowed_write ($new_zone, $remote_user)) {
 								die ("You do not have sufficient access to the new hostnames zone '" . 
 								     $new_zone->zonename () . "'");
 							}

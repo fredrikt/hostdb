@@ -40,16 +40,18 @@ my $dynamic_flag_days = $hostdbini->val ('subnet', 'static_flag_days');
 
 $q->begin (title => "Whois");
 my $remote_user = $q->user();
+$remote_user = 'ft';
 unless ($remote_user) {
 	$q->print ("&nbsp;<p><ul><font COLOR='red' SIZE='3'><strong>You are not logged in.</strong></font></ul>\n\n");
 	$q->end ();
 	die ("$0: Invalid REMOTE_USER environment variable '$ENV{REMOTE_USER}'");
 }
 my $is_admin = $hostdb->auth->is_admin ($remote_user);
+my $is_helpdesk = $hostdb->auth->is_helpdesk ($remote_user);
 
 
 my (@links, @admin_links);
-push (@admin_links, "[<a HREF='$links{netplan}'>netplan</a>]") if ($is_admin and $links{netplan});
+push (@admin_links, "[<a HREF='$links{netplan}'>netplan</a>]") if (($is_admin or $is_helpdesk) and $links{netplan});
 push (@links, "[<a HREF='$links{home}'>home</a>]") if ($links{home});
 
 my $l = '';
@@ -72,7 +74,7 @@ whois_form ($q);
 $q->print ($table_hr_line);
 
 
-perform_search ($hostdb, $q, $remote_user, $is_admin, $static_flag_days, $dynamic_flag_days);
+perform_search ($hostdb, $q, $remote_user, $is_admin, $is_helpdesk, $static_flag_days, $dynamic_flag_days);
 
 $q->print (<<EOH);
 	</table>
@@ -114,6 +116,7 @@ sub perform_search
 	my $q = shift;
 	my $remote_user = shift;
 	my $is_admin = shift;
+	my $is_helpdesk = shift;
 	my $static_flag_days = shift;
 	my $dynamic_flag_days = shift;
 
@@ -135,7 +138,7 @@ sub perform_search
 					my $zonename = $zone->zonename ();
 				
 					# do access control
-					if (! $is_admin) {
+					if (! $is_admin and ! $is_helpdesk) {
 						if (! $hostdb->auth->is_allowed_write ($zone, $remote_user)) {
 							error_line ($q, "You do not have sufficient access to zone '$zonename'");
 							my $i = localtime () . " modifyhost.cgi[$$]";
@@ -144,7 +147,7 @@ sub perform_search
 						}
 					}
 
-					print_zone_info ($q, $hostdb, $zone, $is_admin);
+					print_zone_info ($q, $hostdb, $zone, $is_admin, $is_helpdesk);
 
 					@host_refs = $hostdb->findhostbyzone ($search_for);
 				} else {
@@ -155,11 +158,9 @@ sub perform_search
 			}
 		} elsif (lc ($whoisdatatype) eq 'subnet') {
 			if ($hostdb->is_valid_subnet ($search_for)) {
-				my $is_admin = $hostdb->auth->is_admin ($remote_user);
-
 				my @subnets = $hostdb->findsubnetlongerprefix ($search_for);
 				foreach my $subnet ($hostdb->findsubnetlongerprefix ($search_for)) {
-					print_brief_subnet ($hostdb, $q, $subnet, $remote_user, $is_admin);
+					print_brief_subnet ($hostdb, $q, $subnet, $remote_user, $is_admin, $is_helpdesk);
 				}
 			} else {
 				error_line ($q, "'$search_for' is not a valid subnet");	
@@ -180,7 +181,7 @@ sub perform_search
 				foreach my $host (@host_refs) {
 					$q->print ("<tr><th COLSPAN='4' ALIGN='left'>Host :</th></tr>");
 		
-					print_host_info ($q, $hostdb, $remote_user, $host);
+					print_host_info ($q, $hostdb, $host, $remote_user, $is_admin);
 				}
 			} else {
 				# more than one host record, show brief information
@@ -233,6 +234,7 @@ sub print_zone_info
 	my $hostdb = shift;
 	my $zone = shift;
 	my $is_admin = shift;
+	my $is_helpdesk = shift;
 
 	my ($zonename, $id, $delegated, $default_ttl, $serial, $ttl, $mname, $rname,
 	    $refresh, $retry, $expiry, $minimum, $owner);
@@ -414,8 +416,10 @@ sub print_host_info
 {
 	my $q = shift;
 	my $hostdb = shift;
-	my $remote_user = shift;
 	my $host = shift;
+	my $remote_user = shift;
+	my $is_admin = shift;
+	my $is_helpdesk = shift;
 	
 	return undef if (! defined ($host));
 
@@ -461,7 +465,7 @@ sub print_host_info
 
 	my $authorized = 1;
 
-	if (! $hostdb->auth->is_admin ($remote_user)) {
+	if (! $is_admin) {
 		$authorized = 0 if (! defined ($subnet) or ! $hostdb->auth->is_allowed_write ($subnet, $remote_user));
 
 		# if there is no zone, only base desicion on subnet rights
@@ -670,12 +674,14 @@ sub print_brief_subnet
 	my $subnet = shift;
 	my $remote_user = shift;
 	my $is_admin = shift;
+	my $is_helpdesk = shift;
 
 	# HTML
 	my $id = $subnet->id ();
 
 	my $subnet_link = $subnet->subnet ();
-	if ($is_admin or $hostdb->auth->is_allowed_write ($subnet, $remote_user)) {
+	if ($is_admin or $is_helpdesk or
+	    $hostdb->auth->is_allowed_write ($subnet, $remote_user)) {
 		$subnet_link = "<a HREF='$links{showsubnet};id=$id'>" . $subnet->subnet () . "</a>" if ($links{showsubnet});
 	}
 
