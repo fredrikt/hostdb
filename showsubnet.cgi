@@ -389,11 +389,13 @@ sub get_hosts_with_ip
 
 sub parentchildsort
 {
-	if ($a->partof () == $b->id ()) {
+	my $a_partof = $a->partof () || 0;
+	if ($a_partof == $b->id ()) {
 		return 1;
 	}
 	
-	if ($b->partof () == $a->id ()) {
+	my $b_partof = $b->partof () || 0;
+	if ($b_partof == $a->id ()) {
 		return -1;
 	}
 	
