@@ -107,7 +107,7 @@ sub perform_search
 			if ($hostdb->clean_mac_address ($t)) {
 				$search_for = $t;
 				$whoisdatatype = "MAC";
-			} elsif ($hostdb->check_valid_ip ($search_for)) {
+			} elsif ($hostdb->check_is_valid_ip ($search_for)) {
 				$whoisdatatype = "IP";
 			} elsif ($hostdb->is_valid_fqdn ($search_for)) {
 				$whoisdatatype = "FQDN";
@@ -122,7 +122,7 @@ sub perform_search
 		my @host_refs;
 			
 		if ($whoisdatatype eq "IP") {
-			if ($hostdb->check_valid_ip ($search_for)) {
+			if ($hostdb->check_is_valid_ip ($search_for)) {
 				my $host = $hostdb->findhostbyip ($search_for);
 				my @gaah;
 				push (@gaah, $host);

@@ -46,7 +46,7 @@ while ($ARGV[0]) {
 		my @gaah;
 		push (@gaah, $host);
 		push (@host_refs, \@gaah);
-	} elsif ($hostdb->check_valid_ip ($search_for)) {
+	} elsif ($hostdb->check_is_valid_ip ($search_for)) {
 		my $host = $hostdb->findhostbyip ($search_for);
 		my @gaah;
 		push (@gaah, $host);

@@ -396,9 +396,9 @@ sub is_valid_subnet
 }
 
 
-=head2 check_valid_ip
+=head2 check_is_valid_ip
 
-	die ("Invalid IP '$user_input'\n") if (! $hostdb->check_valid_ip ($user_input));
+	die ("Invalid IP '$user_input'\n") if (! $hostdb->check_is_valid_ip ($user_input));
 
 	Do some checking to determine if this is a valid IP address or not.
 	
@@ -408,7 +408,7 @@ sub is_valid_subnet
 
 
 =cut
-sub check_valid_ip
+sub check_is_valid_ip
 {
 	my $self = shift;
 	my $ip = shift;
@@ -1240,7 +1240,7 @@ sub ip
 	if (@_) {
 		my $newvalue = shift;
 	
-		return 0 if (! $self->check_valid_ip ($newvalue));
+		return 0 if (! $self->check_is_valid_ip ($newvalue));
 
 		# XXX CHECK IP
 		# check if IP is
