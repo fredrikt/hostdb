@@ -59,7 +59,7 @@ if (! $opt_force) {
 my $zonename = $zone->zonename ();
 
 my @hosts_in_zone = $hostdb->findhostbyzone ($zonename);
-my @aliases_in_zone = $hostdb->findaliasbyzone ($zonename);
+my @aliases_in_zone = $hostdb->findhostaliasbyzone ($zonename);
 
 if (@hosts_in_zone or @aliases_in_zone) {
 
