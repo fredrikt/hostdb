@@ -249,7 +249,7 @@ sub print_subnet_info
 	
 	if ($showsubnet_path) {
 		my $sid_url = "_sucgi_sid=" . $q->getSID ();
-		$s = "<a href='" . $showsubnet_path . "?subnet=$s" . "'>$s</a>";
+		$s = "<a href='" . $showsubnet_path . "&subnet=$s" . "'>$s</a>";
 	}
 	
 	$q->print (<<EOH);
