@@ -29,11 +29,10 @@ if ($output_dir) {
 	die("$0: Specified output dir '$output_dir' is not a valid directory\n") if (! -d $output_dir);
 }
 
-my $showsubnet_path = create_url (undef, $hostdbini->val ('subnet', 'http_base'),
-				  $hostdbini->val ('subnet', 'showsubnet_path'));
+my $showsubnet_path = $hostdbini->val ('subnet', 'showsubnet_uri');
 
-die ("$0: Could not create path to showsubnet cgi-script.\n" .
-     "You should probably specify 'http_base' and 'showsubnet_path'\n" .
+die ("$0: Could not find path to showsubnet cgi-script.\n" .
+     "You should probably specify 'showsubnet_uri'\n" .
      "in the 'subnet' section of '" . HOSTDB::get_inifile () . "'\n") if (! $showsubnet_path);
 
 my $hostdb = HOSTDB::DB->new (ini => $hostdbini, debug => $debug);
@@ -133,7 +132,7 @@ sub do_supernet
 				$fn =~ s#[\./]#-#go;
 				$fn .= ".png";
 				
-				print_row ($subnet_name, $fn, "$showsubnet_path;subnet=$subnet_name");
+				print_row ($subnet_name, $fn, "$showsubnet_path?;subnet=$subnet_name");
 
 				$fn = "$output_dir/$fn" if ($output_dir);
 	
@@ -394,36 +393,6 @@ sub draw_net_top
 	binmode (FILE);
 	print (FILE $im->png ());
 	close (FILE);
-}
-
-sub create_url
-{
-	my $q = shift;
-	my $base = shift;
-	my $in_url = shift;
-
-	return undef if (! $in_url);
-	
-	my $url;
-	if ($in_url !~ '^https*://') {
-		# in_url appears to be relative
-		$url = "$base/$in_url";
-	} else {
-		$url = $in_url;
-	}
-
-	$url =~ s#([^:])//#$1#;	# replace double slashes, but not the ones in http://
-
-	if ($q) {
-		$url .= '?_sucgi_sid=' . $q->getSID ();
-	} else {
-		# put this here since our users expects to be able to add
-		# all their parameters with ; as separator
-		$url .= '?';
-	}
-
-	return undef if ($url !~ '^https*://');
-	return $url;
 }
 
 sub load_colors
