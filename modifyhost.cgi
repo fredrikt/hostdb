@@ -351,12 +351,12 @@ sub host_form
 		my @profiles = split (',', $h_subnet->profilelist ());
 		
 		$id = $host->id ();
-		$partof = $q->textfield ('partof', $host->partof ());
+		$partof = $q->textfield ('partof', $host->partof () || '');
 		$ip = $q->textfield ('ip', $host->ip ());
-		$mac = $q->textfield ('mac_address', $host->mac_address ());
-		$hostname = $q->textfield ('hostname', $host->hostname ());
+		$mac = $q->textfield ('mac_address', $host->mac_address () || '');
+		$hostname = $q->textfield ('hostname', $host->hostname () || '');
 		$comment = $q->textfield (-name => 'comment',
-					  -default => $host->comment (),
+					  -default => $host->comment () || '',
 					  -size => 45,
 					  -maxlength => 255);
 		$owner = $q->textfield ('owner', $host->owner () || $remote_user);
@@ -388,7 +388,8 @@ sub host_form
 	my $delete = "[delete]";
 	$delete = "[<a HREF='$deletehost_path;id=$id'>delete</a>]" if (defined ($id));
 
-	my $id_if_any = "<input TYPE='hidden' NAME='id' VALUE='$id'>" if (defined ($id) and ($id ne ''));
+	my $id_if_any = '';
+	$id_if_any = "<input TYPE='hidden' NAME='id' VALUE='$id'>" if (defined ($id) and ($id ne ''));
 
 	my $host_id;
 
