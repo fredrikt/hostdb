@@ -47,7 +47,8 @@ foreach my $file (@files) {
 			if ($name =~ /^(b2-gw2|ny-gw2|physto-gw|stud-gw|su2-gw)\./) {
 				# name is one of our routers which has multiple IPs with
 				# the same name. see if it is the loopback address, delay
-				# if not.
+				# if not (since we want the loopback address to be the
+				# primary hostname).
 				$delay = 1 if ($ip !~ /^130\.237\.154\.(25|131|128|203|130)$/);
 			}
 
@@ -59,14 +60,14 @@ foreach my $file (@files) {
 				next;
 			}
 			
-			$imported++ if (add_host (0, $name, $ttl, $ip));
+			$imported++ if (add_host ($hostdb, 0, $name, $ttl, $ip));
 		}
 	}
 
 	foreach my $arrayref (@delayed) {
 		my ($name, $ttl, $ip) = @{ $arrayref };
 
-		$imported++ if (add_host (1, $name, $ttl, $ip));
+		$imported++ if (add_host ($hostdb, 1, $name, $ttl, $ip));
 	}
 
 	print ("Imported $imported A RR's from file $file\n");
@@ -78,13 +79,13 @@ print ("done\n");
 
 sub add_host
 {
-	my ($lookuphost, $name, $ttl, $ip) = @_;
+	my ($hostdb, $lookuphost, $name, $ttl, $ip) = @_;
 	
 	my $host = $hostdb->create_host();
 
 	if ($lookuphost) {
 		my $super_host = $hostdb->findhostbyip ($ip);
-		$host->set_partof ($super_host->{id}) if ($super_host->{id});
+		$host->set_partof ($super_host->id ()) if ($super_host->id ());
 		undef ($super_host);
 	}
 			
@@ -92,7 +93,7 @@ sub add_host
 	$host->hostname ("$name") or warn ($host->{error}), $valid = 0;
 	$host->ip ("$ip") or warn ($host->{error}), $valid = 0;
 	$host->ttl ("$ttl") if ($ttl != $default_ttl) or warn ($host->{error}), $valid = 0;
-	$host->user ("import") or warn ($host->{error}), $valid = 0;
+	$host->user ("dns-import") or warn ($host->{error}), $valid = 0;
 	$host->reverse ("Y") or warn ($host->{error}), $valid = 0;
 			
 	$host->commit() if ($valid);
