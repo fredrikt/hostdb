@@ -55,7 +55,12 @@ sub DESTROY
 {
 	my $self = shift;
 	
-	$self->{ldap}->unbind () if (defined ($self->{ldap}));
+	if (defined ($self->{ldap})) {
+		$self->_debug_print ("Calling LDAP-unbind on $self->{ldap}");
+		$self->{ldap}->unbind ();
+	} else {
+		$self->_debug_print ("No LDAP connection has been made, nothing to destroy");
+	}
 }
 
 
