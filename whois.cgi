@@ -94,7 +94,16 @@ sub perform_search
 
     my $whoisdata = $q->param ('whoisdata') || $q->param ('data') || '';
     if ($whoisdata) {
-	$q->print ("\t\t<table BORDER='0' CELLPADDING='0' CELLSPACING='0' WIDTH='100%'>\n");
+	$q->print (<<EOH);
+		<table BORDER='0' CELLPADDING='0' CELLSPACING='0' WIDTH='100%'>
+			<!-- table width disposition tds -->
+				<tr>
+					<td WIDTH='25%'>&nbsp;</td>
+					<td WIDTH='25%'>&nbsp;</td>
+					<td WIDTH='25%'>&nbsp;</td>
+					<td WIDTH='25%'>&nbsp;</td>
+				</tr>
+EOH
 
 	my $search_for = lc ($whoisdata);
 	my $t = $q->param ('whoisdatatype') || $q->param ('datatype') || $q->param ('type') || '';
@@ -204,6 +213,7 @@ sub perform_search
 EOH
 		foreach my $host (@host_refs) {
 		    print_brief_host_info ($q, $hostdb, $host, $static_flag_days, $dynamic_flag_days);
+		    print_brief_host_aliases ($q, $host);
 		}
 	    }
 	    
@@ -507,6 +517,37 @@ sub print_brief_host_info
 		   <td NOWRAP>${ts_font}${mac_ts}${ts_font_end}&nbsp;</td>
 		</tr>
 EOH
+
+    return 1;
+}
+
+sub print_brief_host_aliases
+{
+    my $q = shift;
+    my $host = shift;
+
+    my @aliases = $host->init_aliases ();
+
+    foreach my $a (@aliases) {
+        my $aliasname = $a->aliasname ();
+        my $id = $a->id ();
+        my $alias_link = "<a HREF='$links{whois};type=aliasid;data=$id'>$aliasname</a>";
+        my $a_dnsstatus = $a->dnsstatus ();
+
+        if ($a_dnsstatus eq 'ENABLED') {
+            $a_dnsstatus = '';
+        } else {
+            $a_dnsstatus = "&nbsp;(dns <font color='red'><strong>DISABLED</strong></font>)";
+        }
+
+        $q->print (<<EOH);
+                <tr>
+                   <td ALIGN='center'>alias</td>
+                   <td COLSPAN='3'>$alias_link $a_dnsstatus</td>
+                </tr>
+
+EOH
+}
 
     return 1;
 }
