@@ -69,51 +69,83 @@ if (@host_refs) {
 
 	my $host = shift @host_refs;
 
+	my $res = do_host ($hostdb, $host, $attribute, $section, $type, $value, $debug, $verbose);
+	exit (1) if (! defined ($res)) or (! $res);
+}
+
+exit (0);
+
+
+sub do_host
+{
+	my $hostdb = shift;
+	my $host = shift;
+	my $attribute = shift;
+	my $section = shift;
+	my $type = shift;
+	my $value = shift;
+	my $debug = shift;
+	my $verbose = shift;
+
+	my $idstr = get_hostid ($host);
+		
 	$host->init_attributes ();
 
 	my $attr = $host->get_attribute ($attribute, $section);
 
 	my $old_value = 'none';
 	$old_value = $attr->get () if (defined ($attr));
-	
-	print ("Found attribute $attr (value '$old_value')\n") if ($debug);
+		
+	print ("$0: $idstr: Found attribute $attr (value '$old_value')\n") if ($debug);
 	
 	if (defined ($attr)) {
 		my $old_type = $attr->type ();
-		if ($old_value eq $value) {
+		if ($old_value eq $value and $old_type eq $type) {
 			if ($update) {
-				print ("Updating lastupdated timestamp since value remains the same.\n") if ($verbose);
-				$attr->lastupdated ('NOW') or die ("$0: Could not update lastupdated timestamp - $host->{error}\n");
-				$attr->commit () or die ("$0: Could not commit host attribute object - $host->{error}\n");
+				print ("$idstr: Updating lastupdated timestamp since value remains the same.\n") if ($verbose);
+				$attr->lastupdated ('NOW') or warn ("$0: $idstr: Could not update lastupdated timestamp - $attr->{error}\n"), return undef;
+				$attr->commit () or warn ("$0: $idstr: Could not commit host attribute object - $attr->{error}\n"), return undef;
 			} else {
-				print ("Value remains the same. Not updating lastupdated timestamp since -u was not supplied.\n") if ($verbose);
+				print ("$idstr: Value remains the same. Not updating lastupdated timestamp since -u was not supplied.\n") if ($verbose);
+				return 0;
 			}
 		} else {
 			if ($force) {
-				print ("Changing value for existing attribute from '$old_value' (type '$old_type') to '$value' (type '$type').\n") if ($verbose);
-				$attr->set ($type, $value) or die ("$0: Could not set value '$value' of type '$type' - $attr->{error}\n");
-				$attr->lastupdated ('NOW') or die ("$0: Could not update lastupdated timestamp - $host->{error}\n");
-				$attr->lastmodified ('NOW') or die ("$0: Could not update lastmodified timestamp - $host->{error}\n");
-				$attr->commit () or die ("$0: Could not commit host attribute object - $host->{error}\n");
+				print ("$idstr: Changing value for existing attribute from '$old_value' (type '$old_type') to '$value' (type '$type').\n") if ($verbose);
+				$attr->set ($type, $value) or warn ("$0: $idstr: Could not set value '$value' of type '$type' - $attr->{error}\n"), return undef;
+				$attr->lastupdated ('NOW') or warn ("$0: $idstr: Could not update lastupdated timestamp - $attr->{error}\n"), return undef;
+				$attr->lastmodified ('NOW') or warn ("$0: $idstr: Could not update lastmodified timestamp - $attr->{error}\n"), return undef;
+				$attr->commit () or warn ("$0: $idstr: Could not commit host attribute object - $attr->{error}\n"), return undef;
 			} else {
-				warn ("NOT changing value (from '$old_value' to '$value') for existing attribute since -f was not supplied.\n");
-				exit(1);
+				warn ("$idstr: NOT changing value (from '$old_value' to '$value') for existing attribute since -f was not supplied.\n");
+				return 0;
 			}
 		}
 	} else {
-		print ("Creating new attribute.\n") if ($verbose);
+		print ("$idstr: Creating new attribute of type '$type'.\n") if ($verbose);
 		
 		# new attribute
 		$attr = $host->create_hostattribute ();
 		$attr->key ($attribute);
 		$attr->section ($section);
-		$attr->set ($type, $value) or die ("$0: Could not set value '$value' of type '$type' - $host->{error}\n");
-		$attr->lastupdated ('NOW') or die ("$0: Could not update lastupdated timestamp - $host->{error}\n");
-		$attr->lastmodified ('NOW') or die ("$0: Could not update lastmodified timestamp - $host->{error}\n");
-		$attr->commit () or die ("$0: Could not commit host attribute object - $host->{error}\n");
+		$attr->set ($type, $value) or warn ("$0: $idstr: Could not set value '$value' of type '$type' - $attr->{error}\n"), return undef;
+		$attr->lastupdated ('NOW') or warn ("$0: $idstr: Could not update lastupdated timestamp - $attr->{error}\n"), return undef;
+		$attr->lastmodified ('NOW') or warn ("$0: $idstr: Could not update lastmodified timestamp - $attr->{error}\n"), return undef;
+		$attr->commit () or warn ("$0: $idstr: Could not commit host attribute object - $attr->{error}\n"), return undef;
 	}
 
-	exit (0);
-} else {
-	die ("$0: No host matches '$searchfor'\n");
+	return 1;
+} 
+
+
+sub get_hostid
+{
+	my $host = shift;
+	
+	my $id = $host->id ();
+	my $ip = $host->ip () || 'no ip';
+	my $hn = $host->hostname () || 'no hostname';
+	my $mac = $host->mac_address () || 'no mac address';
+
+	return ("id $id, $ip, $hn, $mac");
 }
