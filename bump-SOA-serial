@@ -47,7 +47,7 @@ my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
 			  debug => $debug
 			 );
 
-my $res = update_serial ($zonename, $zonefile);
+my $res = (! update_serial ($zonename, $zonefile));
 
 exit ($res);
 
@@ -194,7 +194,6 @@ sub make_new_zonefile
 		
 		if ($serial ne $old_serial) {
 			warn ("$0: SOA serial in file '$old_zonefile' ($serial) is not what I expected ($old_serial)\n");
-			return 0 if (! $force);
 		}
 		print (OUT "$lhs$new_serial$rhs\n") or warn ("$0: Could not write to file '$new_zonefile': $!\n"), return 0;
 	} else {
