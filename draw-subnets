@@ -48,7 +48,8 @@ $showsubnet_path =~ s!([^:])//!$1/!go;	# replace double slashes, but not the one
 
 die ("$0: Could not create path to showsubnet cgi-script.\n" .
      "You should probably specify 'http_base' and 'showsubnet_path'\n" .
-     "in the 'subnet' section of '" . HOSTDB::get_inifile () . "'\n") if ($showsubnet_path !~ '^https*://');
+     "in the 'subnet' section of '" . HOSTDB::get_inifile () . "'\n" .
+     "(my efforts resulted in '$showsubnet_path')\n") if ($showsubnet_path !~ '^https*://');
 
 my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
 			  db => $hostdbini->val ('db', 'database'),
