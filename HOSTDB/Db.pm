@@ -55,10 +55,14 @@ sub init
 	}
 		
 	if (defined ($self->{ini})) {
+		# db settings
 		$self->{dsn} = $self->{ini}->val ('db', 'dsn') unless (defined ($self->{dsn}));
 		$self->{db} = $self->{ini}->val ('db', 'database') unless (defined ($self->{db}));
 		$self->{user} = $self->{ini}->val ('db', 'user') unless (defined ($self->{user}));
 		$self->{password} = $self->{ini}->val ('db', 'password') unless (defined ($self->{password}));
+
+		# other misc settings
+		$self->{auth_ldap_server} = $self->{ini}->val ('ldap', 'auth_server') unless (defined ($self->{auth_ldap_server}));
 	}
 
 	if (defined ($self->{dsn})) {
@@ -87,6 +91,10 @@ sub init
 	}
 
 	$self->user (getpwuid("$<"));
+
+	$self->{auth} = $self->create_auth ();
+	$self->auth->ldap_server ($self->{auth_ldap_server});
+	$self->{auth_ldap_server} = undef;
 
 	return 1;
 }
@@ -128,6 +136,7 @@ sub inifile
 	return $self->{ini};
 }
 	
+
 =head2 user
 
 	$hostdb->user("foo") or die("error");
@@ -163,6 +172,25 @@ sub user
 	return ($self->{localuser});
 }
 
+
+=head2 auth
+
+	Read only function. Returns the HOSTDB::Auth object created at init ().
+	
+	XXX write example.
+
+=cut
+sub auth
+{
+	my $self = shift;
+
+	if (@_) {
+		$self->_set_error ("auth () is a read-only function");
+		return undef;
+	}
+
+	return ($self->{auth});
+}
 
 =head2 create_host
 
@@ -229,6 +257,27 @@ sub create_subnet
 	$o->{subnet} = $subnet;
 	$o->{debug} = $self->{debug};
 
+	$self->_set_error ($o->{error}), return undef if (! $o->init());
+	
+	return ($o);
+}
+
+
+=head2 create_auth
+
+	$auth = $hostdb->create_auth();
+
+	Gets you a brand new HOSTDB::Auth object.
+
+
+=cut
+sub create_auth
+{
+	my $self = shift;
+	
+	my $o = bless {}, "HOSTDB::Auth";
+	$o->{ini} = $self->{ini};
+	$o->{debug} = $self->{debug};
 	$self->_set_error ($o->{error}), return undef if (! $o->init());
 	
 	return ($o);
@@ -403,6 +452,91 @@ sub findallhosts
 	$self->_debug_print ("Find all hosts");
 	
 	$self->_find(_allhosts => 'HOSTDB::Object::Host');
+}
+
+
+=head2 findhost
+
+	Tries to find one or more host objects, with or without a clearly defined
+	datatype for the search criteria.
+
+	@hosts = $hostdb->findhost ("guess", $user_input);
+
+	or
+
+	@hosts = $hostdb->findhost ("IP", $ip);
+
+
+=cut
+sub findhost
+{
+	my $self = shift;
+	my $datatype = lc (shift);
+	my $search_for = shift;
+
+	$self->_set_error ('');
+	
+	if ($datatype eq "guess" or ! $datatype) {
+		my $t = $search_for;
+		if ($self->clean_mac_address ($t)) {
+			$search_for = $t;
+			$datatype = 'MAC';
+		} elsif ($search_for =~ /^[+-]*(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.in-addr\.arpa\.*$/i) {
+			$datatype = 'IP';
+			$search_for = "$4.$3.$2.$1";
+		} elsif ($self->is_valid_ip ($search_for)) {
+			$datatype = 'IP';
+		} elsif ($self->clean_hostname ($t)) {
+			$datatype = 'FQDN';
+			$search_for = $t;
+		} elsif ($search_for =~ /^\d+$/) { 
+			$datatype = 'ID';
+		} else {
+			$self->_set_error ("findhost () search failed: could not guess data type of '$search_for'");
+			return undef;
+		}
+	}
+
+	my @host_refs;
+			
+	if ($datatype eq "IP") {
+		if ($self->is_valid_ip ($search_for)) {
+			@host_refs = $self->findhostbyip ($search_for);
+		} else {
+			$self->_set_error ("findhost () search failed: '$search_for' is not a valid IP address");
+			return undef;
+		}
+	} elsif ($datatype eq "FQDN") {
+		my $t = $search_for;
+		if ($self->clean_hostname ($t)) {
+			$search_for = $t;
+			@host_refs = $self->findhostbyname ($search_for);
+		} else {
+			$self->_set_error ("findhost () search failed: '$search_for' is not a valid FQDN");
+			return undef;
+		}
+	} elsif ($datatype eq "MAC") {
+		my $t = $search_for;
+		if ($self->clean_mac_address ($t)) {
+			$search_for = $t;
+			@host_refs = $self->findhostbymac ($search_for);
+		} else {
+			$self->_set_error ("findhost () search failed: '$search_for' is not a valid MAC address");
+			return undef;
+		}
+	} elsif ($datatype eq "ID") {
+		if ($search_for =~ /^\d+$/) { 
+			@host_refs = $self->findhostbyid ($search_for);
+		} else {
+			$self->_set_error ("findhost () search failed: '$search_for' is not a valid ID");
+			return undef;
+		}
+	} else {
+		$self->_set_error ("findhost () search failed: don't recognize whois datatype '$datatype'");
+		return undef;
+	}
+	
+	return @host_refs;
 }
 
 
