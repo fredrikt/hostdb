@@ -35,6 +35,7 @@ my $q = SUCGI->new ($sucgi_ini);
 
 my $showsubnet_path = $q->state_url ($hostdbini->val ('subnet', 'showsubnet_uri'));
 my $deletehost_path = $q->state_url ($hostdbini->val ('subnet', 'deletehost_uri'));
+my $whois_path = $q->state_url ($hostdbini->val ('subnet', 'whois_uri'));
 
 $q->begin (title => 'Modify/Add Host');
 
@@ -143,6 +144,7 @@ sub modify_host
 				    $subnet->subnet () . "'");
 		}
 
+		# this is a hash and not an array to provide a better framework
 		my %changer = ('dhcpmode' =>	'dhcpmode',
 			       'dhcpstatus' =>	'dhcpstatus',
 			       'mac_address' =>	'mac_address',
@@ -151,7 +153,8 @@ sub modify_host
 			       'hostname' =>	'hostname',
 			       'owner' =>	'owner',
 			       'ttl' =>		'ttl',
-			       'user' =>	'user'
+			       'user' =>	'user',
+			       'partof' =>	'partof'
 			      );
 			      
 		foreach my $name (keys %changer) {
@@ -159,39 +162,49 @@ sub modify_host
 			if (defined ($new_val)) {
 				my $func = $changer{$name};
 				my $old_val = $host->$func () || '';
-			
+
 				if ($new_val ne $old_val) {
+				
+					# do special stuff for some attributes
+					
+					if ($name eq 'ip') {
+						# changing IP, check that user has enough permissions for the _new_ subnet too
+						my $ip;
+						$ip = $q->param ('ip');
+
+						my $t_host = $hostdb->findhostbyip ($ip);
+						if (defined ($t_host)) {
+							my $t_id = $t_host->id () ;
+							die "Another host object (ID $t_id) currently have the IP '$ip'\n";
+						}
+				
+						my $new_subnet = $hostdb->findsubnetclosestmatch ($ip);
+				
+						die ("Invalid new IP address '$ip': no subnet for that IP found in database") if (! defined ($new_subnet));
+				
+						if (! $hostdb->auth->is_allowed_write ($new_subnet, $remote_user)) {
+							die ("You do not have sufficient access to the new IP's subnet '" . 
+							     $new_subnet->subnet () . "'");
+						}
+					} elsif ($name eq 'partof') {
+						# changing partof, look it up using hostdb->findhost so that
+						# a hostname or IP address can be used instead of just ID's
+					
+						my $parentid = $q->param ('partof');
+						my @host_refs = $hostdb->findhost ('guess', $parentid);
+						
+						my $host_count = $#host_refs + 1;
+						die ("Parent host not found") if ($host_count < 1);
+						die ("Lookup of parent returned more than one ($host_count) hosts") if ($host_count > 1);
+						
+						$new_val = $host_refs[0]->id ();
+					}
+			
 					push (@changelog, "Changed '$name' from '$old_val' to '$new_val'");
 					$host->$func ($new_val) or die ("Failed to set host attribute: '$name' - error was '$host->{error}'");
 				}
 			}
 		}	      
-
-		if ($q->param ('ip')) {
-			my $ip;
-			$ip = $q->param ('ip');
-			unless ($ip eq $host->ip ()) {
-				my $t_host = $hostdb->findhostbyip ($ip);
-				if (defined ($t_host)) {
-					my $t_id = $t_host->id () ;
-					die "Another host object (ID $t_id) currently have the IP '$ip'\n";
-				}
-				
-				my $new_subnet = $hostdb->findsubnetclosestmatch ($ip);
-				
-				die ("Invalid new IP address '$ip': no subnet for that IP found in database") if (! defined ($new_subnet));
-				
-				warn ("IP $ip SUBNET: " . $new_subnet->owner () . " - " . $new_subnet->subnet ());
-				if (! $hostdb->auth->is_allowed_write ($new_subnet, $remote_user)) {
-					die ("You do not have sufficient access to the new IP's subnet '" . 
-					     $new_subnet->subnet () . "'");
-				} else {
-					warn ("USER IS ALLOWED: " . $new_subnet->owner () . " - " . $new_subnet->subnet ());
-				}
-				
-				$host->ip ($ip) or die ("Failed to set host attribute: 'ip' - error was '$host->{error}'");
-			}
-		}
 	};
 	
 	if ($@) {
@@ -278,7 +291,7 @@ sub host_form
 	my $host_id;
 
 	if (defined ($id)) {
-		$host_id = "<a HREF='$me;id=$id'>$id</a>";
+		$host_id = "<a HREF='$whois_path;whoisdatatype=id;whoisdata=$id'>$id</a>";
 	} else {
 		$host_id = "not in database";
 	}
