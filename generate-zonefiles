@@ -385,7 +385,7 @@ sub enum_naptr_rr
 
     my (%enumdata, $e164base, $e164root);
 
-    my %staticmap = (
+    my %staticmap = (#'+468161234' => 'sip:user@example.org',
 		     );
 
     my $numbers_count = 0;
@@ -405,9 +405,12 @@ sub enum_naptr_rr
     load_enumdata ($e164base, \%enumdata, $ldap_enumuri);
 
     foreach my $e164 (sort keys %enumdata) {
+	# XXX SU specific - not very nice to other people
 	my $uri = "sip:${e164}\@pstnproxy.sip.su.se";
 
-	if ($enumdata{$e164}{sipaddress}) {
+	if ($enumdata{$e164}{siproutingaddress}) {
+	    $uri = $enumdata{$e164}{siproutingaddress};
+	} elsif ($enumdata{$e164}{sipaddress}) {
 	    $uri = $enumdata{$e164}{sipaddress};
 	} elsif (defined ($staticmap{$e164})) {
 	    $uri = $staticmap{$e164};
@@ -474,6 +477,7 @@ sub load_enumdata
 	    $$enumdata_ref{$e164}{mail} = $e->get_value ('mail') || '';
 	    $$enumdata_ref{$e164}{uid} = $e->get_value ('uid') || '';
 	    $$enumdata_ref{$e164}{sipaddress} = $e->get_value ('sipLocalAddress') || '';
+	    $$enumdata_ref{$e164}{siproutingaddress} = $e->get_value ('sipRoutingAddress') || '';
 
 	    $numbers_count++;
 	}
