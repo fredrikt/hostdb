@@ -84,9 +84,10 @@ CREATE TABLE hostattribute (
 CREATE TABLE hostalias (
 	id INT AUTO_INCREMENT NOT NULL,
 	hostid INT NOT NULL,
-	hostname VARCHAR(255),
+	aliasname VARCHAR(255) NOT NULL,
 	ttl INT,
 	dnszone VARCHAR(255),
+	dnsstatus ENUM ('ENABLED', 'DISABLED') DEFAULT 'ENABLED' NOT NULL,
 	lastmodified DATETIME,
 	lastupdated DATETIME,
 	comment VARCHAR(255),
