@@ -18,11 +18,11 @@ HOSTDB::Object::HostAttribute - Host object attributes.
   my $hostdb = HOSTDB::DB->new (dsn => $dsn, db => $db, user = $user,
 				password => $pw);
 
-  my $host;
+  my $attr;
   if ($create_new) {
-	$host = $hostdb->create_host ();
+	$attr = $hostdb->create_hostattribute ();
   } else {
-	$host = $hostdb->findhostbyname ($searchfor);
+	$attr = $hostdb->findhostattributebyid ($searchfor);
   }
 
 
@@ -48,10 +48,14 @@ sub init
 
 	$self->_debug_print ("creating object");
 
+	if (! defined ($self->{hostid}) or int ($self->{hostid}) < 1) {
+		die ("Cannot create host attribute object with hostid '$self->{hostid}'\n");
+	}
+
 	if ($hostdb->{_dbh}) {
 		$self->{_new_hostattribute} = $hostdb->{_dbh}->prepare ("INSERT INTO $hostdb->{db}.hostattribute (hostid, v_key, v_section, v_type, v_string, v_int, v_blob, lastmodified, lastupdated) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
 			or die "$DBI::errstr";
-		$self->{_update_hostattribute} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.hostattribute SET hostid = ?, v_key = ?, v_section = ?, v_type = ?, v_string = ?, v_int =  ?, v_blob = ? WHERE id = ?")
+		$self->{_update_hostattribute} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.hostattribute SET hostid = ?, v_key = ?, v_section = ?, v_type = ?, v_string = ?, v_int =  ?, v_blob = ?, lastmodified = ?, lastupdated = ? WHERE id = ?")
 			or die "$DBI::errstr";
 		$self->{_delete_hostattribute} = $hostdb->{_dbh}->prepare ("DELETE FROM $hostdb->{db}.hostattribute WHERE id = ?")
 			or die "$DBI::errstr";
@@ -84,7 +88,7 @@ sub commit
 	my @db_values = ($self->hostid (),
 			 $self->key (),
 			 $self->section (),
-			 $self->v_type (),
+			 $self->type (),
 			 $self->v_string (),
 			 $self->v_int (),
 			 $self->v_blob (),
@@ -153,6 +157,45 @@ sub delete
 
 	return 1;
 }
+
+
+=head2 id
+
+	Get object database ID number. This is read only.
+
+=cut
+sub id
+{
+	my $self = shift;
+
+	if (@_) {
+		$self->_set_error ("id is read only");
+		return 0;
+	}
+
+	return ($self->{id});
+}
+
+
+=head2 hostid
+
+	Get the ID number of the host object this attribute
+	belongs to. This is read only (only settable through
+	$host->create_attribute ()).
+
+=cut
+sub hostid
+{
+	my $self = shift;
+
+	if (@_) {
+		$self->_set_error ("hostid is read only");
+		return 0;
+	}
+
+	return ($self->{hostid});
+}
+
 
 
 =head2 key
@@ -266,13 +309,10 @@ sub set
 		my $newvalue = shift;
 
 		if ($type eq 'string') {
-			$self->v_type ('string');
 			$self->v_string ($newvalue);
-		} elsif ($self->{v_type} eq 'int') {
-			$self->v_type ('int');
+		} elsif ($type eq 'int') {
 			$self->v_int ($newvalue);
-		} elsif ($self->{v_type} eq 'blob') {
-			$self->v_type ('blob');
+		} elsif ($type eq 'blob') {
 			$self->v_blob ($newvalue);
 		} else {
 			$self->_set_error ("Invalid attribute type '$self->{v_type}'");
@@ -310,6 +350,8 @@ sub v_string
 		$self->{v_int} = undef;
 		$self->{v_blob} = undef;
 
+		$self->{v_type} = 'string';
+	
 		if ($newvalue eq 'NULL') {
 			$self->{v_string} = undef;
 			return 1;
@@ -340,6 +382,8 @@ sub v_int
 		$self->{v_string} = undef;
 		$self->{v_blob} = undef;
 	
+		$self->{v_type} = 'int';
+	
 		if ($newvalue eq 'NULL') {
 			$self->{v_int} = undef;
 			return 1;
@@ -369,6 +413,8 @@ sub v_blob
 
 		$self->{v_int} = undef;
 		$self->{v_string} = undef;
+
+		$self->{v_type} = 'blob';
 	
 		if ($newvalue eq 'NULL') {
 			$self->{v_blob} = undef;
@@ -381,66 +427,6 @@ sub v_blob
 	}
 
 	return ($self->{v_blob});
-}
-
-
-=head2 lastupdated
-
-	Blah
-
-
-=cut
-sub lastupdated
-{
-	my $self = shift;
-
-	if (@_) {
-		my $newvalue = shift;
-
-		my $fmtvalue = $self->_format_datetime ($newvalue);
-		if (defined ($fmtvalue)) {
-			if ($fmtvalue eq 'NULL') {
-				$self->{lastupdated} = undef;
-			} else {
-				$self->{lastupdated} = $fmtvalue;
-			}
-
-			return 1;
-		} else {
-			$self->_set_error ("Invalid mac_address timestamp format");
-			return 0;
-		}
-
-		return 1;
-	}
-
-	return ($self->{lastupdated});
-}
-
-
-=head2 unix_lastupdated
-
-	unix_lastupdated is lastupdated but expressed as a UNIX
-	timestamp. It is not stored in the database, but calculated at
-	the time a host attribute object is fetched from the database. The only
-	purpose of this is to make it easier for applications using
-	host attribute objects to perform date calculations.
-
-	printf "The attribute was last updated %i seconds ago.\n",
-	       time () - $attr->unix_lastupdated ();
-
-
-=cut
-sub unix_lastupdated
-{
-	my $self = shift;
-
-	if (@_) {
-		$self->_set_error ("unix_lastupdated is read only");
-		return 0;
-	}
-
-	return ($self->{unix_lastupdated});
 }
 
 
@@ -501,6 +487,66 @@ sub unix_lastmodified
 	}
 
 	return ($self->{unix_lastmodified});
+}
+
+
+=head2 lastupdated
+
+	Blah
+
+
+=cut
+sub lastupdated
+{
+	my $self = shift;
+
+	if (@_) {
+		my $newvalue = shift;
+
+		my $fmtvalue = $self->_format_datetime ($newvalue);
+		if (defined ($fmtvalue)) {
+			if ($fmtvalue eq 'NULL') {
+				$self->{lastupdated} = undef;
+			} else {
+				$self->{lastupdated} = $fmtvalue;
+			}
+
+			return 1;
+		} else {
+			$self->_set_error ("Invalid mac_address timestamp format");
+			return 0;
+		}
+
+		return 1;
+	}
+
+	return ($self->{lastupdated});
+}
+
+
+=head2 unix_lastupdated
+
+	unix_lastupdated is lastupdated but expressed as a UNIX
+	timestamp. It is not stored in the database, but calculated at
+	the time a host attribute object is fetched from the database. The only
+	purpose of this is to make it easier for applications using
+	host attribute objects to perform date calculations.
+
+	printf "The attribute was last updated %i seconds ago.\n",
+	       time () - $attr->unix_lastupdated ();
+
+
+=cut
+sub unix_lastupdated
+{
+	my $self = shift;
+
+	if (@_) {
+		$self->_set_error ("unix_lastupdated is read only");
+		return 0;
+	}
+
+	return ($self->{unix_lastupdated});
 }
 
 
