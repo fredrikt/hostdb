@@ -123,7 +123,7 @@ EOH
 						<th ALIGN='left'>IP</th>
 						<th ALIGN='left'>Hostname</th>
 						<th ALIGN='left'>MAC address</th>
-						<th ALIGN='left'>Last used</th>
+						<th ALIGN='right'>Last used&nbsp;</th>
 					</tr>
 EOH
 				for $i (1 .. $subnet->addresses () - 2) {
@@ -151,7 +151,10 @@ EOH
 						my $hostname = $host->hostname () || 'NULL';
 						my $mac = $host->mac_address () || '';
 						my $mac_ts = $host->mac_address_ts () || '';
-						
+
+						# split at space to only get date and not time
+						$mac_ts = (split (/\s/, $mac_ts))[0];
+
 						if ($whois_path) {
 							$ip = "<a HREF='$whois_path;whoisdatatype=ID;whoisdata=$id'>$ip</a>";
 						}
@@ -188,8 +191,8 @@ EOH
 							<tr>
 							   <td ALIGN='left'>$ip</td>
 							   <td ALIGN='left'>$hostname</td>
-							   <td ALIGN='center'><font SIZE='2'><pre>$mac  </pre></font></td>
-							   <td ALIGN='left' NOWRAP>${ts_font}${mac_ts}${ts_font_end}</td>
+							   <td ALIGN='center'><font SIZE='2'><pre>$mac</pre></font></td>
+							   <td ALIGN='right' NOWRAP>${ts_font}${mac_ts}${ts_font_end}</td>
 							</tr>
 EOH
 					}
