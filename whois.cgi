@@ -38,15 +38,16 @@ if (-f $hostdbini->val ('sucgi', 'cfgfile')) {
 
 my $q = SUCGI->new ($sucgi_ini);
 
-my $showsubnet_path = create_url ($q, $hostdbini->val ('subnet', 'http_base'),
-				  $hostdbini->val ('subnet', 'showsubnet_path'));
+
+my $showsubnet_path = $q->state_url($hostdbini->val('subnet','showsubnet_uri'));
+my $modifyhost_path = $q->state_url($hostdbini->val('subnet','modifyhost_uri'));
 
 $q->begin (title => "Whois");
 
 $q->print ("<table BORDER='0' CELLPADDING='0' CELLSPACING='0' WIDTH='600'>\n" .
 	   "$table_blank_line");
 
-$q->print ("<tr><td COLSPAN='2' ALIGN='center'><h3>Web-based whois</h3></td></tr>\n" .
+$q->print ("<tr><td COLSPAN='2' ALIGN='center'><h3>HOSTDB: Search</h3></td></tr>\n" .
 	   "$table_blank_line");
 
 whois_form ($q);
@@ -106,13 +107,17 @@ sub perform_search
 			my $t = $search_for;
 			if ($hostdb->clean_mac_address ($t)) {
 				$search_for = $t;
-				$whoisdatatype = "MAC";
+				$whoisdatatype = 'MAC';
+			} elsif ($search_for =~ /^[+-]*(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.in-addr\.arpa\.*$/i) {
+				$whoisdatatype = 'IP';
+				$search_for = "$4.$3.$2.$1";
 			} elsif ($hostdb->is_valid_ip ($search_for)) {
-				$whoisdatatype = "IP";
-			} elsif ($hostdb->is_valid_fqdn ($search_for)) {
-				$whoisdatatype = "FQDN";
+				$whoisdatatype = 'IP';
+			} elsif ($hostdb->clean_hostname ($t)) {
+				$whoisdatatype = 'FQDN';
+				$search_for = $t;
 			} elsif ($search_for =~ /^\d+$/) { 
-				$whoisdatatype = "ID";
+				$whoisdatatype = 'ID';
 			} else {
 				error_line ($q, "Search failed: could not guess data type");
 				return undef;
@@ -129,7 +134,9 @@ sub perform_search
 				return undef;
 			}
 		} elsif ($whoisdatatype eq "FQDN") {
-			if ($hostdb->is_valid_fqdn ($search_for)) {
+			my $t = $search_for;
+			if ($hostdb->clean_hostname ($t)) {
+				$search_for = $t;
 				@host_refs = $hostdb->findhostbyname ($search_for);
 			} else {
 				error_line ($q, "Search failed: '$search_for' is not a valid FQDN");
@@ -157,7 +164,7 @@ sub perform_search
 		}
 
 		if (@host_refs) {
-			if ($#host_refs == 0) {
+		  if (1 == @host_refs) {
 				# only one host, show detailed information
 				foreach my $host (@host_refs) {
 					$q->print ("<tr><th COLSPAN='2' ALIGN='left'>Host :</th></tr>");
@@ -178,7 +185,7 @@ sub perform_search
 					$q->print ($table_blank_line);	
 				}
 
-				$q->print ($table_hr_line);
+				#$q->print ($table_hr_line);
 			} else {
 				# more than one host record, show brief information
 				foreach my $host (@host_refs) {
@@ -201,7 +208,7 @@ EOH
 				}
 			}
 
-			$q->print ($table_hr_line);
+			#$q->print ($table_hr_line);
 
 			return 1;
 		}
@@ -221,9 +228,8 @@ sub print_host_info
 	return undef if (! defined ($host));
 
 	# HTML
-	my $me = $q->state_url ();
+	my $me = $q->state_url();
 	my $id = $host->id ();
-	$id = "<a href='$me&whoisdatatype=ID&whoisdata=$id'>$id</a>";
 	my $parent = $host->partof ()?$host->partof ():'-';
 	$parent = "<a href='$me&whoisdatatype=ID&whoisdata=$parent'>$parent</a>";
 	my $ip = $host->ip ();
@@ -235,7 +241,7 @@ sub print_host_info
 	$q->print (<<EOH);
 	   <tr>
 		<td>ID</td>
-		<td>$id</td>
+		<td><a href="$me&whoisdatatype=ID&whoisdata=$id">$id</a>&nbsp;[<a href="$modifyhost_path&id=$id">modify</a>]</td>
 	   </tr>	
 	   <tr>
 		<td>Parent</td>
@@ -283,7 +289,7 @@ sub print_subnet_info
 	my $desc = $subnet->description ();
 	
 	if ($showsubnet_path) {
-		$s = "<a href='" . $showsubnet_path . "&subnet=$s" . "'>$s</a>";
+		$s = "<a HREF='$showsubnet_path&subnet=$s'>$s</a>";
 	}
 	
 	$q->print (<<EOH);
@@ -318,32 +324,3 @@ sub error_line
 EOH
 }
 
-sub create_url
-{
-	my $q = shift;
-	my $base = shift;
-	my $in_url = shift;
-
-	return undef if (! $in_url);
-	
-	my $url;
-	if ($in_url !~ '^https*://') {
-		# in_url appears to be relative
-		$url = "$base/$in_url";
-	} else {
-		$url = $in_url;
-	}
-
-	$url =~ s#([^:])//#$1#;	# replace double slashes, but not the ones in http://
-
-	if ($q) {
-		$url .= '?_sucgi_sid=' . $q->getSID ();
-	} else {
-		# put this here since our users expects to be able to add
-		# all their parameters with & as separator
-		$url .= '?_sucgi_foo=bar';
-	}
-
-	return undef if ($url !~ '^https*://');
-	return $url;
-}
