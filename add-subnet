@@ -32,6 +32,6 @@ die ("Could not create subnet object: " . $hostdb->{error} . "\n") if (! $subnet
 $subnet->short_description ($ARGV[1]);
 $subnet->description ($ARGV[2]);
 
-$subnet->commit() or die ("Could not commit subnet object: " . $hostdb->{error} . "\n");
+$subnet->commit() or die ("Could not commit subnet object: " . $subnet->{error} . "\n");
 
 exit (0);
