@@ -43,6 +43,7 @@ unless ($remote_user) {
 	die ("$0: Invalid REMOTE_USER environment variable '$ENV{REMOTE_USER}'");
 }
 my $is_admin = $hostdb->auth->is_admin ($remote_user);
+my $is_helpdesk = $hostdb->auth->is_helpdesk ($remote_user);
 
 
 my $subnet;
@@ -81,7 +82,7 @@ if (! $subnet) {
 my $subnetname = $subnet->subnet ();
 
 my (@links, @admin_links);
-push (@admin_links, "[<a HREF='$links{netplan}'>netplan</a>]") if ($is_admin and $links{netplan});
+push (@admin_links, "[<a HREF='$links{netplan}'>netplan</a>]") if (($is_admin or $is_helpdesk) and $links{netplan});
 push (@links, "[<a HREF='$links{home}'>home</a>]") if ($links{home});
 push (@links, "[<a HREF='$links{whois}'>whois</a>]") if ($links{whois});
 
@@ -102,7 +103,7 @@ EOH
 
 my $static_flag_days = $hostdbini->val ('subnet', 'static_flag_days');
 my $dynamic_flag_days = $hostdbini->val ('subnet', 'static_flag_days');
-list_subnet ($hostdb, $q, $subnet, $remote_user, $is_admin, $static_flag_days, $dynamic_flag_days);
+list_subnet ($hostdb, $q, $subnet, $remote_user, $is_admin, $is_helpdesk, $static_flag_days, $dynamic_flag_days);
 
 $q->print (<<EOH);
 	</table>
@@ -117,6 +118,7 @@ sub list_subnet
 	my $subnet = shift;
 	my $remote_user = shift;
 	my $is_admin = shift;
+	my $is_helpdesk = shift;
 	my $static_flag_days = shift;
 	my $dynamic_flag_days = shift;
 
@@ -128,7 +130,7 @@ sub list_subnet
 	my $dynamic_hosts = 0;
 
 	# check that user is allowed to list subnet
-	if (! $is_admin) {
+	if (! $is_admin and ! $is_helpdesk) {
 		if (! defined ($subnet) or ! $hostdb->auth->is_allowed_write ($subnet, $remote_user)) {
 			error_line ($q, "You do not have sufficient access to subnet '" . $subnet->subnet () . "'");
 			return 0;
@@ -141,7 +143,7 @@ sub list_subnet
 	my $id = $subnet->id ();
 	my $owner = $subnet->owner ();
 
-	my $edit_link;
+	my $edit_link = '';
 	if ($is_admin and $links{modifysubnet}) {
 		$edit_link =  "[<a HREF='$links{modifysubnet};id=$id'>edit</a>]";
 	}
