@@ -185,20 +185,51 @@ sub delete
 
 	return 0 if ($check ne "YES");
 
-	my $sth;
 	if (defined ($self->{id})) {
-		$sth = $self->{_delete_host};
+		my $sth = $self->{_delete_host};
 		$sth->execute ($self->id ()) or die "$DBI::errstr";
 		
-		# XXX check number of rows affected?
+		my $rowcount = $sth->rows ();
 
 		$sth->finish();
+		
+		if ($rowcount != 1) {
+			$self->_set_error ("Delete operation of host with id '$self->{id}' did not affect the expected number of database rows ($rowcount, not 1)");
+			return 0;
+		}
 	} else {
-		$self->_set_error ("Host not in database");
+		$self->_set_error ('Host not in database');
 		return 0;
 	}
 
 	return 1;
+}
+
+=head2 init_attributes
+
+	Loads the hosts attributes from the database.
+
+	# set property
+	$n = $host->init_attributes ();
+
+	print ("The host has $n attributes\n");
+
+
+=cut
+sub init_attributes
+{
+	my $self = shift;
+
+	if (defined ($self->{id})) {
+		$self->_debug_print ("Find all host attributes with hostid '$self->{id}'");
+
+		@{$self->{attributes}} = $self->{hostdb}->findhostattributesbyhostid ($self->{id});
+	} else {
+		$self->_set_error ('Host not in database');
+		return 0;
+	}
+
+	wantarray ? @{$self->{attributes}} : 1;
 }
 
 
