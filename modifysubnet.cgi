@@ -179,7 +179,7 @@ sub modify_subnet
 					} else {
 						push (@changelog, "Set '$name' to '$new_val'");
 					}
-					$subnet->$func ($new_val) or die ("$subnet->{error}\n");
+					$subnet->$func ($new_val) or die ("Failed to set subnet attribute: '$name' - error was '$subnet->{error}'\n");
 				}
 			}
 		}

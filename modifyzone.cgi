@@ -189,7 +189,7 @@ sub modify_zone
 					} else {
 						push (@changelog, "Set '$name' to '$new_val'");
 					}
-					$zone->$func ($new_val) or die ("$zone->{error}\n");
+					$zone->$func ($new_val) or die ("Failed to set zone attribute: '$name' - error was '$zone->{error}'\n");
 				}
 			}
 		}
