@@ -35,6 +35,7 @@ my $q = SUCGI->new ($sucgi_ini);
 
 my $showsubnet_path = $q->state_url($hostdbini->val('subnet','showsubnet_uri'));
 my $modifyhost_path = $q->state_url($hostdbini->val('subnet','modifyhost_uri'));
+my $netplan_uri = $hostdbini->val('subnet', 'netplan_uri');
 
 $q->begin (title => 'Delete Host');
 my $remote_user = '';
@@ -88,7 +89,8 @@ SWITCH:
 		# check that user is allowed to edit both zone and subnet
 		my $authorized = 1;
 
-		if (! $hostdb->auth->is_admin ($remote_user)) {
+		my $is_admin = $hostdb->auth->is_admin ($remote_user);
+		if (! $is_admin) {
 			if (! defined ($subnet) or ! $hostdb->auth->is_allowed_write ($subnet, $remote_user)) {
 				error_line ($q, "You do not have sufficient access to subnet '" . $subnet->subnet () . "'");
 			}
@@ -107,33 +109,56 @@ SWITCH:
 				my $i = localtime () . " deletehost.cgi[$$]";
 				warn ("$i User '$remote_user' (from $ENV{REMOTE_ADDR}) deleted the following host -- $identify_str\n");
 
-
+				my @links;
+				
 				$q->print (<<EOH);
 					<tr>
 						<td COLSPAN='2'><strong><font COLOR='red'>Host deleted</font></strong></td>
 					</tr>
 EOH
-				if (defined ($subnet)) {
+				if (defined ($subnet) and $showsubnet_path) {
 					my $s = $subnet->subnet ();
 			
-					if ($showsubnet_path) {
-						$s = "<a HREF='$showsubnet_path;subnet=$s'>$s</a>";
+					my $link = "<a HREF='$showsubnet_path;subnet=$s'>Show subnet</a>";
 				
-						$q->print (<<EOH);
-							<tr>
-								<td COLSPAN='2'>[$s]<br></td>
-							</tr>
+					push (@links, <<EOH);
+						<tr>
+							<td COLSPAN='2'>&nbsp;&nbsp;[$link $s]<br></td>
+						</tr>
 EOH
-					}
 				}
 		
-				$ip = "<a HREF='$modifyhost_path;ip=$ip'>New host</a>";
+				if ($modifyhost_path) {
+					$ip = "<a HREF='$modifyhost_path;ip=$ip'>New host</a> with IP $ip";
 
-				$q->print (<<EOH);
-					<tr>
-						<td COLSPAN='2'>[$ip]</td>
-					</tr>
+					push (@links, <<EOH);
+						<tr>
+							<td COLSPAN='2'>&nbsp;&nbsp;[$ip]</td>
+						</tr>
 EOH
+				}
+
+				if ($is_admin and $netplan_uri) {
+					my $link = "<a HREF='$netplan_uri'>Netplan</a>";
+
+					push (@links, <<EOH);
+						<tr>
+							<td COLSPAN='2'>&nbsp;&nbsp;[$link]</td>
+						</tr>
+EOH
+				}
+				
+				if (@links) {
+					$q->print (<<EOH);
+
+					$table_blank_line
+
+					<tr>
+						<td COLSPAN='2'><strong>Courtesy links :</td>
+					</tr>
+					@links
+EOH
+				}
 			} else {
 				error_line ($q, "Delete failed: $host->{error}");
 			}
