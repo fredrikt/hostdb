@@ -17,7 +17,7 @@ CREATE TABLE host (
 	n_ip INT UNSIGNED NOT NULL,
 	owner VARCHAR(255) NOT NULL,
 	ttl INT,
-	user VARCHAR(255),
+	comment VARCHAR(255),
 	partof INT,
 	mac_address_ts DATETIME,
 	client_id VARCHAR(255),
@@ -62,6 +62,7 @@ CREATE TABLE subnet (
 	htmlcolor CHAR(20),
 	dhcpconfig MEDIUMBLOB,
 	owner VARCHAR(255) NOT NULL,
+	profilelist VARCHAR(255) DEFAULT 'default' NOT NULL,
 	PRIMARY KEY (id)
 );
 
