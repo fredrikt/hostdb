@@ -45,6 +45,11 @@ my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
 			  debug => $debug
 			 );
 
+my $total_set_count = 0;
+my $total_failed_count = 0;
+my $total_duplicate_count = 0;
+my $total_ignore_count = 0;
+
 my ($set_count, $failed_count, %seen);
 foreach my $file (@files) {
 	$set_count = 0;
@@ -59,12 +64,18 @@ foreach my $file (@files) {
 			my ($ip, $mac) = ($1, $3);
 		
 			$hostdb->clean_mac_address ($mac);
+			warn ("Invalid MAC address '$3' on $file:$.\n"), next unless ($hostdb->valid_mac_address ($mac));
 
 			# shortcut as early as possible if we've seen this ip and mac earlier this run
-			next if ($seen{"$ip;$mac"});
-			$seen{"$ip;$mac"} = 1;
-
-			warn ("Invalid MAC address '$3' on $file:$.\n"), next unless ($hostdb->valid_mac_address ($mac));
+			if ($seen{$ip}) {
+				if ($seen{$ip} ne $mac) {
+					warn("Ignoring additional MAC address ($mac) for IP $ip ($seen{$ip})\n");
+					$total_duplicate_count++;
+				}
+				
+				next;
+			}
+			$seen{$ip} = $mac;
 
 			#warn ("IP $ip MAC $mac\n");
 			my $host = $hostdb->findhostbyip ($ip);
@@ -72,20 +83,29 @@ foreach my $file (@files) {
 			if (! defined ($host->{id})) {
 				warn ("$ip not found in database\n");
 				$failed_count++;
+				$total_failed_count++;
 			} else {
+				if ($host->{hostname} =~ /^.*dhcp.*/oi) {
+					warn ("Ignoring dynamic host $ip ($host->{hostname})\n");
+					$total_ignore_count++;
+				}
+
 				my $valid = 1;
 
 				next if ($host->{mac} eq $mac);
-
-				warn("Overwriting $ip ($host->{mac}) with $mac\n") if ($host->{mac});
-
+				
 				$host->set_mac_address ($mac) or warn ($host->{error}), $valid = 0;
-				$host->commit() if ($valid);
-			
-				undef ($host);
-				$set_count++;
+				if ($valid) {
+					$host->commit();
+					
+					$set_count++;
+					$total_set_count++;
 
-				printf("%-6d %-16s %s\n", $set_count, $ip, $mac);
+					printf("%-6d %-16s %s\n", $total_set_count, $ip, $mac);
+				} else {
+					$failed_count++;
+					$total_failed_count++;
+				}
 			}
 		}
 
@@ -94,5 +114,12 @@ foreach my $file (@files) {
 	
 	print ("$file: set $set_count mac addresses, failed to set $failed_count\n");
 }
+
+print("\n\nTotal statistics:\n",
+	"	set:	$total_set_count\n",
+	"	failed:	$total_failed_count\n",
+	"	dup:	$total_duplicate_count\n",
+	"	ign:	$total_ignore_count\n",
+	"\n");
 
 print ("done\n");
