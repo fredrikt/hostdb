@@ -57,6 +57,7 @@ while ($ARGV[0]) {
 			my $ttl = $host->ttl () || 'default';
 			my $profile = $host->profile ();
 			my $zone = $host->dnszone () || 'NULL';
+			my $manual_zone = $host->manual_dnszone () || 'NULL';
 
 			print (<<EOH);
 	ID	$id
@@ -67,6 +68,7 @@ while ($ARGV[0]) {
 	  IP address	$ip
 	  Hostname	$hostname
 	  Zone		$zone
+	  Manual zone	$manual_zone
 	  TTL		$ttl
 	  Mode		$dnsmode
 	  Status	$dnsstatus
