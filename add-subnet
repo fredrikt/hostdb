@@ -18,6 +18,7 @@ if ($#ARGV != 2) {
 	die (<<EOT);
 Syntax: $0 subnet owner short-desc long-desc
 	subnet is the subnet in slash notation (eg. 192.168.1.0/24)
+	owner is the HOSTDB::Auth identifier that will be able to modify things in this subnet
 	short-desc is what is shown in the overview netplan
 	long-desc is the long description of the subnet
 
