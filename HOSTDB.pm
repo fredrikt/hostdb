@@ -572,9 +572,9 @@ sub init
 		$self->{_zonebyname} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.zone WHERE zonename = ? ORDER BY zonename") or die "$DBI::errstr";
 		$self->{_allzones} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.zone ORDER BY zonename") or die "$DBI::errstr";
 
-		$self->{_subnet} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.subnet WHERE netaddr = ? ORDER BY n_netaddr");
-		$self->{_subnet_longer_prefix} =	$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.subnet WHERE n_netaddr > ? AND n_netaddr < ? ORDER BY n_netaddr");
-		$self->{_subnet_closest_match} =	$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.subnet WHERE n_netaddr < ? ORDER BY n_netaddr REVERSE LIMIT 1");
+		$self->{_subnet} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.subnet WHERE netaddr = ? AND slashnotation = ? ORDER BY n_netaddr");
+		$self->{_subnet_longer_prefix} =	$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.subnet WHERE n_netaddr >= ? AND n_netaddr =< ? ORDER BY n_netaddr");
+		$self->{_subnet_closest_match} =	$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.subnet WHERE n_netaddr <= ? ORDER BY n_netaddr LIMIT 1");
 	} else {
 		$self->_debug_print ("DSN not provided, not connecting to database.");
 	}
@@ -783,6 +783,7 @@ sub findhostbyid
 	$self->_find(_hostbyid => 'HOSTDB::Object::Host', $_[0]);
 }
 
+
 =head2 findhostbypartof
 
 	blah
@@ -814,6 +815,7 @@ sub findzonebyname
 	$self->_find(_zonebyname => 'HOSTDB::Object::Zone', $_[0]);
 }
 
+
 =head2 findallzones
 
 	@zones = $hostdb->findallzones ();
@@ -829,6 +831,23 @@ sub findallzones
 	$self->_find(_allzones => 'HOSTDB::Object::Zone');
 }
 
+
+=head2 findsubnet
+
+	$subnet = $hostdb->findsubnet("192.168.1.1/24");
+
+
+=cut
+sub findsubnet
+{
+	my $self = shift;
+
+	$self->_debug_print ("Find subnet '$_[0]'");
+
+	my ($subnet, $slash) = split('/', $_[0]);
+
+	$self->_find(_subnet => 'HOSTDB::Object::Subnet', $subnet, $slash);
+}
 
 ########################################
 # package HOSTDB::DB private functions #
@@ -869,7 +888,9 @@ sub _find
 			# strip leading and trailing white space on all keys
 			$hr->{$k} =~ s/^\s*(.*?)\s*$/$1/;
 		}
-		$o->init($self);
+		$o->{hostdb} = $self;
+		$o->{debug} = $self->{debug};
+		$o->init();
 		push(@retval,$o);
 	}
 	$sth->finish();
@@ -1349,6 +1370,21 @@ sub init
 	my $self = shift;
 	my $hostdb = $self->{hostdb};
 
+	if (! defined ($self->{subnet})) {
+		# subnet not defined, this can be because our caller is the _find function
+		if (defined ($self->{netaddr}) and
+		    defined ($self->{slashnotation})) {
+		
+			$self->{subnet} = "$self->{netaddr}/$self->{slashnotation}";
+
+			# XXX ugly hack
+			$self->{in_db} = 1;
+		}
+	} else {
+		# XXX ugly hack
+		$self->{in_db} = 0;
+	}
+	
 	$hostdb->_debug_print ("creating object (IPv$self->{ipver} subnet '$self->{subnet}')");
 
 	return undef if (! $self->subnet ($self->{subnet}));
@@ -1362,16 +1398,13 @@ sub init
 			or die "$DBI::errstr";
 		$self->{_update_subnet} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.subnet SET " .
 			"ipver = ?, netaddr = ?, slashnotation = ?, netmask = ?, broadcast = ?, " .
+			"addresses = ?, " .
 			"description = ?, short_description = ?, n_netaddr = ?, n_netmask = ?, " .
-			"n_broadcast = ?,htmlcolor = ?, dhcpconfig = ? WHERE netaddr = ?")
+			"n_broadcast = ?, htmlcolor = ?, dhcpconfig = ? WHERE netaddr = ? AND slashnotation = ?")
 			or die "$DBI::errstr";
 	} else {
 		$hostdb->_debug_print ("NOT preparing database stuff");
 	}
-
-	# XXX ugly hack to differentiate on zones already in DB
-	# (find* sets this to 1) and new zones
-	$self->{in_db} = 0;
 
 	return $self;
 }
@@ -1548,11 +1581,13 @@ sub description
 	if (@_) {
 		my $newvalue = shift;
 	
+		$self->_debug_print ("SETTING DESC '$newvalue'");
 		$self->{description} = $newvalue;
 		
 		return 1;
 	}
 
+	$self->_debug_print ("RETURNING DESCRIPTION '$self->{description}'");
 	return ($self->{description});
 }
 
@@ -1641,15 +1676,19 @@ sub dhcpconfig
 sub commit
 {
 	my $self = shift;
-	my $hostdb = shift;
 
 	my $sth;
 	if (defined ($self->{in_db}) and $self->{in_db} >= 1) {
 		$sth = $self->{_update_subnet};
 		$sth->execute ($self->ipver (), $self->netaddr (), $self->slashnotation (),
-			       $self->netmask (), $self->description (), $self->short_description (),
-			       $self->n_netaddr (), $self->n_netmask (), $self->htmlcolor (),
-			       $self->dhcpconfig ()
+			       $self->netmask (), $self->broadcast (), $self->addresses (),
+			       $self->description (), $self->short_description (),
+			       $self->n_netaddr (), $self->n_netmask (), $self->n_broadcast (),
+			       $self->htmlcolor (), $self->dhcpconfig (),
+			       # specifiers
+			       # XXX we have a catch-22 here. we cannot change netaddr/slashnotation
+			       # with this update query
+			       $self->netaddr (), $self->slashnotation ()
 			      )
 			or die "$DBI::errstr";
 		
@@ -1658,7 +1697,6 @@ sub commit
 		$sth->finish();
 	} else {
 		# this is a new entry
-
 		$sth = $self->{_new_subnet};
 		$sth->execute ($self->ipver (), $self->netaddr (), $self->slashnotation (),
 			       $self->netmask (), $self->broadcast (), $self->addresses(),
