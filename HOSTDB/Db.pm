@@ -69,7 +69,7 @@ sub DESTROY
 {
 	my $self = shift;
 
-	$self->{_dbh}->disconnect();
+	$self->{_dbh}->disconnect() if (defined ($self->{_dbh}));
 }
 
 
