@@ -17,11 +17,13 @@ if ($ARGV[0] eq "-d") {
 }
 
 if ($#ARGV != 2) {
-	die("Syntax: $0 subnet/slash short-desc long-desc\n" .
-	    "	subnet is the subnet in slash notation (eg. 192.168.1.0/24)\n" .
-	    "	short-desc is what is shown in the overview netplan\n" .
-	    "	long-desc is the long description of the subnet\n" .
-	    "\n");
+	die (<<EOT);
+Syntax: $0 subnet short-desc long-desc
+	subnet is the subnet in slash notation (eg. 192.168.1.0/24)
+	short-desc is what is shown in the overview netplan
+	long-desc is the long description of the subnet
+
+EOT
 }
 
 my $hostdbini = Config::IniFiles->new (-file => HOSTDB::get_inifile ());
