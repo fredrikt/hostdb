@@ -1,0 +1,93 @@
+#!/usr/local/bin/perl -w
+#
+# $Id$
+#
+# script to add host aliases to the database
+#
+
+use strict;
+use HOSTDB;
+use Getopt::Long;
+use vars qw ($opt_dnsstatus $opt_ttl $opt_comment $opt_debug $opt_force);
+
+my %o = ();
+my $res = GetOptions (
+		      "dnsstatus=s",
+		      "ttl=i",
+		      "comment=s",
+		      "debug",
+		      "force"
+		      );
+
+#die ("$0: Parsing options failed\n") if ($res);
+
+my $debug = defined ($opt_debug);
+my $aliasname = shift;
+my $searchfor = shift;
+
+sub usage
+{
+    my $msg = shift;
+    # interpolation
+
+    die(<<EOT);
+${msg}Syntax: $0 [options] aliasname <ID/IP/FQDN/MAC>
+	options:
+		--debug		debug
+		--force		don\'t perform certain sanity checks (DUP checking)
+	object modifiers :
+		--dnsstatus	ENABLED or DISABLED
+		--ttl		DNS TTL
+		--comment	Comment about host
+
+EOT
+}
+
+my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
+			      debug => $debug
+			     );
+
+usage ('') if (! defined ($aliasname) or ! defined ($searchfor));
+
+usage ("Invalid alias name '$aliasname'\n\n") unless ($hostdb->clean_hostname ($aliasname));
+
+my @hosts = $hostdb->findhost ('guess', $searchfor);
+die ("$0: No hosts matching <ID/IP/FQDN/MAC> '$searchfor' found\n") if (! @hosts);
+my $numhosts = 0 + @hosts;
+
+if ($numhosts != 1) {
+    die ("$0: More than one ($numhosts) hosts matches <ID/IP/FQDN/MAC> '$searchfor'\n");
+}
+
+my $host = $hosts[0];
+
+if (! $opt_force) {
+    # do some extra sanity checks if not forced
+    my $h = $hostdb->findhost ('guess', $aliasname);
+    if ($h) {
+	my $hostid = $h->id ();
+	die ("$0: A host (id $hostid) with hostname/aliasname $aliasname already exists, use --force to add anyways.\n");
+    }
+}
+
+my $alias = $host->create_hostalias () or die ("$0: Could not create alias - $host->{error}\n");
+$alias->aliasname ($aliasname) or die ("$0: Invalid value - $alias->{error}\n");
+
+# defaults, set before checking if they are supplied
+my $host_ttl = $host->ttl () || 'NULL';
+$alias->dnsstatus ('ENABLED')	or die ("$0: Could not set default 'dnsstatus': $alias->{error}\n");
+$alias->ttl($host_ttl)	or die ("$0: Could not set default 'ttl' (from host, '$host_ttl'): $alias->{error}\n");
+
+# optional ones
+$alias->dnsstatus ($opt_dnsstatus)		or die ("$0: Invalid dnsstatus - $alias->{error}\n") if (defined ($opt_dnsstatus));
+$alias->ttl ($opt_ttl)				or die ("$0: Invalid ttl - $alias->{error}\n") if (defined ($opt_ttl));
+$alias->comment ($opt_comment)			or die ("$0: Invalid comment - $alias->{error}\n") if (defined ($opt_comment));
+
+my $z = $hostdb->findzonebyhostname ($alias->aliasname ());
+die ("$0: Could not find a suitable DNS zone for aliasname '" . $alias->aliasname () . "'\n") unless defined ($z);
+
+$alias->dnszone ($z->zonename ()) or die ("$0: Invalid dnszone - $alias->{error}\n");
+
+$alias->commit () or die ("$0: Could not commit host object - $alias->{error}\n");
+
+exit (0);
