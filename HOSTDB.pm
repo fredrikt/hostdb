@@ -379,9 +379,11 @@ sub check_valid_ip
 		return 0 if (int($ip[2]) < 1 or int($ip[2]) > 255);
 		return 0 if (int($ip[3]) < 1 or int($ip[3]) > 255);
 		#return 0 if ("$1.$2" eq "192.168");
+
+		return 1;
 	}
 
-	return 1;
+	return 0;
 }
 
 =head2 aton
