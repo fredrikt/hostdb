@@ -150,16 +150,16 @@ sub gen_zonefile
 		}
 	} elsif ($zonename =~ /\.e164\.arpa$/) {
 		warn ("$0: zone '$zonename' - e164.arpa not implemented\n");
-		return undef;
+		print ($ZONEFILE "; $0: HOSTDB - e164.arpa not implemented\n");
 	} elsif ($zonename =~ /\.ip6\.arpa$/) {
 		warn ("$0: zone '$zonename' - ip6.arpa not implemented\n");
-		return undef;	
+		print ($ZONEFILE "; $0: HOSTDB - ip6.arpa not implemented\n");
 	} elsif ($zonename =~ /\.arpa$/) {
 		warn ("$0: zone '$zonename' - unknown .arpa, I'd better not try\n");
-		return undef;
+		print ($ZONEFILE "; $0: HOSTDB - unknown .arpa, I'd better not try\n");
 	} elsif ($zonename =~ /\.ip6\.int$/) {
 		warn ("$0: ip6.int not implemented\n");
-		return undef;
+		print ($ZONEFILE "; $0: HOSTDB - ip6.int not implemented (and most probably never will be)\n");
 	} else {
 		if (! a_rr ($hostdb, $zonename, $zone_parameters{default_ttl}, $ZONEFILE, $fn, @all_zones)) {
 			close ($ZONEFILE);
