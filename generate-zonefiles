@@ -232,8 +232,11 @@ sub ipv4_ptr_rr
 
 		my $prefix = "";
 
-		$prefix = "; " if ($host->dnsstatus () eq "DISABLED" or
-				   $host->dnsmode () eq "A");
+		if ($host->dnsstatus () eq "DISABLED" or
+			$host->dnsmode () eq "A") {
+			$prefix = "; ";
+			$host->hostname ("host-" . $host->id () . ".no-host-name.su.se");
+		}
 
 		my $hostname = $host->hostname ();
 		my $hostip = $host->ip ();
