@@ -19,7 +19,7 @@ if ($#files == -1) {
 	die ("Syntax: $0 zonefiles\n");
 }
 
-my $hostdbini = Config::IniFiles->new (-file => '/usr/local/etc/hostdb.ini');
+my $hostdbini = Config::IniFiles->new (-file => HOSTDB::get_inifile ());
 
 my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
 			  db => $hostdbini->val ('db', 'database'),

@@ -70,6 +70,25 @@ sub init
 	warn ("IN TOP LEVEL HOSTDB init()\n");
 }
 
+=head2 get_inifile
+
+	my $hostdbini = Config::IniFiles->new (-file => HOSTDB::get_inifile ());
+
+	The reason to use HOSTDB::get_inifile () instead of 
+	$hostdb->get_inifile () is that you probably don't have a HOSTDB
+	object yet.
+
+=cut
+sub get_inifile
+{
+	my $fn = "/etc/hostdb.ini";
+
+	if (! -f $fn) {
+		die ("$0: Config-file $fn does not exist");
+	}
+
+	return ($fn);
+}
 
 =head2 clean_hostname
 

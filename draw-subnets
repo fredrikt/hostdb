@@ -31,7 +31,7 @@ if ($ARGV[0] eq "-o") {
 	die("$0: Specified output dir '$output_dir' is not a valid directory\n") if (! -d $output_dir);
 }
 
-my $hostdbini = Config::IniFiles->new (-file => '/usr/local/etc/hostdb.ini');
+my $hostdbini = Config::IniFiles->new (-file => HOSTDB::get_inifile ());
 
 my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
 			  db => $hostdbini->val ('db', 'database'),
