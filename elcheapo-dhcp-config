@@ -1,0 +1,278 @@
+#!/usr/local/bin/perl
+#
+# $Id$
+#
+# Interrim script to delegate configuration of DHCP server config file to
+# system administators before HOSTDB is in full use.
+#
+
+use strict;
+use Config::IniFiles;
+#use lib 'blib/lib';
+use HOSTDB;
+use Getopt::Std;
+use vars qw ($opt_h $opt_d $opt_o);
+use FileHandle;
+
+getopts ('hdo:');
+
+my $debug = 0;
+my $subnet_name = shift (@ARGV);
+my @infiles = @ARGV;
+
+if (! $subnet_name or ! $infiles[0] or $opt_h) {
+	die (<<EOD);
+Syntax: $0 [options] subnet/slash infile
+	subnet/slash is the subnet in slash notation (eg. 192.168.1.0/24)
+	
+	options :
+		-d		debug
+		-o file		output to file
+EOD
+}
+
+my $debug = 0;
+$debug = 1 if (defined ($opt_d));
+
+my $hostdbini = Config::IniFiles->new (-file => HOSTDB::get_inifile ());
+
+my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
+			  db => $hostdbini->val ('db', 'database'),
+			  user => $hostdbini->val ('db', 'user'),
+			  password => $hostdbini->val ('db', 'password'),
+			  debug => $debug
+			 );
+
+my $subnet = $hostdb->findsubnet ($subnet_name);
+
+die ("Could not find subnet '$subnet_name': " . $hostdb->{error} . "\n") if (! $subnet);
+
+my (%dhcpconfig, %subnetconfig);
+
+my $infile;
+foreach $infile (@infiles) {
+	parse_cfgfile ($infile, $hostdb, $subnet, \%dhcpconfig, \%subnetconfig, $debug);
+}
+
+print_dhcp_config ($opt_o, $hostdb, $subnet, \%dhcpconfig, \%subnetconfig, $debug);
+
+exit (0);
+
+sub print_dhcp_config
+{
+	my $outfile = shift;
+	my $hostdb = shift;
+	my $subnet = shift;
+	my $dhcpcfg_ref = shift;
+	my $subnetcfg_ref = shift;
+	my $debug = shift;
+	
+	$outfile = "-" if (! defined ($outfile) or ! $outfile);
+
+	my $OUT = new FileHandle;
+	open ($OUT, "> $outfile") or die ("$0: Could not open outfile '$outfile' for writing: $!\n");
+
+	print_subnet_declaration ($OUT, $subnet, $subnetcfg_ref);
+
+	my $i;
+	for $i (1 .. $subnet->addresses () - 2) {
+		my $ip = $hostdb->ntoa ($subnet->n_netaddr () + $i);
+
+		if (defined ($dhcpcfg_ref->{$ip}{seen})) {
+			if ($dhcpcfg_ref->{$ip}{is_range}) {
+				print_range ($OUT, $dhcpcfg_ref->{$ip}{start}, $dhcpcfg_ref->{$ip}{stop});
+			} else {
+				if ($dhcpcfg_ref->{$ip}{reserved}) {
+					print ($OUT "	# IP $ip reserved\n\n");
+					next;
+				}
+				print_host ($OUT, $dhcpcfg_ref->{$ip}{fixedaddress}, $dhcpcfg_ref->{$ip}{mac});
+			}
+		} else {
+			print ($OUT "	# no host with IP $ip\n\n");
+		}
+	}
+
+	print ($OUT "}\n");
+
+	close ($OUT);
+}
+
+
+sub print_subnet_declaration
+{
+	my $OUT = shift;
+	my $subnet = shift;
+	my $subnetcfg_ref = shift;
+	
+	# interpolating
+	my $netaddr = $subnet->netaddr ();
+	my $netmask = $subnet->netmask ();
+	my $broadcast = $subnet->broadcast ();
+	my $routers = $hostdb->ntoa ($subnet->n_netaddr () + 1);
+
+	print ($OUT <<EOD);
+subnet $netaddr	netmask	$netmask {
+	# hard-coded subnet parameters
+	default-lease-time	36000;
+	max-lease-time		180000;
+
+	# calculated options
+	option subnet-mask		$netmask;
+	option broadcast-address	$broadcast;
+	option routers			$routers;
+
+	# hard-coded options
+	option domain-name-servers	130.237.162.7, 130.237.200.7;
+EOD
+
+	if (defined ($subnetcfg_ref->{domain})) {
+		print ($OUT "	option domain-name		\"$subnetcfg_ref->{domain}\";\n");
+	}
+	if (defined ($subnetcfg_ref->{tftpserver})) {
+		print ($OUT "	option tftp-server-name		\"$subnetcfg_ref->{tftpserver}\";\n");
+	}
+	
+	print ($OUT "\n");
+}
+
+sub print_host
+{
+	my $OUT = shift;
+	my $fixedaddress = shift;
+	my $mac = shift;
+			
+	print ($OUT <<EOD);
+	host $fixedaddress {
+		hardware ethernet $mac;
+		fixed-address $fixedaddress;
+	}
+
+EOD
+}
+
+sub print_range
+{
+	my $OUT = shift;
+	my $start = shift;
+	my $stop = shift;
+			
+	print ($OUT "	range			$start $stop;\n");
+}
+
+sub parse_cfgfile
+{
+	my $infile = shift;
+	my $hostdb = shift;
+	my $subnet = shift;
+	my $dhcpcfg_ref = shift;
+	my $subnetcfg_ref = shift;
+	my $debug = shift;
+
+	open (IN, "< $infile") or die ("$0: Could not open infile '$infile' for reading: $!\n");
+
+	my $line;
+	while ($line = <IN>) {
+		chomp ($line);
+
+		next if ($line =~ /^\s*#/);	# skip comments
+		next if ($line =~ /^\s*$/);	# skip blank lines
+		
+		# replace three or more spaces with a tab (ain't I nice?)
+		$line =~ s/\s{3,}/	/go;
+		# replace multiple tabs with one
+		$line =~ s/	+/	/go;
+
+		print ("$infile:$.	Line '$line'\n") if ($debug);
+		
+		if ($line =~ /^X-/) {
+			if ($line =~ /^X-(.+?):\s*(.+?)\s*$/) {
+				my $keyword = $1;
+				my $entry = $2;
+			
+				if ($keyword eq "RESERVED") {
+					die ("$infile:$. Invalid IP address '$entry'\n") if (! $hostdb->check_valid_ip ($entry));
+	
+					$dhcpcfg_ref->{$entry}{reserved} = 1;
+	
+					$dhcpcfg_ref->{$entry}{seen} = 1;
+
+					print ("$infile:$.	Reserved address '$entry'\n") if ($debug);
+				} elsif ($keyword eq "RANGE") {
+					my ($start, $stop) = split (";", $entry);
+					
+					die ("$infile:$. Invalid range start IP address '$start'\n") if (! $hostdb->check_valid_ip ($start));
+					die ("$infile:$. Invalid range stop IP address '$stop'\n") if (! $hostdb->check_valid_ip ($start));
+					
+					die ("$infile:$. Range start IP '$start' not in subnet " . $subnet->subnet () . "\n") if (! ip_in_subnet ($hostdb, $start, $subnet));;
+					die ("$infile:$. Range stop IP '$stop' not in subnet " . $subnet->subnet () . "\n") if (! ip_in_subnet ($hostdb, $stop, $subnet));;
+
+					$dhcpcfg_ref->{$start}{is_range} = 1;
+					$dhcpcfg_ref->{$start}{reserved} = 0;
+					$dhcpcfg_ref->{$start}{start} = $start;
+					$dhcpcfg_ref->{$start}{stop} = $stop;
+
+					$dhcpcfg_ref->{$entry}{seen} = 1;
+	
+					print ("$infile:$.	Range '$start' -> '$stop'\n") if ($debug);
+				} elsif ($keyword eq "DOMAIN") {
+					die ("$infile:$. Invalid domain name '$entry'\n") if (! $hostdb->valid_zonename ($entry));
+	
+					$subnetcfg_ref->{domain} = $entry;
+
+					print ("$infile:$.	Domain name '$entry'\n") if ($debug);
+				} elsif ($keyword eq "TFTPSERVER") {
+					die ("$infile:$. Invalid TFTP server '$entry'\n") if (! $hostdb->check_valid_ip ($entry));
+	
+					$subnetcfg_ref->{tftpserver} = $entry;
+
+					print ("$infile:$.	TFTP server '$entry'\n") if ($debug);
+				} else {
+					warn ("$infile:$. unknown keyword '$keyword'\n");
+				}
+			} else {
+				die ("$0: Unparsable keyword line '$line' at $infile:$.\n");
+			}
+		} else {
+			my ($ip, $fixedaddress, $mac) = split ("	", $line);		
+	
+			if (defined ($dhcpcfg_ref->{$ip}{seen})) {
+				my $reason = "duplicate";
+				$reason = "reserved" if ($dhcpcfg_ref->{$ip}{reserved});
+
+				die ("$infile:$.	$reason entry '$ip'\n");
+			}
+			
+			print ("$infile:$.	'$ip' '$fixedaddress' '$mac'\n") if ($debug);
+
+			die ("$infile:$. Invalid IP address '$ip'\n") if (! $hostdb->check_valid_ip ($ip));
+			die ("$infile:$. Invalid FQDN '$fixedaddress'\n") if (! $hostdb->valid_fqdn ($fixedaddress));
+
+			die ("$infile:$. IP '$ip' not in subnet " . $subnet->subnet () . "\n") if (! ip_in_subnet ($hostdb, $ip, $subnet));;
+
+			if (! $hostdb->clean_mac_address ($mac)) {
+				die ("$infile:$. Invalid MAC address '$mac'}\n");
+			}
+
+			$dhcpcfg_ref->{$ip}{reserved} = 0;
+			$dhcpcfg_ref->{$ip}{is_range} = 0;
+			$dhcpcfg_ref->{$ip}{fixedaddress} = $fixedaddress;
+			$dhcpcfg_ref->{$ip}{mac} = $mac;
+
+			$dhcpcfg_ref->{$ip}{seen} = 1;
+		}
+	}
+
+	close (IN);
+}
+
+sub ip_in_subnet
+{
+	my $hostdb = shift;
+	my $ip = shift;
+	my $subnet = shift;
+
+	my $n_ip = $hostdb->aton ($ip);
+	
+	return ($n_ip > $subnet->n_netaddr () and $n_ip < $subnet->n_broadcast ());
+}
