@@ -199,6 +199,11 @@ sub is_valid_fqdn
 		return 0;
 	}
 
+	if ($hostname =~ /\.\./) {
+		$self->_debug_print ("hostname '$hostname' has empty label(s) (double dots)");
+		return 0;
+	}
+
 	# first part (hostname) may NOT begin with a digit and may NOT
 	# contain an underscore
 	if ($hostname !~ /^[a-zA-Z0-9]/o) {
@@ -253,6 +258,11 @@ sub is_valid_domainname
 
 	if ($#domainname_parts < 1) {
 		$self->_debug_print ("domainname '$domainname' is incomplete");
+		return 0;
+	}
+
+	if ($domainname =~ /\.\./) {
+		$self->_debug_print ("domainname '$domainname' has empty label(s) (double dots)");
 		return 0;
 	}
 
