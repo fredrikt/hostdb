@@ -83,7 +83,7 @@ sub whois_form
 	# HTML 
         my $state_field = $q->state_field ();
 	my $me = $q->state_url ();
-        my $popup = $q->popup_menu (-name => 'whoisdatatype', -values => ['Guess', 'IP', 'FQDN', 'MAC', 'ID', 'ZONE'], -default => 'Guess');
+        my $popup = $q->popup_menu (-name => 'whoisdatatype', -values => ['Guess', 'IP', 'FQDN', 'MAC', 'ID', 'Zone', 'Subnet'], -default => 'Guess');
 	my $datafield = $q->textfield ('whoisdata');
 	my $submit = $q->submit ('Search');
 
@@ -115,28 +115,52 @@ sub perform_search
 		my $search_for = $q->param ('whoisdata');
 		my $whoisdatatype = $q->param ('whoisdatatype');
 
+		if (lc ($whoisdatatype) eq 'guess') {
+			# check if it is a subnet - findhost () is uncapable of that
+			$whoisdatatype = 'subnet' if ($hostdb->is_valid_subnet ($search_for));
+		}
+
 		my @host_refs;
 		if (lc ($whoisdatatype) eq 'zone') {
-			my $zone = $hostdb->findzonebyname ($search_for);
+			if ($hostdb->is_valid_domainname ($search_for)) {
+				my $zone = $hostdb->findzonebyname ($search_for);
 
-			if (defined ($zone)) {
-				my $zonename = $zone->zonename ();
+				if (defined ($zone)) {
+					my $zonename = $zone->zonename ();
 				
-				# do access control
-				my $is_admin = $hostdb->auth->is_admin ($remote_user);
-				if (! $is_admin) {
-					if (! $hostdb->auth->is_allowed_write ($zone, $remote_user)) {
-						error_line ($q, "You do not have sufficient access to zone '$zonename'");
-						my $i = localtime () . " modifyhost.cgi[$$]";
-						warn ("$i User '$remote_user' (from $ENV{REMOTE_ADDR}) tried to list zone '$zonename'\n"); 
-						return 0;
+					# do access control
+					my $is_admin = $hostdb->auth->is_admin ($remote_user);
+					if (! $is_admin) {
+						if (! $hostdb->auth->is_allowed_write ($zone, $remote_user)) {
+							error_line ($q, "You do not have sufficient access to zone '$zonename'");
+							my $i = localtime () . " modifyhost.cgi[$$]";
+							warn ("$i User '$remote_user' (from $ENV{REMOTE_ADDR}) tried to list zone '$zonename'\n"); 
+							return 0;
+						}
 					}
+
+					print_zone_info ($q, $hostdb, $zone, $is_admin);
+
+					@host_refs = $hostdb->findhostbyzone ($search_for);
+				} else {
+					error_line ($q, "No such zone: '$search_for'");
 				}
-
-				print_zone_info ($q, $hostdb, $zone, $is_admin);
+			} else {
+				error_line ($q, "'$search_for' is not a valid domainname");
 			}
+		} elsif (lc ($whoisdatatype) eq 'subnet') {
+			if ($hostdb->is_valid_subnet ($search_for)) {
+				my $is_admin = $hostdb->auth->is_admin ($remote_user);
 
-			@host_refs = $hostdb->findhostbyzone ($search_for);
+				my @subnets = $hostdb->findsubnetlongerprefix ($search_for);
+				foreach my $subnet ($hostdb->findsubnetlongerprefix ($search_for)) {
+					print_brief_subnet ($hostdb, $q, $subnet, $remote_user, $is_admin);
+				}
+			} else {
+				error_line ($q, "'$search_for' is not a valid subnet");	
+			}
+			
+			return undef;
 		} else {
 			@host_refs = $hostdb->findhost ($whoisdatatype, $search_for);
 		}
@@ -165,51 +189,7 @@ sub perform_search
 					</tr>
 EOH
 				foreach my $host (@host_refs) {
-
-					# HTML
-					my $ip = $host->ip ();
-					my $id = $host->id ();
-					my $me = $q->state_url ();
-					my $hostname = $host->hostname () || '';
-					my $mac = $host->mac_address () || '';
-					my $mac_ts = $host->mac_address_ts () || '';
-
-					# split at space to only get date and not time
-					$mac_ts = (split (/\s/, $mac_ts))[0] || '';
-
-					$ip = "<a HREF='$me;whoisdatatype=ID;whoisdata=$id'>$ip</a>";
-						
-					# check when host was last seen active on the network
-					my $ts_font = '';
-					my $ts_font_end = '';
-						
-					my $ts_flag_color = '#dd0000'; # bright red
-					my $ts_flag_days = $static_flag_days;
-						
-					my $h_u_t = $host->unix_mac_address_ts ();
-
-					if ($host->dhcpmode () eq 'DYNAMIC') {
-						$ts_flag_days = $dynamic_flag_days;
-						$mac = 'dynamic';
-					}
-						
-					if (defined ($h_u_t) and
-					    (time () - $h_u_t) >= ($ts_flag_days * 86400)) {
-						# host has not been seen in active use
-						# for $ts_flag_days days
-						$ts_font = "<font COLOR='$ts_flag_color'>";
-						$ts_font_end = '</font>';
-					}
-
-
-					$q->print (<<EOH);
-						<tr>
-						   <td>$ip&nbsp;</td>
-						   <td>$hostname&nbsp;</td>
-						   <td>$mac&nbsp;</td>
-						   <td ALIGN='right' NOWRAP>${ts_font}${mac_ts}${ts_font_end}&nbsp;</td>
-						</tr>
-EOH
+					print_brief_host_info ($q, $host, $static_flag_days, $dynamic_flag_days);
 				}
 			}
 
@@ -218,6 +198,21 @@ EOH
 			return 1;
 		} else {
 			error_line ($q, "No match, searched for '$search_for' of type '$whoisdatatype'");
+			
+			if (lc ($whoisdatatype) ne 'zone') {
+				if ($hostdb->is_valid_domainname ($search_for)) {
+					my $me = $q->state_url ();
+					$q->print (<<EOH);
+						$empty_td
+						<tr><td>
+						Maybe you intended to
+						<a HREF='$me;whoisdatatype=zone;whoisdata=$search_for'>search for a zone</a>
+						called '$search_for'? I can't guess if it is a zonename
+						or a hostname.
+						</td></tr>
+EOH
+				}
+			}
 		}
 
 		return 0;
@@ -240,14 +235,14 @@ sub print_zone_info
 	my $hostdbini = $hostdb->inifile ();
 
 	my %zone_defaults;
-	$zone_defaults{default_ttl} = $hostdbini->val ('zone', 'default_zone_ttl');
-	$zone_defaults{soa_ttl} = $hostdbini->val ('zone', 'default_soa_ttl');
-	$zone_defaults{soa_mname} = $hostdbini->val ('zone', 'default_soa_mname');
-	$zone_defaults{soa_rname} = $hostdbini->val ('zone', 'default_soa_rname');
-	$zone_defaults{soa_refresh} = $hostdbini->val ('zone', 'default_soa_refresh');
-	$zone_defaults{soa_retry} = $hostdbini->val ('zone', 'default_soa_retry');
-	$zone_defaults{soa_expiry} = $hostdbini->val ('zone', 'default_soa_expiry');
-	$zone_defaults{soa_minimum} = $hostdbini->val ('zone', 'default_soa_minimum');
+	$zone_defaults{default_ttl} = $hostdbini->val ('zone', 'default_zone_ttl') || 'no default set';
+	$zone_defaults{soa_ttl} = $hostdbini->val ('zone', 'default_soa_ttl') || 'no default set';
+	$zone_defaults{soa_mname} = $hostdbini->val ('zone', 'default_soa_mname') || 'no default set';
+	$zone_defaults{soa_rname} = $hostdbini->val ('zone', 'default_soa_rname') || 'no default set';
+	$zone_defaults{soa_refresh} = $hostdbini->val ('zone', 'default_soa_refresh') || 'no default set';
+	$zone_defaults{soa_retry} = $hostdbini->val ('zone', 'default_soa_retry') || 'no default set';
+	$zone_defaults{soa_expiry} = $hostdbini->val ('zone', 'default_soa_expiry') || 'no default set';
+	$zone_defaults{soa_minimum} = $hostdbini->val ('zone', 'default_soa_minimum') || 'no default set';
 	
 	# HTML
 	$zonename = $zone->zonename ();
@@ -352,6 +347,61 @@ sub print_zone_info
 		$table_hr_line
 	
 EOH
+	return 1;
+}
+
+sub print_brief_host_info
+{
+	my $q = shift;
+	my $host = shift;
+	my $static_flag_days = shift;
+	my $dynamic_flag_days = shift;
+
+	# HTML
+	my $ip = $host->ip ();
+	my $id = $host->id ();
+	my $me = $q->state_url ();
+	my $hostname = $host->hostname () || '';
+	my $mac = $host->mac_address () || '';
+	my $mac_ts = $host->mac_address_ts () || '';
+
+	# split at space to only get date and not time
+	$mac_ts = (split (/\s/, $mac_ts))[0] || '';
+
+	$ip = "<a HREF='$me;whoisdatatype=ID;whoisdata=$id'>$ip</a>";
+						
+	# check when host was last seen active on the network
+	my $ts_font = '';
+	my $ts_font_end = '';
+						
+	my $ts_flag_color = '#dd0000'; # bright red
+	my $ts_flag_days = $static_flag_days;
+						
+	my $h_u_t = $host->unix_mac_address_ts ();
+
+	if ($host->dhcpmode () eq 'DYNAMIC') {
+		$ts_flag_days = $dynamic_flag_days;
+		$mac = 'dynamic';
+	}
+						
+	if (defined ($h_u_t) and
+	    (time () - $h_u_t) >= ($ts_flag_days * 86400)) {
+		# host has not been seen in active use
+		# for $ts_flag_days days
+		$ts_font = "<font COLOR='$ts_flag_color'>";
+		$ts_font_end = '</font>';
+	}
+
+
+	$q->print (<<EOH);
+		<tr>
+		   <td>$ip&nbsp;</td>
+		   <td>$hostname&nbsp;</td>
+		   <td>$mac&nbsp;</td>
+		   <td ALIGN='right' NOWRAP>${ts_font}${mac_ts}${ts_font_end}&nbsp;</td>
+		</tr>
+EOH
+
 	return 1;
 }
 
@@ -607,6 +657,34 @@ EOH
 	
 	$q->print ($table_blank_line);	
 
+	return 1;
+}
+
+sub print_brief_subnet
+{
+	my $hostdb = shift;
+	my $q = shift;
+	my $subnet = shift;
+	my $remote_user = shift;
+	my $is_admin = shift;
+
+	# HTML
+	my $id = $subnet->id ();
+
+	my $subnet_link = $subnet->subnet ();
+	if ($is_admin or $hostdb->auth->is_allowed_write ($subnet, $remote_user)) {
+		$subnet_link = "<a HREF='$showsubnet_path;id=$id'>" . $subnet->subnet () . "</a>";
+	}
+
+	my $h_desc = $q->escapeHTML ($subnet->description ()?$subnet->description ():'no description');
+
+	$q->print (<<EOH);
+		<tr>
+			<td>$subnet_link</td>
+			<td COLSPAN='3'>$h_desc</td>
+		</tr>
+EOH
+	
 	return 1;
 }
 
