@@ -66,7 +66,7 @@ sub init
 	} else {
 		$hostdb->_debug_print ("NOT preparing database stuff");
 	}
-	
+
 	return 1;
 }
 
@@ -101,7 +101,7 @@ sub commit
 		$sth = $self->{_update_hostattribute};
 		$sth->execute (@db_values, $self->id ())
 			or die "$DBI::errstr\n";
-		
+
 		# XXX check number of rows affected?
 
 		$sth->finish();
@@ -119,7 +119,7 @@ sub commit
 		my @t = $sth->fetchrow_array ();
 		$self->{id} = $t[0];
 		$sth->finish ();
-	}	
+	}
 
 	return 1;
 }
@@ -145,11 +145,11 @@ sub delete
 	if (defined ($self->{id})) {
 		$sth = $self->{_delete_hostattribute};
 		$sth->execute ($self->id ()) or die "$DBI::errstr";
-		
+
 		my $rowcount = $sth->rows ();
 
 		$sth->finish();
-		
+
 		if ($rowcount != 1) {
 			$self->_set_error ("Delete operation of host attribute with id '$self->{id}' did not affect the expected number of database rows ($rowcount, not 1)");
 			return 0;
@@ -170,14 +170,8 @@ sub delete
 =cut
 sub id
 {
-	my $self = shift;
-
-	if (@_) {
-		$self->_set_error ("id is read only");
-		return 0;
-	}
-
-	return ($self->{id});
+    my $self = shift;
+    $self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_read_only, @_);
 }
 
 
@@ -190,14 +184,8 @@ sub id
 =cut
 sub hostid
 {
-	my $self = shift;
-
-	if (@_) {
-		$self->_set_error ("hostid is read only");
-		return 0;
-	}
-
-	return ($self->{hostid});
+    my $self = shift;
+    $self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_read_only, @_);
 }
 
 
@@ -210,22 +198,8 @@ sub hostid
 =cut
 sub key
 {
-	my $self = shift;
-
-	if (@_) {
-		my $newvalue = shift;
-	
-		if (! defined ($newvalue)) {
-			$self->_set_error ('Key cannot be undefined');
-			return 0;
-		}
-
-		$self->{v_key} = $newvalue;
-
-		return 1;
-	}
-
-	return ($self->{v_key});
+    my $self = shift;
+    $self->_set_or_get_attribute ('v_key', \&HOSTDB::Object::_validate_string_not_empty, @_);
 }
 
 
@@ -237,22 +211,8 @@ sub key
 =cut
 sub section
 {
-	my $self = shift;
-
-	if (@_) {
-		my $newvalue = shift;
-	
-		if (! defined ($newvalue)) {
-			$self->_set_error ('Section cannot be undefined');
-			return 0;
-		}
-
-		$self->{v_section} = $newvalue;
-
-		return 1;
-	}
-
-	return ($self->{v_section});
+    my $self = shift;
+    $self->_set_or_get_attribute ('v_section', \&HOSTDB::Object::_validate_string_not_empty, @_);
 }
 
 
@@ -265,30 +225,7 @@ sub section
 sub type
 {
 	my $self = shift;
-
-	if (@_) {
-		my $newvalue = shift;
-
-		if (! defined ($newvalue)) {
-			$self->_set_error ('Type cannot be undefined');
-			return 0;
-		}
-
-		$newvalue = 'int' if ($newvalue eq 'integer');
-	
-		if ($newvalue eq 'string' or
-		    $newvalue eq 'int' or
-		    $newvalue eq 'blob') {
-			$self->{v_type} = $newvalue;
-		} else {
-			$self->_set_error ("Invalid type '$newvalue'");
-			return 0;
-		}
-
-		return 1;
-	}
-
-	return ($self->{v_type});
+	$self->_set_or_get_attribute ('v_type', \&_validate_type, @_);
 }
 
 
@@ -301,7 +238,7 @@ sub type
 sub get
 {
 	my $self = shift;
-	
+
 	if ($self->{v_type} eq 'string') {
 		return $self->v_string ();
 	} elsif ($self->{v_type} eq 'int') {
@@ -323,30 +260,34 @@ sub get
 =cut
 sub set
 {
-	my $self = shift;
+    my $self = shift;
 
-	if (@_) {
-		my $type = shift;
-		my $newvalue = shift;
+    if (@_) {
+	my $type = shift;
+	my $newvalue = shift;
 
-		if (! defined ($type)) {
-			$self->_set_error ("Attribute type must be defined");
-			return 0;
-		}
-
-		if ($type eq 'string') {
-			return $self->v_string ($newvalue);
-		} elsif ($type eq 'int' or $type eq 'integer') {
-			return $self->v_int ($newvalue);
-		} elsif ($type eq 'blob') {
-			return $self->v_blob ($newvalue);
-		} else {
-			$self->_set_error ("Invalid attribute type '$type'");
-			return 0;
-		}
+	if (! defined ($type)) {
+	    $self->_set_error ('Attribute type must be defined');
+	    return 0;
 	}
 
-	return 0;
+	if ($type eq 'string') {
+	    return $self->v_string ($newvalue);
+	} elsif ($type eq 'int' or $type eq 'integer') {
+	    return $self->v_int ($newvalue);
+	} elsif ($type eq 'blob') {
+	    return $self->v_blob ($newvalue);
+	} else {
+	    $self->_set_error ("Invalid attribute type '$type'");
+	    return 0;
+	}
+    } else {
+	my $t = $type || 'undef';
+	my $v = $type || 'undef';
+	die ("$0: HOSTDB::Object::HostAttribute::set() called with illegal arguments (type = '$t', value = '$v')\n");
+    }
+
+    return 0;
 }
 
 
@@ -370,13 +311,13 @@ sub v_string
 
 	if (@_) {
 		my $newvalue = shift;
-	
+
 		$self->{v_int} = undef;
 		$self->{v_blob} = undef;
 
 		$self->{v_type} = 'string';
-	
-		if ($newvalue eq 'NULL') {
+
+		if (uc ($newvalue) eq 'NULL') {
 			$self->{v_string} = undef;
 			return 1;
 		}
@@ -403,7 +344,6 @@ sub v_int
 	if (@_) {
 		my $newvalue = shift;
 
-		$self->_debug_print ("FREDRIK: Setting v_int to '$newvalue'");
 		$newvalue = 'NULL' if (! defined ($newvalue));
 
 		if (lc ($newvalue) ne 'null' and $newvalue !~ /^0+$/) {
@@ -415,10 +355,10 @@ sub v_int
 
 		$self->{v_string} = undef;
 		$self->{v_blob} = undef;
-	
+
 		$self->{v_type} = 'int';
-	
-		if ($newvalue eq 'NULL') {
+
+		if (uc ($newvalue) eq 'NULL') {
 			$self->{v_int} = undef;
 			return 1;
 		}
@@ -451,8 +391,8 @@ sub v_blob
 		$self->{v_string} = undef;
 
 		$self->{v_type} = 'blob';
-	
-		if ($newvalue eq 'NULL') {
+
+		if (uc ($newvalue) eq 'NULL') {
 			$self->{v_blob} = undef;
 			return 1;
 		}
@@ -474,29 +414,8 @@ sub v_blob
 =cut
 sub lastmodified
 {
-	my $self = shift;
-
-	if (@_) {
-		my $newvalue = shift;
-
-		my $fmtvalue = $self->_format_datetime ($newvalue);
-		if (defined ($fmtvalue)) {
-			if ($fmtvalue eq 'NULL') {
-				$self->{lastmodified} = undef;
-			} else {
-				$self->{lastmodified} = $fmtvalue;
-			}
-
-			return 1;
-		} else {
-			$self->_set_error ("Invalid lastmodified timestamp format");
-			return 0;
-		}
-
-		return 1;
-	}
-
-	return ($self->{lastmodified});
+    my $self = shift;
+    $self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_datetime, @_);
 }
 
 
@@ -515,14 +434,8 @@ sub lastmodified
 =cut
 sub unix_lastmodified
 {
-	my $self = shift;
-
-	if (@_) {
-		$self->_set_error ("unix_lastmodified is read only");
-		return 0;
-	}
-
-	return ($self->{unix_lastmodified});
+    my $self = shift;
+    $self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_read_only, @_);
 }
 
 
@@ -534,29 +447,8 @@ sub unix_lastmodified
 =cut
 sub lastupdated
 {
-	my $self = shift;
-
-	if (@_) {
-		my $newvalue = shift;
-
-		my $fmtvalue = $self->_format_datetime ($newvalue);
-		if (defined ($fmtvalue)) {
-			if ($fmtvalue eq 'NULL') {
-				$self->{lastupdated} = undef;
-			} else {
-				$self->{lastupdated} = $fmtvalue;
-			}
-
-			return 1;
-		} else {
-			$self->_set_error ("Invalid lastupdated timestamp format");
-			return 0;
-		}
-
-		return 1;
-	}
-
-	return ($self->{lastupdated});
+    my $self = shift;
+    $self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_datetime, @_);
 }
 
 
@@ -575,17 +467,43 @@ sub lastupdated
 =cut
 sub unix_lastupdated
 {
-	my $self = shift;
-
-	if (@_) {
-		$self->_set_error ("unix_lastupdated is read only");
-		return 0;
-	}
-
-	return ($self->{unix_lastupdated});
+    my $self = shift;
+    $self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_read_only, @_);
 }
 
 
+=head1 INTERNAL FUNCTIONS
+
+
+=head2 _validate_type
+
+    _set_or_get_attribute validator for type.
+
+
+=cut
+sub _validate_type
+{
+    my $self = shift;
+    my $key = shift;
+    my $newvalue = lc ($_[0]);
+
+    if (! defined ($newvalue)) {
+	$self->_set_error ('Type cannot be undefined');
+	return 0;
+    }
+
+    $newvalue = 'int' if ($newvalue eq 'integer');
+
+    if ($newvalue eq 'string' or
+	$newvalue eq 'int' or
+	$newvalue eq 'blob') {
+	$_[0] = $newvalue;
+    } else {
+	return ('Invalid type');
+    }
+
+    return 0;
+}
 
 
 1;
