@@ -77,7 +77,7 @@ if (! $opt_force) {
 
 $host->delete ($opt_force?"YES":"WELL, UHH") or die ("$0: Could not delete host object - $host->{error}\n");
 
-print ("Host object deleted\n") if (! $quiet);
+print ("Host object deleted\n") if (! $opt_quiet);
 
 exit (0);
 
