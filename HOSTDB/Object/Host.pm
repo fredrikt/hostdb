@@ -43,7 +43,7 @@ Host object routines. A host object has the following attributes :
   user			- a comment style field documenting the user
   partof		- a reference to another host object's id
   mac_address_ts	- a timestamp showing when this host was last seen on the network
-
+  unix_mac_address_ts	- mac_address_ts expressed as a UNIX timestamp
 
 Supposed FAQ:
 
@@ -637,6 +637,32 @@ sub mac_address_ts
 	}
 
 	return ($self->{mac_address_ts});
+}
+
+
+=head2 unix_mac_address_ts
+
+	unix_mac_address_ts is mac_address_ts but expressed as a UNIX
+	timestamp. It is not stored in the database, but calculated at
+	the time a host object is fetched from the database. The only
+	purpose of this is to make it easier for applications using
+	host objects to perform date calculations.
+
+	printf "The host was last seen %i seconds ago.\n",
+	       time () - $host->unix_mac_address_ts ();
+
+
+=cut
+sub unix_mac_address_ts
+{
+	my $self = shift;
+
+	if (@_) {
+		$self->_set_error ("unix_mac_address_ts is read only");
+		return 0;
+	}
+
+	return ($self->{unix_mac_address_ts});
 }
 
 
