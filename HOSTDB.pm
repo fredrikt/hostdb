@@ -417,6 +417,8 @@ sub init
 
 		$self->{_zonebyname} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.zone WHERE zonename = ? ORDER BY zonename") or die "$DBI::errstr";
 		$self->{_allzones} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.zone ORDER BY zonename") or die "$DBI::errstr";
+	} else {
+		$self->_debug_print ("DSN not provided, not connecting to database.");
 	}
 
 	$self->user (getpwuid("$<"));
