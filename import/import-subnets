@@ -34,7 +34,9 @@ my @delayed;
 while (my $rad = <FIL>) {
 	chomp ($rad);
 
-	if ($rad =~ /^O[A-Z\s]*\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\/(\d{1,2})\s/) {
+	# XXX if you want to import E1 and E2 type OSPF routes, add 12 after A-Z
+	# (I didn't because that created conflicts with summary routes from our ASBR's)
+	if ($rad =~ /^[OC][A-Z\s]*\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\/(\d{1,2})\s/) {
 		my $subnet = $1;
 		my $slash = $2;
 
