@@ -113,11 +113,13 @@ sub print_dhcp_config
 			
 			my $profile = $host->profile ();
 			if (! grep (/^$profile$/, @subnet_profiles)) {
-				warn ("$0: Host $id ($ip, $hostname) profile $profile not listed for subnet $subnet_name");
+				warn ("$0: Host $id ($ip, $hostname) profile $profile not listed for subnet $subnet_name, skipping subnet.");
+				return undef;
 			}
 			
 			if (! $hostdb->is_valid_profilename ($profile)) {
-				warn ("$0: Invalid profile name '$profile' for host $id ($ip, $hostname), skipping.\n");
+				warn ("$0: Invalid profile name '$profile' for host $id ($ip, $hostname), skipping subnet.\n");
+				return undef;
 			} else {
 				push (@{$hosts{$profile}}, $host);
 			}
