@@ -139,6 +139,7 @@ sub list_subnet
 	my $subnet_name = $subnet->subnet ();
 	my $me = $q->state_url ();
 	my $id = $subnet->id ();
+	my $owner = $subnet->owner ();
 
 	my $edit_link;
 	if ($is_admin and $links{modifysubnet}) {
@@ -151,10 +152,11 @@ sub list_subnet
 		   <td NOWRAP>
 			<strong>$subnet_name</strong>
 		   </td>
-		   <td COLSPAN='3' ALIGN='center'>
-			<strong>$h_desc</strong>
+		   <td COLSPAN='3' ALIGN='left'>
+			&nbsp;&nbsp;<strong>$h_desc</strong>
 		   </td>
 		</tr>
+
 EOH
 	if ($edit_link) {
 		$q->print (<<EOH);
@@ -163,8 +165,17 @@ EOH
 		    $edit_link
 		  </td>
 		</tr>
+
 EOH
 	}
+
+	$q->print (<<EOH);
+		<tr>
+		  <td>Owner</td>
+		  <td COLSPAN='3'>&nbsp;&nbsp;$owner</td>
+		</tr>
+
+EOH
 
 	$q->print ($table_blank_line);
 
