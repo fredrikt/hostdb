@@ -224,7 +224,7 @@ sub perform_search
 					</tr>
 EOH
 		foreach my $host (@host_refs) {
-		    print_brief_host_info ($q, $host, $static_flag_days, $dynamic_flag_days);
+		    print_brief_host_info ($q, $hostdb, $host, $static_flag_days, $dynamic_flag_days);
 		}
 	    }
 	    
@@ -464,6 +464,7 @@ EOH
 sub print_brief_host_info
 {
     my $q = shift;
+    my $hostdb = shift;
     my $host = shift;
     my $static_flag_days = shift;
     my $dynamic_flag_days = shift;
@@ -475,6 +476,17 @@ sub print_brief_host_info
     my $hostname = $host->hostname () || '';
     my $mac = $host->mac_address () || '';
     my $mac_ts = $host->mac_address_ts () || '';
+
+    my $parent_link = '';
+    my $partof = $host->partof ();
+    if (defined ($partof) and $partof > 0) {
+	# find parent hostname
+	my $parent = $hostdb->findhostbyid ($partof);
+	if ($parent) {
+	    my $h = $parent->hostname () || '';
+	    $parent_link = "(<a HREF='$me;whoisdatatype=ID;whoisdata=$id'>$h</a>)&nbsp;";
+	}
+    }
 
     # split at space to only get date and not time
     $mac_ts = (split (/\s/, $mac_ts))[0] || '';
@@ -507,7 +519,7 @@ sub print_brief_host_info
     $q->print (<<EOH);
 		<tr>
 		   <td>$ip&nbsp;</td>
-		   <td>$hostname&nbsp;</td>
+		   <td>$hostname&nbsp;$parent_link</td>
 		   <td>$mac&nbsp;</td>
 		   <td NOWRAP>${ts_font}${mac_ts}${ts_font_end}&nbsp;</td>
 		</tr>
