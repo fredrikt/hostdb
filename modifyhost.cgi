@@ -2,7 +2,7 @@
 #
 # $Id$
 #
-# cgi-script to modify/create/delete host objects
+# cgi-script to modify/create host objects
 #
 
 use strict;
@@ -39,15 +39,15 @@ if (-f $hostdbini->val ('sucgi', 'cfgfile')) {
 
 my $q = SUCGI->new ($sucgi_ini);
 
-my $showsubnet_path = $q->state_url($hostdbini->val('subnet','showsubnet_uri'));
-my $modifyhost_path = $q->state_url($hostdbini->val('subnet','modifyhost_uri'));
+my $showsubnet_path = $q->state_url ($hostdbini->val ('subnet', 'showsubnet_uri'));
+my $deletehost_path = $q->state_url ($hostdbini->val ('subnet', 'deletehost_uri'));
 
-$q->begin (title => 'Modify/Add/Delete Host');
+$q->begin (title => 'Modify/Add Host');
 
 $q->print ("<table BORDER='0' CELLPADDING='0' CELLSPACING='3' WIDTH='600'>\n" .
 	   "$table_blank_line");
 
-$q->print ("<tr><td COLSPAN='2' ALIGN='center'><h3>HOSTDB: Modify</h3></td></tr>\n" .
+$q->print ("<tr><td COLSPAN='2' ALIGN='center'><h3>HOSTDB: Add/Modify Host</h3></td></tr>\n" .
 	   "$table_blank_line");
 
 my $action = $q->param('action');
@@ -211,8 +211,6 @@ sub host_form
         #my $popup = $q->popup_menu (-name => "whoisdatatype", -values => ['Guess', 'IP', 'FQDN', 'MAC', 'ID']);
 	#my $datafield = $q->textfield ("whoisdata");
 	my $commit = $q->submit ('action', 'Commit');
-	#my $delete = $q->submit ('action', 'Delete');
-	my $delete = "<font SIZE='1'>[delete not implemented yet]</font>";
 
 	my ($id, $partof, $ip, $mac, $hostname, $user, $owner, 
 	    $dnsmode, $dnsstatus, $dhcpmode, $dhcpstatus, $subnet);
@@ -247,6 +245,11 @@ sub host_form
 		
 	my $empty_td = '<td>&nbsp;</td>';
 	
+	my $required = "<font COLOR='red'>*</font>";
+
+	my $delete = "[delete]";
+	$delete = "[<a href='$deletehost_path&id=$id'>delete</a>]" if (defined ($id));
+
 	$q->print (<<EOH);
 	   <form METHOD='post'>
 		$state_field
@@ -274,7 +277,7 @@ sub host_form
 			$empty_td
 		</tr>
 		<tr>
-			<td>IP address</td>
+			<td>IP address $required</td>
 			<td><strong>$ip</strong></td>
 			<td>DNS</td>
 			<td>$dnsstatus</td>
@@ -286,7 +289,7 @@ sub host_form
 			<td>$dhcpstatus</td>
 		</tr>	
 		<tr>
-			<td>Hostname</td>
+			<td>Hostname $required</td>
 			<td><strong>$hostname</strong></td>
 			$empty_td
 			$empty_td
@@ -304,7 +307,7 @@ sub host_form
 			$empty_td
 		</tr>	
 		<tr>
-			<td>Owner</td>
+			<td>Owner $required</td>
 			<td>$owner</td>
 			$empty_td
 			$empty_td
