@@ -1,0 +1,39 @@
+#!/usr/bin/perl
+#
+# $Id$
+#
+# script to read host entrys from database
+
+use strict;
+use Config::IniFiles;
+#use lib 'blib/lib';
+use HOSTDB;
+
+my $debug = 0;
+if ($ARGV[0] eq "-d") {
+	shift (@ARGV);
+	$debug = 1;
+}
+
+my $hostdbini = Config::IniFiles->new (-file => '/usr/local/etc/hostdb.ini');
+
+my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
+			  db => $hostdbini->val ('db', 'database'),
+			  user => $hostdbini->val ('db', 'user'),
+			  password => $hostdbini->val ('db', 'password'),
+			  debug => $debug
+			 );
+
+my @searchfor = @ARGV;
+
+if ($#searchfor == -1) {
+	die ("Syntax: $0 [-d] IP-address ...\n");
+}
+
+printf ("%-7s %-7s %-16s %s\n", "id", "partof", "ip", "hostname");
+
+foreach my $searchhost (sort @searchfor) {
+	foreach my $host ($hostdb->findhostbyip($searchhost)) {
+		printf ("%-7s %-7s %-16s %s\n", $host->{id}, $host->{partof}, $host->{ip}, $host->{hostname});
+	}
+}
