@@ -1,0 +1,104 @@
+#!/usr/local/bin/perl -w
+#
+# $Id$
+#
+# script to update mac_addresses_ts on hosts in the database based on output of
+# cisco command
+#
+#	terminal length 0
+#	sh ip arp
+#
+
+use strict;
+use Config::IniFiles;
+#use lib 'blib/lib';
+use HOSTDB;
+use Getopt::Std;
+use vars qw ($opt_h $opt_d $opt_q);
+
+getopts ('hdq');
+
+my $debug = defined ($opt_d);
+my $quiet = defined ($opt_q);
+my @files = @ARGV;
+my $default_ttl;
+
+if ($#files == -1 or defined ($opt_h)) {
+	die ("Syntax: $0 [options] [cisco-output-file ...]\n" .
+	     "	options :\n" .
+	     "		-d	debug\n" .
+	     "		-q	quiet\n"
+	    );
+}
+
+my $hostdbini = Config::IniFiles->new (-file => HOSTDB::get_inifile ());
+die ("$0: Config file access problem.\n") unless ($hostdbini);
+
+my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
+			  db => $hostdbini->val ('db', 'database'),
+			  user => $hostdbini->val ('db', 'user'),
+			  password => $hostdbini->val ('db', 'password'),
+			  debug => $debug
+			 );
+
+
+parse_files ($hostdb, $debug, $quiet, @files);
+
+
+sub parse_files
+{
+	my $hostdb = shift;
+	my $debug = shift;
+	my $quiet = shift;
+	my @files = @_;
+
+	foreach my $file (@files) {
+		open (FIL, "< $file") or warn ("$0: Could not open $file for reading: $!\n"), next;
+
+		my $ts = (stat ($file))[9];
+
+		while (my $rad = <FIL>) {
+			chomp ($rad);
+
+			if ($rad =~ /^Internet\s+([0-9\.]+)\s+(\d|\-)+\s+([0-9a-f\.]+)\s+/) {
+				my ($ip, $mac) = ($1, $3);
+	
+				warn ("Invalid MAC address '$3' on $file:$.\n"), next unless $hostdb->clean_mac_address ($mac);
+
+				warn ("IP $ip MAC $mac TS $ts\n") if ($debug);
+
+				my $host = $hostdb->findhostbyip ($ip);
+				
+				if (defined ($host)) {
+					my $host_mac = $host->mac_address ();
+					
+					if (! defined ($host_mac)) {
+						# no mac in db, put this one there
+						$host->mac_address ($mac);
+						$host_mac = $mac;
+					}
+					
+					if ($host_mac eq $mac) {
+						my $host_mac_ts = $host->mac_address_ts ();
+						
+						if (! defined ($host_mac_ts) or
+						    ($host_mac_ts < $ts)) {
+						    	my $valid = 1;
+							$host->mac_address_ts ($ts) or warn ("Failed to set TS on $ip: $host->{error}\n"), $valid = 0;
+							$host->commit () if ($valid);
+							warn ("Set new timestamp on $ip\n") if ($debug);
+						} else {
+							warn ("Database timestamp on $ip ($host_mac_ts) greater than this: $ts\n") if ($debug);
+						}
+					} else {
+						warn ("Unexpected mac-address on $ip: $mac (db has $host_mac) - ignoring\n") unless ($quiet);
+					}			
+				} else {
+					warn ("No host with IP '$ip' in database\n") unless ($quiet);
+				}
+			}
+		}
+		close (FIL);
+		print ("$file\n") unless ($quiet);
+	}
+}
