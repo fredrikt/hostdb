@@ -17,8 +17,8 @@ my $debug = 0;
 
 getopts ('hdo:');
 
-if ($opt_h) {
-	die("Syntax: $0 [options]\n" . 
+if ($opt_h or ! $ARGV[0]) {
+	die("Syntax: $0 [options] zone ...\n" . 
 	    "	options:\n" .
 	    "		-d	debug\n" .
 	    "		-o	output dir\n" .
@@ -144,7 +144,10 @@ sub gen_zonefile
 			return undef;
 		}
 		
-		close ($ZONEFILE), return 0 if (! ipv4_ptr_rr ($hostdb, $zonename, $ZONEFILE, $fn));
+		if (! ipv4_ptr_rr ($hostdb, $zonename, $zone_parameters{default_ttl}, $ZONEFILE, $fn)) {
+			close ($ZONEFILE);
+			return 0;
+		}
 	} elsif ($zonename =~ /\.e164\.arpa$/) {
 		warn ("$0: zone '$zonename' - e164.arpa not implemented\n");
 		return undef;
@@ -158,7 +161,10 @@ sub gen_zonefile
 		warn ("$0: ip6.int not implemented\n");
 		return undef;
 	} else {
-		close ($ZONEFILE), return 0 if (! a_rr ($hostdb, $zonename, $ZONEFILE, $fn, @all_zones));
+		if (! a_rr ($hostdb, $zonename, $zone_parameters{default_ttl}, $ZONEFILE, $fn, @all_zones)) {
+			close ($ZONEFILE);
+			return 0;
+		}
 	}
 
 	# XXX sync file to disk and make sure it went well (disk may be full)
@@ -177,10 +183,13 @@ sub soa_rr
 	my $FH = shift;
 	my $fn = shift;
 
+	my $rr_ttl = $zp{soa_ttl};
+	$rr_ttl = "" if ($rr_ttl eq $zp{default_ttl});
+
 	print ($FH <<EOS);
 \$TTL $zp{default_ttl}
 \$ORIGIN $zonename.
-@	$zp{soa_ttl}	IN SOA	$zp{soa_mname} $zp{soa_rname} ($zp{soa_serial} $zp{soa_refresh} $zp{soa_retry} $zp{soa_expiry} $zp{soa_minimum});
+@	$rr_ttl	IN SOA	$zp{soa_mname} $zp{soa_rname} ($zp{soa_serial} $zp{soa_refresh} $zp{soa_retry} $zp{soa_expiry} $zp{soa_minimum});
 
 EOS
 	return 1;
@@ -190,6 +199,7 @@ sub ipv4_ptr_rr
 {
 	my $hostdb = shift;
 	my $zonename = shift;
+	my $default_ttl = shift;
 	my $FH = shift;
 	my $fn = shift;
 
@@ -201,12 +211,15 @@ sub ipv4_ptr_rr
 	foreach my $host ($hostdb->findhostbyiprange ("$ipbase.0", "$ipbase.255")) {
 		my $hostname = $host->hostname ();
 		my $hostip = $host->ip ();
+		my $rr_ttl = $host->ttl ();
+		
+		$rr_ttl = "" if ($rr_ttl eq $default_ttl);
 			
 		$hostname =~ s/\.+$//o;	# strip trailing dots
-		$hostname .= ".";
-			
+		$hostname .= ".";			
+
 		my @t = split ('\.', $hostip);
-		my $str = tab_format (2, "$t[3].$t[2].$t[1].$t[0].in-addr.arpa.	PTR	$hostname\n");
+		my $str = tab_format (2, "$t[3].$t[2].$t[1].$t[0].in-addr.arpa.	$rr_ttl	PTR	$hostname\n");
 		
 		print ($FH $str) or warn ("$0: Couldn't write data to '$fn': $!\n"), return 0;
 			
@@ -221,6 +234,7 @@ sub a_rr
 {
 	my $hostdb = shift;
 	my $zonename = shift;
+	my $default_ttl = shift;
 	my $FH = shift;
 	my $fn = shift;
 	my @all_zones = @_;
@@ -236,7 +250,12 @@ sub a_rr
 			
 		if (host_in_zone ($hostname, $zonename, @all_zones)) {
 			$hostname .= ".";
-			my $str = tab_format (3, $hostname) . "	A	$hostip\n";
+
+			my $rr_ttl = $host->ttl ();
+		
+			$rr_ttl = "" if ($rr_ttl eq $default_ttl);
+			
+			my $str = tab_format (3, $hostname) . "	$rr_ttl	A	$hostip\n";
 			print ($FH $str) or
 				warn ("$0: Couldn't write data to '$fn': $!\n"), return 0;
 			$included_hosts_count++;
