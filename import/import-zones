@@ -60,7 +60,7 @@ sub add_zone
 {
 	my $zonename = shift;
 	
-	if ($hostdb->valid_zonename ($zonename)) {
+	if ($hostdb->is_valid_zonename ($zonename)) {
 		my $zone = $hostdb->create_zone ();
 
 		my $valid = 1;

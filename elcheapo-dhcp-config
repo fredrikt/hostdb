@@ -224,7 +224,7 @@ sub parse_cfgfile
 	
 					print ("$infile:$.	Range '$start' -> '$stop'\n") if ($debug);
 				} elsif ($keyword eq "DOMAIN") {
-					die ("$infile:$. Invalid domain name '$entry'\n") if (! $hostdb->valid_zonename ($entry));
+					die ("$infile:$. Invalid domain name '$entry'\n") if (! $hostdb->is_valid_zonename ($entry));
 	
 					$subnetcfg_ref->{domain} = $entry;
 
