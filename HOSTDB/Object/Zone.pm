@@ -333,7 +333,7 @@ sub rname
 		return 1;
 	}
 
-	return ($self->{mname});
+	return ($self->{rname});
 }
 
 
