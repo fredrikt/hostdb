@@ -5,9 +5,11 @@
 
 CREATE TABLE host (
 	id INT AUTO_INCREMENT NOT NULL,
-	dhcpmode ENUM ('DYNAMIC', 'STATIC', 'DISABLED') DEFAULT 'DISABLED',
+	dhcpmode ENUM ('DYNAMIC', 'STATIC') DEFAULT 'STATIC',
+	dhcpstatus ENUM ('ENABLED', 'DISABLED') DEFAULT 'DISABLED',
 	mac CHAR(17),
-	dnsmode ENUM ('ENABLED', 'DISABLED') DEFAULT 'DISABLED',
+	dnsmode ENUM ('A_AND_PTR', 'A') DEFAULT 'A_AND_PTR',
+	dnsstatus ENUM ('ENABLED', 'DISABLED') DEFAULT 'ENABLED',
 	hostname VARCHAR(255) NOT NULL,
 	ip CHAR(15) NOT NULL,
 	n_ip INT UNSIGNED NOT NULL,
@@ -15,7 +17,6 @@ CREATE TABLE host (
 	ttl INT,
 	user VARCHAR(255),
 	partof INT,
-	reverse ENUM('Y', 'N') DEFAULT 'N',
 	mac_address_ts DATETIME,
 	client_id VARCHAR(255),
 	options MEDIUMBLOB,

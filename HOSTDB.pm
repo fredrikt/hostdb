@@ -1165,9 +1165,9 @@ sub init
 	$self->_debug_print ("creating object");
 
 	if ($hostdb->{_dbh}) {
-		$self->{_new_host} = $hostdb->{_dbh}->prepare ("INSERT INTO $hostdb->{db}.host (dhcpmode, mac, dnsmode, hostname, ip, n_ip, owner, ttl, user, partof, reverse, mac_address_ts) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+		$self->{_new_host} = $hostdb->{_dbh}->prepare ("INSERT INTO $hostdb->{db}.host (dhcpmode, dhcpstatus, mac, dnsmode, dnsstatus, hostname, ip, n_ip, owner, ttl, user, partof, mac_address_ts) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
 			or die "$DBI::errstr";
-		$self->{_update_host} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.host SET dhcpmode = ?, mac = ?, dnsmode = ?, hostname = ?, ip = ?, n_ip = ?, owner = ?, ttl = ?, user = ?, partof = ?, reverse = ?, mac_address_ts = ?, WHERE id = ?")
+		$self->{_update_host} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.host SET dhcpmode = ?, dhcpstatus = ?, mac = ?, dnsmode = ?, dnsstatus = ?, hostname = ?, ip = ?, n_ip = ?, owner = ?, ttl = ?, user = ?, partof = ?, mac_address_ts = ?, WHERE id = ?")
 			or die "$DBI::errstr";
 
 		$self->{_get_last_id} = $hostdb->{_dbh}->prepare ("SELECT LAST_INSERT_ID()")
@@ -1193,19 +1193,12 @@ sub commit
 {
 	my $self = shift;
 
-	# if not explicitly told anything else, set reverse to Yes if
-	# this is a primary host object (not partof another)
-	$self->reverse ("Y") if (! defined ($self->{partof}) and ! defined ($self->{reverse}));
-
-	# if TTL is 0, set it to NULL (undef) to use default TTL
-	$self->{ttl} = undef if (defined ($self->{ttl}) and $self->{ttl} <= 0);
-
-	$self->{partof} = undef if (defined ($self->{partof}) and $self->{partof} <= 0);
-
 	# fields in database order
 	my @db_values = ($self->dhcpmode (),
+			 $self->dhcpstatus (),
 			 $self->mac_address (),
 			 $self->dnsmode (),
+			 $self->dnsstatus (),
 			 $self->hostname (),
 			 $self->ip (),
 			 $self->n_ip (),
@@ -1213,7 +1206,6 @@ sub commit
 			 $self->ttl (),
 			 $self->user (),
 			 $self->partof (),
-			 $self->reverse (),
 			 $self->mac_address_ts ()
 			);
 	my $sth;
@@ -1247,8 +1239,7 @@ sub commit
 
 =head2 dhcpmode
 
-	Set DHCP mode for this host. This can be either DYNAMIC, STATIC or
-	DISABLED.
+	Set DHCP mode for this host. This can be either DYNAMIC or STATIC.
 
 
 	# set property
@@ -1265,11 +1256,10 @@ sub dhcpmode
 	if (@_) {
 		my $newvalue = shift;
 	
-		if ($newvalue eq "DYNAMIC" or $newvalue eq "STATIC" or
-		    $newvalue eq "DISABLED") {
+		if ($newvalue eq "DYNAMIC" or $newvalue eq "STATIC") {
 			$self->{dhcpmode} = $newvalue;
 		} else {
-			$self->set_error ("Invalid dhcpmode");
+			$self->set_error ("Invalid dhcpmode '$newvalue'");
 			return 0;
 		}
 
@@ -1277,6 +1267,42 @@ sub dhcpmode
 	}
 
 	return ($self->{dhcpmode});
+}
+
+
+=head2 dhcpstatus
+
+	Set DHCP status for this host. This can be either ENABLED or DISABLED.
+	This effectively controls wheter to generate any DHCP config for this
+	host or not.
+
+	# set property
+	$host->dhcpstatus ("DISABLED");
+
+	if ($host->dhcpstatus () eq "DISABLED") {
+		print ("Will not generate any DHCP config for this host \n");
+	}
+
+
+=cut
+sub dhcpstatus
+{
+	my $self = shift;
+
+	if (@_) {
+		my $newvalue = shift;
+	
+		if ($newvalue eq "ENABLED" or $newvalue eq "DISABLED") {
+			$self->{dhcpstatus} = $newvalue;
+		} else {
+			$self->set_error ("Invalid dhcpstatus '$newvalue'");
+			return 0;
+		}
+
+		return 1;
+	}
+
+	return ($self->{dhcpstatus});
 }
 
 
@@ -1309,13 +1335,15 @@ sub mac_address
 
 =head2 dnsmode
 
-	Set DHCP mode for this host. This can be either ENABLED or DISABLED.
+	Set DHCP mode for this host. This can be either A_AND_PTR or A.
+	'A_AND_PTR' is for regular hosts, it will generate both A and PTR
+	DNS records. 'A' is to just generate an A record and no PTR.
 
 
 	# set property
-	$host->dnsmode ("DISABLED");
+	$host->dnsmode ("A");
 
-	print ("This entry does not generate DNS config\n") if ($host->dnsmode () eq "DISABLED");
+	print ("This is an alias\n") if ($host->dnsmode () eq "A");
 
 
 =cut
@@ -1326,10 +1354,10 @@ sub dnsmode
 	if (@_) {
 		my $newvalue = shift;
 	
-		if ($newvalue eq "ENABLED" or $newvalue eq "DISABLED") {
+		if ($newvalue eq "A_AND_PTR" or $newvalue eq "A") {
 			$self->{dnsmode} = $newvalue;
 		} else {
-			$self->set_error ("Invalid dnsmode");
+			$self->set_error ("Invalid dnsmode '$newvalue'");
 			return 0;
 		}
 
@@ -1337,6 +1365,42 @@ sub dnsmode
 	}
 
 	return ($self->{dnsmode});
+}
+
+
+=head2 dnsstatus
+
+	Set DNS status for this host. This can be either ENABLED or DISABLED.
+	This effectively controls wheter to generate any DNS config for this
+	host or not.
+
+	# set property
+	$host->dnsstatus ("DISABLED");
+
+	if ($host->dnsstatus () eq "DISABLED") {
+		print ("Will not generate any DNS config for this host \n");
+	}
+
+
+=cut
+sub dnsstatus
+{
+	my $self = shift;
+
+	if (@_) {
+		my $newvalue = shift;
+	
+		if ($newvalue eq "ENABLED" or $newvalue eq "DISABLED") {
+			$self->{dnsstatus} = $newvalue;
+		} else {
+			$self->set_error ("Invalid dnsstatus '$newvalue'");
+			return 0;
+		}
+
+		return 1;
+	}
+
+	return ($self->{dnsstatus});
 }
 
 
@@ -1453,7 +1517,7 @@ sub ttl
 		my $newvalue = shift;
 
 		if ($newvalue eq "NULL") {
-			$self->{ttl} = "NULL";
+			$self->{ttl} = undef;
 		} else {
 			$self->{ttl} = $newvalue;
 		}
@@ -1571,44 +1635,6 @@ sub partof
 }
 
 
-=head2 reverse
-
-	Toggle if a reverse DNS entry (PTR) should be generated or not.
-
-
-	# set property
-	$host->reverse ("Y");	# valid values are "Y" (or 1), "N" (or 0)
-
-	# when used to get the value, always returns "Y" or "N" so you
-	# can't just do 'if ($host->reverse ()) ...'
-	#
-	print ("Will generate reverse\n") if ($host->reverse () eq "Y");
-
-
-=cut
-sub reverse
-{
-	my $self = shift;
-
-	if (@_) {
-		my $newvalue = shift;
-	
-		if ($newvalue =~ /^y/i or $newvalue == 1) {
-			$self->{reverse} = "Y";
-		} elsif ($newvalue =~ /^n/i or $newvalue == 0) {
-			$self->{reverse} = "N";
-		} else {
-			$self->set_error ("Invalid reverse format");
-			return 0;
-		}
-
-		return 1;
-	}
-
-	return ($self->{reverse});
-}
-
-
 =head2 mac_address_ts
 
 	Get or set the MAC address timestamp field of this host object.
@@ -1693,9 +1719,6 @@ sub init
 			or die "$DBI::errstr";
 		$self->{_update_zone} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.zone SET zonename = ?, delegated = ?, default_ttl = ?, ttl = ?, mname = ?, rname = ?, serial = ?, refresh = ?, retry = ?, expiry = ?, minimum = ?, owner = ? WHERE zonename = ?")
 			or die "$DBI::errstr";
-
-		#$self->{_get_last_id} = $hostdb->{_dbh}->prepare ("SELECT LAST_INSERT_ID()")
-		#	or die "$DBI::errstr";
 	}
 
 	# XXX ugly hack to differentiate on zones already in DB
@@ -1721,29 +1744,19 @@ sub commit
 {
 	my $self = shift;
 
-	# if any of these values are 0, set it to NULL (undef) to use default values
-	$self->{default_ttl} = undef if (defined ($self->{default_ttl}) and $self->{default_ttl} < 0);
-	$self->{ttl} = undef if (defined ($self->{ttl}) and $self->{ttl} < 0);
-	$self->{mname} = undef if (defined ($self->{mname}) and $self->{mname} eq "NULL");
-	$self->{rname} = undef if (defined ($self->{rname}) and $self->{rname} eq "NULL");
-	$self->{refresh} = undef if (defined ($self->{refresh}) and $self->{refresh} <= 0);
-	$self->{retry} = undef if (defined ($self->{retry}) and $self->{retry} <= 0);
-	$self->{expiry} = undef if (defined ($self->{expiry}) and $self->{expiry} <= 0);
-	$self->{minimum} = undef if (defined ($self->{minimum}) and $self->{minimum} <= 0);
-
 	# fields in database order
-	my @db_values = ($self->{zonename},
-			 $self->{delegated},
-			 $self->{default_ttl},
-			 $self->{ttl},
-			 $self->{mname},
-			 $self->{rname},
-			 $self->{serial},
-			 $self->{refresh},
-			 $self->{retry},
-			 $self->{expiry},
-			 $self->{minimum},
-			 $self->{owner}
+	my @db_values = ($self->zonename (),
+			 $self->delegated (),
+			 $self->default_ttl (),
+			 $self->ttl (),
+			 $self->mname (),
+			 $self->rname (),
+			 $self->serial (),
+			 $self->refresh (),
+			 $self->retry (),
+			 $self->expiry (),
+			 $self->minimum (),
+			 $self->owner ()
 			);
 
 	my $sth;
@@ -1833,7 +1846,7 @@ sub default_ttl
 		my $newvalue = shift;
 
 		if ($newvalue eq "NULL") {
-			$self->{default_ttl} = "NULL";
+			$self->{default_ttl} = undef;
 		} else {
 			$self->{default_ttl} = int ($newvalue);
 		}
@@ -1853,7 +1866,7 @@ sub serial
 		$self->_debug_print ("Setting SOA serial '$newvalue'");
 
 		if ($newvalue eq "NULL") {
-			$self->{serial} = "NULL";
+			$self->{serial} = undef;
 		} else {
 			if ($newvalue !~ /^\d{10,10}$/) {
 				$self->_set_error("Invalid serial number (should be 10 digits, todays date and two incrementing)");
