@@ -615,7 +615,7 @@ sub owner
 	Get or set list of profiles for this subnet. List should be comma-separated,
 	'default' is implicit.
 
-	printf "List: %s\n", join(', ', $subnet->profilelist ();
+	printf "List: %s\n", $subnet->profilelist ();
 	$subnet->profilelist ($new_list) or warn ("Failed setting value\n");
 
 
