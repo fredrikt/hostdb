@@ -97,7 +97,7 @@ sub db_add_zone
 	my $zonename = shift;
 	my $serial = shift;
 	
-	if ($hostdb->is_valid_zonename ($zonename)) {
+	if ($hostdb->is_valid_domainname ($zonename)) {
 		my $zone = $hostdb->create_zone ();
 		
 		if (! $zone) {

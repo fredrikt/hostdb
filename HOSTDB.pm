@@ -136,7 +136,7 @@ sub clean_hostname
 	This function modified the variable passed to it, like chomp().
 
 	It converts the zonename to lower case, strips any trailing dots
-	and finally returns the result of is_valid_zonename ($new_zonename).
+	and finally returns the result of is_valid_domainname ($new_zonename).
 
 =cut
 sub clean_zonename
@@ -147,7 +147,7 @@ sub clean_zonename
 
 	$new =~ s/\.+$//o;	# strip trailing dots
 
-	$valid = $self->is_valid_zonename ("$new");
+	$valid = $self->is_valid_domainname ("$new");
 	
 	if ($valid and ($new ne $_[0])) {
 		$self->_debug_print ("changed '$_[0]' into '$new'");
@@ -219,15 +219,15 @@ ERROR:
 }
 
 
-=head2 is_valid_zonename
+=head2 is_valid_domainname
 
-	$is_valid = $hostdb->is_valid_zonename ($zonename);
+	$is_valid = $hostdb->is_valid_domainname ($zonename);
 
 	Checks with some regexps if $zonename is a valid domain name.
 	This is nearly the same thing as is_valid_fqdn but a bit more relaxed.
 
 =cut
-sub is_valid_zonename
+sub is_valid_domainname
 {
 	my $self = shift;
 	my $zonename = shift;
