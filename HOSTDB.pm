@@ -769,7 +769,7 @@ sub html_links
 
 	if (defined ($ini)) {
 		foreach my $name ('showsubnet', 'deletehost', 'whois', 'home', 'netplan',
-				  'modifyzone', 'modifysubnet', 'modifyhost') {
+				  'modifyzone', 'modifysubnet', 'modifyhost', 'hostattributes') {
 			if ($ini->val ('subnet', "${name}_uri")) {
 				my $l = $ini->val ('subnet', "${name}_uri");
 				if ($l =~ /\.html$/) {
