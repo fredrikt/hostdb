@@ -66,6 +66,22 @@ CREATE TABLE subnet (
 	PRIMARY KEY (id)
 );
 
+CREATE TABLE hostattribute (
+	id INT AUTO_INCREMENT NOT NULL,
+	hostid INT NOT NULL,
+	v_key VARCHAR(250) NOT NULL,
+	v_section VARCHAR(128) NOT NULL,
+	v_type ENUM("string", "int", "blob") NOT NULL,
+	v_string VARCHAR(255),
+	v_int BIGINT,
+	v_blob MEDIUMBLOB,
+	lastmodified DATETIME,
+	lastupdated DATETIME,
+	PRIMARY KEY (id),
+	UNIQUE (hostid, v_key, v_section)
+);
+
+
 # this is an EXAMPLE grant command, you need to replace $database, $user, example.org and $password
 GRANT select, insert, update, delete ON $database.* TO "$user"@"%.example.org" IDENTIFIED BY '$password';
 
