@@ -43,6 +43,7 @@ Subnet object routines. A subnet object has the following attributes :
   n_broadcast		- the broadcast address in network order numerical format
   htmlcolor		- this subnet's color in the graphic netplan
   dhcpconfig		- a BLOB containing free-format DHCP config for this subnet
+  owner			- HOSTDB::Auth identifier that may modify hosts in this subnet
 
 
 Supposed FAQ :
@@ -75,42 +76,26 @@ sub init
 	my $self = shift;
 	my $hostdb = $self->{hostdb};
 
-	if (! defined ($self->{subnet})) {
-		# subnet not defined, this can be because our caller is the _find function
-		if (defined ($self->{netaddr}) and
-		    defined ($self->{slashnotation})) {
-		
-			$self->{subnet} = "$self->{netaddr}/$self->{slashnotation}";
+	$hostdb->_debug_print ("creating object (IPv$self->{ipver} subnet '$self->{netaddr}/$self->{slashnotation}')");
 
-			# XXX ugly hack
-			$self->{in_db} = 1;
-		}
-	} else {
-		# XXX ugly hack
-		$self->{in_db} = 0;
-	}
-	
-	$hostdb->_debug_print ("creating object (IPv$self->{ipver} subnet '$self->{subnet}')");
-
-	return undef if (! $self->subnet ($self->{subnet}));
-	delete ($self->{subnet});	# the info is kept in $self->{netaddr} and $self->{slashnotation}
+	return undef if (! $self->subnet ("$self->{netaddr}/$self->{slashnotation}"));
 	
 	if ($hostdb->{_dbh}) {
 		$self->{_new_subnet} = $hostdb->{_dbh}->prepare ("INSERT INTO $hostdb->{db}.subnet " .
 			"(ipver, netaddr, slashnotation, netmask, broadcast, addresses, description, " .
-			"short_description, n_netaddr, n_netmask, n_broadcast, htmlcolor, dhcpconfig) " .
-			"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+			"short_description, n_netaddr, n_netmask, n_broadcast, htmlcolor, dhcpconfig, " .
+			"owner) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
 			or die "$DBI::errstr";
 		$self->{_update_subnet} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.subnet SET " .
 			"ipver = ?, netaddr = ?, slashnotation = ?, netmask = ?, broadcast = ?, " .
 			"addresses = ?, " .
 			"description = ?, short_description = ?, n_netaddr = ?, n_netmask = ?, " .
-			"n_broadcast = ?, htmlcolor = ?, dhcpconfig = ? WHERE id = ?")
+			"n_broadcast = ?, htmlcolor = ?, dhcpconfig = ?, owner = ? WHERE id = ?")
 			or die "$DBI::errstr";
 		$self->{_delete_subnet} = $hostdb->{_dbh}->prepare ("DELETE FROM $hostdb->{db}.subnet WHERE id = ?")
 			or die "$DBI::errstr";
 	} else {
-		$hostdb->_debug_print ("NOT preparing database stuff");
+		$hostdb->_debug_print ("NOT preparing database stuff (since my HOSTDB has no DBH)");
 	}
 
 	return 1;
@@ -145,7 +130,8 @@ sub commit
 			 $self->n_netmask (),
 			 $self->n_broadcast (),
 			 $self->htmlcolor (),
-			 $self->dhcpconfig ()
+			 $self->dhcpconfig (),
+			 $self->owner ()
 			);
 
 	my $sth;
@@ -590,6 +576,30 @@ sub dhcpconfig
 	}
 
 	return ($self->{dhcpconfig});
+}
+
+=head2 owner
+
+	Get or set owner.
+
+	printf "Old owner: %s\n", $subnet->owner ();
+	$subnet->owner ($new_owner) or warn ("Failed setting value\n");
+
+
+=cut
+sub owner
+{
+	my $self = shift;
+
+	if (@_) {
+		my $newvalue = shift;
+	
+		$self->{owner} = $newvalue;
+		
+		return 1;
+	}
+
+	return ($self->{owner});
 }
 
 
