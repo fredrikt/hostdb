@@ -13,7 +13,7 @@ my $table_blank_line = "<tr><td COLSPAN='2'>&nbsp;</td></tr>\n";
 my $table_hr_line = "<tr><td COLSPAN='2'><hr></td></tr>\n";
 
 my $debug = 0;
-if ($ARGV[0] eq "-d") {
+if (defied ($ARGV[0]) and ($ARGV[0] eq "-d")) {
 	shift (@ARGV);
 	$debug = 1;
 }
