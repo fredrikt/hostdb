@@ -155,7 +155,7 @@ sub gen_zonefile
 			close ($ZONEFILE);
 			return 0;
 		}
-	} elsif ($zonename =~ /\.e164\.arpa$/) {
+	} elsif ($zonename =~ /\.e164\.(arpa|sunet\.se)$/) {
 		if (! enum_naptr_rr ($hostdb, $zonename, $zone_parameters{default_ttl}, $ZONEFILE, $fn, $ldap_enumuri)) {
 			close ($ZONEFILE);
 			return 0;
@@ -261,7 +261,7 @@ sub ipv4_ptr_rr
 			
 		$included_hosts_count++;
 	}
-	print ("found $included_hosts_count hosts in $zonename\n") unless ($quiet);
+	print ("Found $included_hosts_count hosts in $zonename\n") unless ($quiet);
 
 	return 1;
 }
@@ -341,7 +341,7 @@ sub enum_naptr_rr
 	my $numbers_count = 0;
 	my $rrf = Net::ENUM::NAPTRFactory->new();
 	
-	if ($zonename =~ /^([\d\.]+)\.e164\.arpa$/) {
+	if ($zonename =~ /^([\d\.]+)\.e164\.(arpa|sunet\.se)$/) {
 		my @d = split (/\./, "$1");
 		$e164base = "+" . join ('', reverse (@d));
 	} else {
