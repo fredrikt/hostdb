@@ -13,7 +13,7 @@ use Net::DNS;
 use Getopt::Std;
 use vars qw ($opt_h $opt_d $opt_D $opt_q $opt_f);
 
-getopts ('Dhdf');
+getopts ('Dhdfq');
 
 my $debug = defined ($opt_d);
 my $dns_sync = defined ($opt_D);
@@ -139,17 +139,19 @@ sub get_dns_soa_serial
 {
 	my $zone = shift;
 
+	my $zonename = $zone->zonename ();
+
 	my $res = Net::DNS::Resolver->new;
-	my $query = $res->query("$zone", "SOA");
+	my $query = $res->query($zonename, 'SOA');
 
 	if ($query) {
 		foreach my $rr ($query->answer) {
-			next unless $rr->type eq "SOA";
+			next unless $rr->type eq 'SOA';
 			return $rr->serial;
 		}
 	}
 
-	warn ("$0: Could not get SOA serial for zone '$zone'\n");
+	warn ("$0: Could not get SOA serial for zone '$zonename'\n");
 	return undef;
 }
 
