@@ -16,7 +16,7 @@ my $debug = defined ($opt_d);
 
 my @searchfor = @ARGV;
 if ($#searchfor == -1 || $opt_h) {
-	die ("Syntax: $0 [-d] <IP/FQDN/MAC> ...\n");
+	die ("Syntax: $0 [-d] <ID/IP/FQDN/MAC> ...\n");
 }
 
 my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
@@ -81,7 +81,7 @@ while (@searchfor) {
 	  Owner		$owner
 
 EOH
-			my @attrs = $host->init_attributes();
+			my @attrs = $host->init_attributes ();
 			my $numattrs = scalar @attrs;
 
 			if ($numattrs > 0) {
@@ -99,6 +99,7 @@ EOH
 					
 					if ($section ne $lastsection) {
 						print ("\n	  [$section]\n");
+						$lastsection = $section;
 					}
 					
 					printf ("	    %-17s = %s\n", $key, $value);
