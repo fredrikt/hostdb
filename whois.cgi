@@ -185,7 +185,7 @@ sub perform_search
 				foreach my $host (@host_refs) {
 					$q->print ("<tr><th COLSPAN='4' ALIGN='left'>Host :</th></tr>");
 		
-					print_host_info ($q, $hostdb, $host, $remote_user, $is_admin);
+					print_host_info ($q, $hostdb, $host, $remote_user, $is_admin, $is_helpdesk);
 				}
 			} else {
 				# more than one host record, show brief information
