@@ -675,22 +675,10 @@ sub is_valid_username
 }
 
 
-=head2 is_valid_nameserver_time
-
-	Checks if the specified value is either a positive integer
-	or a BIND9 syntax parseable value like 1w2d3h4m5s.
-
-
-=cut
-sub is_valid_nameserver_time
+sub _nameserver_time_to_seconds
 {
 	my $self = shift;
-	my $in = lc (shift);
-	
-	if ($in =~ /^0+$/ or (int ($in) > 0)) {
-		$self->_debug_print ("$in is a valid nameserver time");
-		return 1 
-	}
+	my $in = shift;
 
 	# check for BIND9 time like 1w2d3h4m5s
 	my $seconds = 0;
@@ -715,12 +703,67 @@ sub is_valid_nameserver_time
 		$in = '';
 	}
 	
-	if (! $in and int ($seconds) > 0) {
+	return -1 if ($in);
+
+	return $seconds;
+}
+
+
+=head2 is_valid_nameserver_time
+
+	Checks if the specified value is either a positive integer
+	or a BIND9 syntax parseable value like 1w2d3h4m5s. Can also
+	check that the result is within a specified range.
+
+	my $valid = $hostdb->is_valid_nameserver_time ("1d");
+	
+	or (will return false)
+	
+	my $min = 5;
+	my $max = 86400;	# 1 day
+	my $valid = $hostdb->is_valid_nameserver_time ("1d1s", $min, $max);
+
+
+=cut
+sub is_valid_nameserver_time
+{
+	my $self = shift;
+	my $in = lc (shift);
+	my $min = shift;
+	my $max = shift;	
+
+	if ($in =~ /^0+$/ or ($in =~ /^\d+$/ and int ($in) > 0)) {
+		$self->_debug_print ("$in is a valid nameserver time (all numeric)");
+	
+		if (defined ($min) and int ($in) < $min) {
+			$self->_debug_print ("$in is less than specified minimum '$min'");
+			return 0;
+		}
+		if (defined ($max) and int ($in) > $max) {
+			$self->_debug_print ("$in is greater than specified maximum '$max'");
+			return 0;
+		}
+
+		return 1;
+	}
+
+	my $seconds = $self->_nameserver_time_to_seconds ($in);
+
+	if ($seconds > 0) {
+		if (defined ($min) and $seconds < $min) {
+			$self->_debug_print ("$in ($seconds seconds) is less than specified minimum '$min'");
+			return 0;
+		}
+		if (defined ($max) and $seconds > $max) {
+			$self->_debug_print ("$in ($seconds seconds) is greater than specified maximum '$max'");
+			return 0;
+		}
+
 		$self->_debug_print ("$in is a valid nameserver time ($seconds seconds)");
 		return 1;
 	}
 
-	$self->_debug_print ("$in is NOT a valid nameserver time");
+	$self->_debug_print ("$in is NOT a valid nameserver time ($seconds)");
 	return 0;
 }
 
