@@ -67,7 +67,15 @@ sub DESTROY
 =head1 PUBLIC FUNCTIONS
 
 
-=head1 is_allowed_write
+=head2 is_allowed_write
+
+	Takes a candidate and any object that has a owner () function as argument.
+	Checks for the candidate in what is returned by the owner () function and
+	in the admins-variable from the config file. If an LDAP server is supplied
+	in the config file, then all elements of the lists are looked up in LDAP
+	so that you can have groups in LDAP that are allowed to edit HOSTDB objects.
+
+	$is_allowed = $hostdb->auth->is_allowed_write ($host, $user);
 
 
 =cut
@@ -95,10 +103,35 @@ sub is_allowed_write
 	return 1 if $self->_is_in_list ($candidate, "object owner", split (',', $owner));
 
 	# no exact match, now go chase users in LDAP
-	
+
 	return 1 if $self->_is_in_list ($candidate, "LDAP admin", $self->_ldap_explode ($self->admin_list ()));
 
 	return 1 if $self->_is_in_list ($candidate, "LDAP object owner", $self->_ldap_explode (split (',', $owner)));
+
+	return 0;
+}
+
+
+=head2 is_admin
+
+	Works like is_allowed_write but only checks if a user is in the admin-list.
+
+
+=cut
+sub is_admin
+{
+	my $self = shift;
+	my $candidate = shift;
+
+	$self->_debug_print ("Checking if '$candidate' is an HOSTDB admin");
+
+	if (defined ($self->{authorization}) and $self->{authorization} eq 'DISABLED') {
+		$self->_debug_print ("Authorization DISABLED (through configuration)");
+		return 1;
+	}
+
+	return 1 if $self->_is_in_list ($candidate, "admin", $self->admin_list ());
+	return 1 if $self->_is_in_list ($candidate, "LDAP admin", $self->_ldap_explode ($self->admin_list ()));
 
 	return 0;
 }
@@ -128,7 +161,7 @@ sub ldap_server
 }
 
 
-=head1 admin_list
+=head2 admin_list
 
 	A list of users with rights to do whatever they please.
 
@@ -160,7 +193,7 @@ sub admin_list
 	but are documented here as well just for the sake of documentation.
 
 
-=head1 _is_in_list
+=head2 _is_in_list
 
 	Check if first argument matches exactly an item in the following list.
 
@@ -191,7 +224,7 @@ sub _is_in_list
 }
 
 
-=head1 _ldap_explode
+=head2 _ldap_explode
 
 	Takes an array of <mumble> and looks them up in LDAP. First as uid's and
 	then as cn's. Returns all uid's the LDAP search yielded.
