@@ -104,7 +104,11 @@ sub init
 
 	# create an HOSTDB::Auth to be used for authorization
 	$self->{auth} = $self->create_auth (authorization => $self->{auth_disabled});
-	$self->auth->ldap_server ($self->{auth_ldap_server}) if (defined ($self->{auth_ldap_server}));
+	if (defined ($self->{auth_ldap_server})) {
+		if (! $self->auth->ldap_server ($self->{auth_ldap_server})) {
+			die ("Could not connect to LDAP server '$self->{auth_ldap_server}'\n");
+		}
+	}
 	$self->auth->admin_list (split (',', $self->{auth_admins})) if (defined ($self->{auth_admins}));
 	$self->auth->helpdesk_list (split (',', $self->{auth_helpdesk})) if (defined ($self->{auth_helpdesk}));
 	$self->{auth_ldap_server} = undef;

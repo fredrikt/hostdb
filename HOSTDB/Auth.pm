@@ -210,6 +210,13 @@ sub ldap_server
 
 		$self->{ldap_server} = $newvalue;
 
+		my $ldap = Net::LDAP->new ($newvalue);
+		if (! defined ($ldap)) {
+			$self->_set_error ("Could not connect to LDAP server '$newvalue'");
+			return undef;
+		}
+		$self->{ldap} = $ldap;
+
 		return 1;
 	}
 
@@ -333,13 +340,6 @@ sub _ldap_explode
 			$self->_debug_print ("No LDAP server defined, skipping LDAP search\n");
 			return undef;
 		}
-			
-		$ldap = Net::LDAP->new ($ldap_server);
-		if (! defined ($ldap)) {
-			$self->_set_error ("Could not connect to LDAP server '$ldap_server', skipping LDAP search");
-			return undef;
-		}
-		$self->{ldap} = $ldap;
 	}
 	
 	my $token;
