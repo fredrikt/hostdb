@@ -594,7 +594,7 @@ sub ttl
 sub profile
 {
     my $self = shift;
-    $self->_set_or_get_attribute ('mac', \&_validate_profile, @_);
+    $self->_set_or_get_attribute (undef, \&_validate_profile, @_);
 }
 
 
