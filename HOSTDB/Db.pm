@@ -64,6 +64,7 @@ sub init
 		# other misc settings
 		$self->{auth_ldap_server} = $self->{ini}->val ('auth', 'ldap_server') unless (defined ($self->{auth_ldap_server}));
 		$self->{auth_admins} = $self->{ini}->val ('auth', 'admins') unless (defined ($self->{auth_admins}));
+		$self->{auth_helpdesk} = $self->{ini}->val ('auth', 'helpdesk') unless (defined ($self->{auth_helpdesk}));
 		unless (defined ($self->{dont_authorize})) {
 			my $v = $self->{ini}->val ('auth', 'dont_authorize') || '';
 			$self->{auth_disabled} = 'DISABLED' if ($v eq 'YES');
@@ -105,8 +106,10 @@ sub init
 	$self->{auth} = $self->create_auth (authorization => $self->{auth_disabled});
 	$self->auth->ldap_server ($self->{auth_ldap_server}) if (defined ($self->{auth_ldap_server}));
 	$self->auth->admin_list (split (',', $self->{auth_admins})) if (defined ($self->{auth_admins}));
+	$self->auth->helpdesk_list (split (',', $self->{auth_helpdesk})) if (defined ($self->{auth_helpdesk}));
 	$self->{auth_ldap_server} = undef;
 	$self->{auth_admins} = undef;
+	$self->{auth_helpdesk} = undef;
 	$self->{auth_disabled} = undef;
 
 	return 1;
