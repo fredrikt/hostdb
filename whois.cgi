@@ -7,7 +7,7 @@
 
 use strict;
 use HOSTDB;
-use SUCGI;
+use SUCGI2;
 
 my $table_blank_line = "<tr><td COLSPAN='4'>&nbsp;</td></tr>\n";
 my $table_hr_line = "<tr><td COLSPAN='4'><hr></td></tr>\n";
@@ -32,7 +32,7 @@ if (-f $hostdbini->val ('sucgi', 'cfgfile')) {
 	warn ("No SUCGI config-file ('" . $hostdbini->val ('sucgi', 'cfgfile') . "')");
 }
 
-my $q = SUCGI->new ($sucgi_ini);
+my $q = SUCGI2->new ($sucgi_ini,'hostdb');
 my %links = $hostdb->html_links ($q);
 
 my $static_flag_days = $hostdbini->val ('subnet', 'static_flag_days');
@@ -63,7 +63,7 @@ if (@links or @admin_links) {
 }
 
 $q->print (<<EOH);
-	<table BORDER='0' CELLPADDING='0' CELLSPACING='0' WIDTH='600'>
+	<table BORDER='0' CELLPADDING='0' CELLSPACING='0' WIDTH='100%'>
 		$table_blank_line
 		<tr>
 			<td COLSPAN='3' ALIGN='center'><h3>HOSTDB: Search</h3></td>

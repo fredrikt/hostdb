@@ -7,7 +7,7 @@
 
 use strict;
 use HOSTDB;
-use SUCGI;
+use SUCGI2;
 
 my $table_blank_line = "<tr><td COLSPAN='4'>&nbsp;</td></tr>\n";
 my $table_hr_line = "<tr><td COLSPAN='4'><hr></td></tr>\n";
@@ -31,7 +31,7 @@ if (-f $hostdbini->val ('sucgi', 'cfgfile')) {
 	warn ("No SUCGI config-file ('" . $hostdbini->val ('sucgi', 'cfgfile') . "')");
 }
 
-my $q = SUCGI->new ($sucgi_ini);
+my $q = SUCGI2->new ($sucgi_ini,'hostdb');
 my $me = $q->state_url ();
 my %links = $hostdb->html_links ($q);
 
@@ -85,7 +85,7 @@ if (@links or @admin_links) {
 
 $q->print (<<EOH);
 	<form ACTION='$me' METHOD='post'>
-	<table BORDER='0' CELLPADDING='0' CELLSPACING='3' WIDTH='600'>
+	<table BORDER='0' CELLPADDING='0' CELLSPACING='3' WIDTH='100%'>
 		$table_blank_line
 		<tr>
 			<td COLSPAN='3' ALIGN='center'>
