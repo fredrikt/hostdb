@@ -120,16 +120,16 @@ sub perform_search
 	my $dynamic_flag_days = shift;
 
 	if ($q->param ('whoisdata')) {
-		my $search_for = $q->param ('whoisdata');
-		my $whoisdatatype = $q->param ('whoisdatatype');
+		my $search_for = lc ($q->param ('whoisdata'));
+		my $whoisdatatype = lc ($q->param ('whoisdatatype'));
 
-		if (lc ($whoisdatatype) eq 'guess') {
+		if ($whoisdatatype eq 'guess') {
 			# check if it is a subnet - findhost () is uncapable of that
 			$whoisdatatype = 'subnet' if ($hostdb->is_valid_subnet ($search_for));
 		}
 
 		my @host_refs;
-		if (lc ($whoisdatatype) eq 'zone') {
+		if ($whoisdatatype eq 'zone') {
 			if ($hostdb->is_valid_domainname ($search_for)) {
 				my $zone = $hostdb->findzonebyname ($search_for);
 
@@ -155,7 +155,12 @@ sub perform_search
 			} else {
 				error_line ($q, "'$search_for' is not a valid domainname");
 			}
-		} elsif (lc ($whoisdatatype) eq 'subnet') {
+		} elsif ($whoisdatatype eq 'subnet') {
+			if ($hostdb->is_valid_ip ($search_for)) {
+				# user has not entered a subnet size, default to /24
+				$search_for .= '/24';
+			}
+			
 			if ($hostdb->is_valid_subnet ($search_for)) {
 				my @subnets = $hostdb->findsubnetlongerprefix ($search_for);
 				foreach my $subnet ($hostdb->findsubnetlongerprefix ($search_for)) {
@@ -202,9 +207,9 @@ EOH
 
 			return 1;
 		} else {
-			error_line ($q, "No match, searched for '$search_for' of type '$whoisdatatype'");
+			if ($whoisdatatype ne 'zone') {
+				error_line ($q, "No match, searched for '$search_for' of type '$whoisdatatype'");
 			
-			if (lc ($whoisdatatype) ne 'zone') {
 				if ($hostdb->is_valid_domainname ($search_for)) {
 					my $me = $q->state_url ();
 					$q->print (<<EOH);
@@ -215,6 +220,14 @@ EOH
 						called '$search_for'? I can't guess if it is a zonename
 						or a hostname.
 						</td></tr>
+EOH
+				}
+			} else {
+				if ($search_for !~ /\.in-addr\.arpa$/) {
+					$q->print (<<EOH);
+						<tr>
+						  <td COLSPAN='4'>No hosts found in zone '$search_for'</td>
+						</tr>
 EOH
 				}
 			}
@@ -288,6 +301,10 @@ sub print_zone_info
 			<td>$delegated</td>
 			$empty_td
 			$empty_td
+		</tr>
+		<tr>
+			<td>&nbsp;&nbsp;Owner</td>
+			<td COLSPAN='3'>$owner</td>
 		</tr>
 		<tr>
 			<td>&nbsp;&nbsp;Default TTL</td>
