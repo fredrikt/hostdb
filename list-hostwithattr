@@ -92,8 +92,11 @@ EOH
 					printf ("	    %-17s = %s\n", $key, $value);
 
 					if ($verbose) {
-						printf ("	    %-17s	Last modified : %s\n", "", $attr->lastmodified ());
-						printf ("	    %-17s	Last updated  : %s\n", "", $attr->lastupdated ());
+						my $lastupdated = $attr->lastupdated () || 'no lastupdated timestamp';
+						my $lastmodified = $attr->lastmodified () || 'no lastmodified timestamp';
+
+						printf ("	    %-17s	Last modified : %s\n", "", $lastmodified);
+						printf ("	    %-17s	Last updated  : %s\n", "", $lastupdated);
 					}
 				}
 				
