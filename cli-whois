@@ -123,6 +123,6 @@ EOH
 			
 		print ("---\n\n");
 	} else {
-		print ("No match\n");
+		warn ("$0: No match on '$search_for'\n");
 	}
 }
