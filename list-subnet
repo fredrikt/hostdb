@@ -40,18 +40,39 @@ while ($searchfor[0]) {
 			my $subnet;
 			
 			foreach $subnet (@subnets) {
-				my $color = '';
+				# interpolation
+				my $color = $subnet->htmlcolor () || 'NULL';
+				my $subnet_name = $subnet->subnet ();
+				my $short_desc = $subnet->short_description ();
+				my $desc = $subnet->description ();
+				my $id = $subnet->id ();
+				my $owner = $subnet->owner ();
+				my $profilelist = $subnet->profilelist ();
+				my $addresses = $subnet->addresses ();
+				my $netmask = $subnet->netmask ();
+				my $broadcast = $subnet->broadcast ();
 
-				if (defined ($subnet->htmlcolor ())) {
-					$color = " (color '" . $subnet->htmlcolor () . "') ";
-				}
+				print (<<EOT);
+
+$subnet_name :
+
+  Netmask		$netmask
+  Broadcast		$broadcast
+
+  Short description	'$short_desc'
+  Description		'$desc'
+
+  Id			$id
+  Owner			$owner
+  Profiles		$profilelist
 				
-				printf "%-23s (%s)%sowner '%s' :\n", $subnet->subnet(),
-					(defined ($subnet->description ())?$subnet->description ():"no description"),
-					$color, $subnet->owner ();
+EOT
 
 				my @subnet_hosts = get_hosts_in_subnet ($subnet->subnet(), @hosts);
 				if (@subnet_hosts) {
+					my $num_hosts = scalar @subnet_hosts;
+					
+					print ("  $num_hosts hosts in subnet :\n\n");
 					my $host;
 					foreach $host (@subnet_hosts) {
 						printf "	%-20s %s\n",
