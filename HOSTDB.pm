@@ -828,8 +828,8 @@ sub findhostbyname
 
 	$self->_debug_print ("Find host with name '$_[0]'");
 	
-	if (! $self->is_valid_fqdn ($_[0])) {
-		$self->_set_error ("findhostbyname: '$_[0]' is not a valid FQDN");
+	if (! $self->is_valid_fqdn ($_[0]) and ! $self->is_valid_domainname ($_[0])) {
+		$self->_set_error ("findhostbyname: '$_[0]' is not a valid FQDN or domain name");
 		return undef;
 	}
 	
