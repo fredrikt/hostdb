@@ -226,7 +226,7 @@ sub ttl
 {
 	my $self = shift;
 
-	$self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_ttl, @_);
+	$self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_nameserver_time_or_null, @_);
 }
 
 
