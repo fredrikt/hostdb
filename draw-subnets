@@ -135,7 +135,7 @@ sub do_supernet
 				
 				if (1 == @slash24_subnets) {
 					# only one subnet, link directly to showsubnet.cgi
-					print_row ($subnet_name, $fn, "$showsubnet_path?;subnet=$subnet_name");
+					print_row ($subnet_name, $fn, "$showsubnet_path?;subnet=" . $slash24_subnets[0]->subnet());
 				} else {
 					# more than one subnet, link to whois.cgi which provides a list
 					print_row ($subnet_name, $fn, "$whois_path?;whoisdatatype=subnet;whoisdata=$subnet_name");
