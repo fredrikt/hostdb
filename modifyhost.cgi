@@ -52,6 +52,11 @@ $q->print (<<EOH);
 		$table_blank_line
 EOH
 
+# XXX set to '', not 'ft' XXX JUST FOR DEBUGGING UNTIL PUBCOOKIE IS FINISHED
+my $remote_user = $ENV{REMOTE_USER} || 'ft';
+
+my $host;
+
 my $action = $q->param('action');
 $action = 'Search' unless $action;
 SWITCH:
@@ -59,16 +64,15 @@ SWITCH:
 	$action eq 'Commit' and do
 	{
 		my $id = $q->param('id');
-		my $host;
 
 		if (defined ($id) and $id ne '') {
-			$host = get_host ($hostdb,'ID',$id);
+			$host = get_host ($hostdb, 'ID', $id);
 		} else {
 			$host = $hostdb->create_host ();
 			error_line ($q, "$0: Could not create host entry: $hostdb->{error}\n"), last SWITCH unless (defined ($host));
 		}
 
-		if (modify_host ($hostdb, $host, $q)) {
+		if (modify_host ($hostdb, $host, $q, $remote_user)) {
 			eval
 			{
 				$host->commit ();
@@ -82,22 +86,33 @@ SWITCH:
 		$id = $host->id () unless ($id);
 		$host = get_host($hostdb,'ID',$id); # read-back
 		error_line ($q, "Host mysteriously vanished"), last SWITCH unless $host;
-		host_form($q, $host);
 	},last SWITCH;
 
 	$action eq 'Search' and do
 	{
-		my $host = get_host ($hostdb, 'ID', $q->param('id')) if $q->param('id');
+		$host = get_host ($hostdb, 'ID', $q->param('id')) if $q->param('id');
 		$host = $hostdb->create_host () unless defined $host;
 
-		host_form($q, $host);
 	},last SWITCH;
+}
+
+if (defined ($host)) {
+	# get subnet
+	my $subnet = $hostdb->findsubnetclosestmatch ($host->ip () || $q->param ('ip'));
+
+	if (! $hostdb->auth->is_allowed_write ($subnet, $remote_user)) {
+		error_line ($q, "You do not have sufficient access to subnet '" . 
+			    $subnet->subnet () . "'");
+	} else {
+		host_form($q, $host, $subnet, $remote_user);
+	}
 }
 
 if ($@) {
 	error_line($q, "$@\n");
 }
 
+END:
 $q->print (<<EOH);
 	</table></form>
 EOH
@@ -110,50 +125,72 @@ sub modify_host
 	my $hostdb = shift;
 	my $host = shift;
 	my $q = shift;
+	my $remote_user = shift;
+	
+	my @changelog;
 	
 	eval {
 		die ("No host object") unless ($host);
+		
+		$host->_set_error ('');		
 
-		if ($q->param ('dhcpmode')) {
-			$host->dhcpmode ($q->param ('dhcpmode')) or die ("dhcpmode\n");
+		# get subnet
+		my $subnet = $hostdb->findsubnetclosestmatch ($host->ip ()) if (defined ($host->ip ()));
+
+		if (defined ($subnet) and 
+		    ! $hostdb->auth->is_allowed_write ($subnet, $remote_user)) {
+			die ("You do not have sufficient access to subnet '" . 
+				    $subnet->subnet () . "'");
 		}
-		if ($q->param ('dhcpstatus')) {
-			$host->dhcpstatus ($q->param ('dhcpstatus')) or die ("dhcpstatus\n");
-		}
-		if ($q->param ('mac_address')) {
-			$host->mac_address ($q->param ('mac_address')) or die ("mac_address\n");
-		}
-		if ($q->param ('dnsmode')) {
-			$host->dnsmode ($q->param ('dnsmode')) or die ("dnsmode\n");
-		}
-		if ($q->param ('dnsstatus')) {
-			$host->dnsstatus ($q->param ('dnsstatus')) or die ("dnsstatus\n");
-		}
-		if ($q->param ('hostname')) {
-			$host->hostname ($q->param ('hostname')) or die ("Invalid hostname\n");
-		}
+
+		my %changer = ('dhcpmode' =>	'dhcpmode',
+			       'dhcpstatus' =>	'dhcpstatus',
+			       'mac_address' =>	'mac_address',
+			       'dnsmode' =>	'dnsmode',
+			       'dnsstatus' =>	'dnsstatus',
+			       'hostname' =>	'hostname',
+			       'owner' =>	'owner',
+			       'ttl' =>		'ttl',
+			       'user' =>	'user'
+			      );
+			      
+		foreach my $name (keys %changer) {
+			my $new_val = $q->param ($name);
+			if (defined ($new_val)) {
+				my $func = $changer{$name};
+				my $old_val = $host->$func () || '';
+			
+				if ($new_val ne $old_val) {
+					push (@changelog, "Changed '$name' from '$old_val' to '$new_val'");
+					$host->$func ($new_val) or die ("Failed to set host attribute: '$name' - error was '$host->{error}'");
+				}
+			}
+		}	      
+
 		if ($q->param ('ip')) {
-			my $ip = $q->param ('ip');
+			my $ip;
+			$ip = $q->param ('ip');
 			unless ($ip eq $host->ip ()) {
 				my $t_host = $hostdb->findhostbyip ($ip);
 				if (defined ($t_host)) {
 					my $t_id = $t_host->id () ;
-					die "ip: Another host object (ID $t_id) currently have the IP '$ip'\n";
+					die "Another host object (ID $t_id) currently have the IP '$ip'\n";
 				}
-				$host->ip ($ip) or die "ip\n";
+				
+				my $new_subnet = $hostdb->findsubnetclosestmatch ($ip);
+				
+				die ("Invalid new IP address '$ip': no subnet for that IP found in database") if (! defined ($new_subnet));
+				
+				warn ("IP $ip SUBNET: " . $new_subnet->owner () . " - " . $new_subnet->subnet ());
+				if (! $hostdb->auth->is_allowed_write ($new_subnet, $remote_user)) {
+					die ("You do not have sufficient access to the new IP's subnet '" . 
+					     $new_subnet->subnet () . "'");
+				} else {
+					warn ("USER IS ALLOWED: " . $new_subnet->owner () . " - " . $new_subnet->subnet ());
+				}
+				
+				$host->ip ($ip) or die ("Failed to set host attribute: 'ip' - error was '$host->{error}'");
 			}
-		}
-		if ($q->param ('owner')) {
-			$host->owner ($q->param ('owner')) or die ("owner\n");
-		}
-		if ($q->param ('ttl')) {
-			$host->ttl ($q->param ('ttl')) or die ("ttl\n");
-		}
-		if ($q->param ('user')) {
-			$host->user ($q->param ('user')) or die ("user\n");
-		}
-		if ($q->param ('partof')) {
-			$host->partof ($q->param ('partof')) or die ("partof\n");
 		}
 	};
 	
@@ -173,24 +210,7 @@ sub get_host
 	my $search_for = shift;
 	my @host_refs;
 
-	if ($datatype eq "ID") {
-		if ($search_for =~ /^\d+$/) {
-			@host_refs = $hostdb->findhostbyid ($search_for);
-		} else {
-			warn ("Search failed: '$search_for' is not a valid ID");
-			return undef;
-		}
-	} elsif ($datatype eq "IP") {
-		if ($hostdb->is_valid_ip ($search_for)) {
-			@host_refs = $hostdb->findhostbyip ($search_for);
-		} else {
-			warn ("Search failed: '$search_for' is not a valid IP address");
-			return undef;
-		}
-	} else {
-		warn ("Search failed: don't recognize datatype '$datatype'");
-		return undef;
-	}
+	@host_refs = $hostdb->findhost ($datatype, $search_for);
 
 	if ($#host_refs == -1) {
 		warn ("$0: Search for '$search_for' (type '$datatype') failed - no match\n");
@@ -210,11 +230,11 @@ sub host_form
 {
 	my $q = shift;
 	my $host = shift;
+	my $h_subnet = shift;
+	my $remote_user = shift;
 
 	# HTML 
         my $state_field = $q->state_field ();
-        #my $popup = $q->popup_menu (-name => "whoisdatatype", -values => ['Guess', 'IP', 'FQDN', 'MAC', 'ID']);
-	#my $datafield = $q->textfield ("whoisdata");
 	my $commit = $q->submit ('action', 'Commit');
 
 	my ($id, $partof, $ip, $mac, $hostname, $user, $owner, 
@@ -229,23 +249,21 @@ sub host_form
 		$mac = $q->textfield ('mac_address', $host->mac_address ());
 		$hostname = $q->textfield ('hostname', $host->hostname ());
 		$user = $q->textfield ('user', $host->user ());
-		$owner = $q->textfield ('owner', $host->owner ());
+		$owner = $q->textfield ('owner', $host->owner () || $remote_user);
 		$dnsmode = $q->popup_menu (-name => 'dnsmode', -values => ['A_AND_PTR', 'A'], -default => $host->dnsmode ());
 		$dnsstatus = $q->popup_menu (-name => 'dnsstatus', -values => ['ENABLED', 'DISABLED'], -default => $host->dnsstatus ());
 		$dhcpmode = $q->popup_menu (-name => 'dhcpmode', -values => ['STATIC', 'DYNAMIC'], -default => $host->dhcpmode ());
 		$dhcpstatus = $q->popup_menu (-name => 'dhcpstatus', -values => ['ENABLED', 'DISABLED'], -default => $host->dhcpstatus ());
+	}
 
-		# get subnet (just as info and to provide a link)
-		my $h_subnet = $hostdb->findsubnetclosestmatch ($host->ip ());
-		
-		if ($h_subnet) {
-			$subnet = $h_subnet->subnet ();
-			if ($showsubnet_path) {
-				$subnet = "<a HREF='$showsubnet_path;subnet=$subnet'>$subnet</a>";
-			}
-		} else {
-			$subnet = "not in database";
+	if (defined ($h_subnet)) {
+		$subnet = $h_subnet->subnet ();
+
+		if ($showsubnet_path) {
+			$subnet = "<a HREF='$showsubnet_path;subnet=$subnet'>$subnet</a>";
 		}
+	} else {
+		$subnet = "not in database";
 	}
 		
 	my $empty_td = '<td>&nbsp;</td>';
@@ -257,12 +275,20 @@ sub host_form
 
 	my $id_if_any = "<input TYPE='hidden' NAME='id' VALUE='$id'>" if (defined ($id) and ($id ne ''));
 
+	my $host_id;
+
+	if (defined ($id)) {
+		$host_id = "<a HREF='$me;id=$id'>$id</a>";
+	} else {
+		$host_id = "not in database";
+	}
+	
 	$q->print (<<EOH);
 		$state_field
                 $id_if_any
 		<tr>
 			<td>ID</td>
-			<td><a HREF="$me;id=$id">$id</a></td>
+			<td>$host_id</td>
 			$empty_td
 			$empty_td
 		</tr>	
