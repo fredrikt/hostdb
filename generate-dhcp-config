@@ -211,7 +211,7 @@ sub print_dhcp_config
 		
 		my $t_count = 0;
 		foreach my $host (@{$hosts{$profile}}) {
-			print_host ($OUT, $host) or warn ("$0: Could not write to file '$outfile.new': $!\n"), return undef;		
+			print_host ($OUT, $host, $debug) or warn ("$0: Could not write to file '$outfile.new': $!\n"), return undef;		
 			$t_count++;
 		}
 
@@ -273,25 +273,28 @@ sub print_host
 {
 	my $OUT = shift;
 	my $host = shift;
-	
+	my $debug = shift;	
+
 	my $hostname = $host->hostname () || 'NULL';
 	my $id = $host->id ();
 	my $ip = $host->ip ();
 	my $mac = $host->mac_address ();
 
-	my $prefix = '';
-	$prefix = '# DHCP disabled ' if ($host->dhcpstatus () eq 'DISABLED');
-
+	if ($host->dhcpstatus () eq 'DISABLED') {
+		warn ("Host with ID $id (IP $ip, hostname $hostname) has DHCP DISABLED, skipping\n") if ($debug);
+		return 1;
+	}
 	if (! defined ($ip)) {
-		$prefix = '# NO IP ';
-		$ip = 'NULL';
-	} elsif (! defined ($mac)) {
-		$prefix = '# NO MAC ';
-		$mac = 'NULL';
+		warn ("Host with ID $id (hostname $hostname) has NO IP ADDRESS, skipping\n") if ($debug);
+		return 1;
+	}
+	if (! defined ($mac)) {
+		warn ("Host with ID $id (hostname $hostname) has NO MAC ADDRESS, skipping\n") if ($debug);
+		return 1;
 	}
 
 	print ($OUT <<EOD) or return undef;
-${prefix}host ${hostname}_${id} { hardware ethernet $mac; fixed-address $ip; option host-name \"$hostname\"; }
+host ${hostname}_${id} { hardware ethernet $mac; fixed-address $ip; option host-name \"$hostname\"; }
 EOD
 
 	return 1;
