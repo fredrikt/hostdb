@@ -206,9 +206,24 @@ sub ipv4_ptr_rr
 	my $included_hosts_count = 0;
 
 	my @i = split ('\.', $zonename);
-	my $ipbase = "$i[2].$i[1].$i[0]";
-	my $n_netbase = $hostdb->aton ("$ipbase.0");
-	foreach my $host ($hostdb->findhostbyiprange ("$ipbase.0", "$ipbase.255")) {
+	my ($first_ip, $last_ip);
+	if ($zonename =~ /^\d+\.\d+\.\d+\.in-addr\.arpa/) {
+		$first_ip = "$i[2].$i[1].$i[0].0";
+		$last_ip  = "$i[2].$i[1].$i[0].255";
+	} elsif ($zonename =~ /^\d+\.\d+\.in-addr\.arpa/) {
+		$first_ip = "$i[1].$i[0].0.0";
+		$last_ip  = "$i[1].$i[0].255.255";
+	} elsif ($zonename =~ /^\d+\.in-addr\.arpa/) {
+		$first_ip = "$i[0].0.0.0";
+		$last_ip  = "$i[0].255.255.255";
+	} else {
+		warn ("$0: Invalid IPv4 zonename '$zonename'");
+		return undef;
+	}
+
+	foreach my $host ($hostdb->findhostbyiprange ($first_ip, $last_ip)) {
+		warn ("$0: Invalid search results: $hostdb->{error}\n"), next unless ($host);
+
 		my $hostname = $host->hostname ();
 		my $hostip = $host->ip ();
 		my $rr_ttl = $host->ttl ();
