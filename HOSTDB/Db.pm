@@ -635,7 +635,9 @@ sub findhost
 	my $search_for = shift;
 
 	if (! defined ($datatype) or ! $datatype or ! defined ($search_for) or ! $search_for) {
-	    die ("$0: HOSTDB findhost () called with wrong arguments (datatype = '$datatype', search for = '$search_for')\n");
+	    my $dt = $datatype || 'undef';
+	    my $sf = $search_for || 'undef';
+	    die ("$0: HOSTDB findhost () called with wrong arguments (datatype = '$dt', search for = '$sf')\n");
 	}
 
 	$self->_set_error ('');
