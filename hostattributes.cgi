@@ -9,8 +9,8 @@ use strict;
 use HOSTDB;
 use SUCGI2;
 
-my $table_blank_line = "<tr><td COLSPAN='3'>&nbsp;</td></tr>\n";
-my $table_hr_line = "<tr><td COLSPAN='3'><hr></td></tr>\n";
+my $table_blank_line = "<tr><td COLSPAN='4'>&nbsp;</td></tr>\n";
+my $table_hr_line = "<tr><td COLSPAN='4'><hr></td></tr>\n";
 my $empty_td = "<td>&nbsp;</td>\n";
 
 my $debug = 0;
@@ -71,18 +71,20 @@ if (! $is_admin and ! $is_helpdesk) {
 	}
 }
 
-$q->print (<<EOH);
+if (! defined ($host)) {
+	$q->print ("&nbsp;<p><ul><font COLOR='red' SIZE='3'><strong>No host with id '$id' found in database.</strong></font></ul>\n\n");
+	$q->end ();
+	die ("$0: No host with id '$id' found in database.");
+} else {
+	$q->print (<<EOH);
 	<table BORDER='0' CELLPADDING='0' CELLSPACING='0' WIDTH='100%'>
 		$table_blank_line
 		<tr>
-			<td ALIGN='left' COLSPAN='3'><h3>Host attributes :</h3></td>
+			<td ALIGN='left' COLSPAN='4'><h3>Host attributes :</h3></td>
 		</tr>
 		$table_blank_line
 EOH
 
-if (! defined ($host)) {
-	$q->print ("&nbsp;<p><ul><font COLOR='red' SIZE='3'><strong>No host with id '$id' found in database.</strong></font></ul>\n\n");
-} else {
 	my @sectionfilter;
 	foreach my $t (split (',', $hostdbini->val ('host', 'semipublic_attributesections'))) {
 		$t =~ s/^\s*(\S+)\s*$/$1/o;	# trim
@@ -118,26 +120,28 @@ sub show_hostattributes
 	
 	$q->print (<<EOH);
 	   <tr>
-		<th ALIGN='left' COLSPAN='3'>Host :</th>
+		<th ALIGN='left' COLSPAN='4'>Host :</th>
 	   </tr>
 	   $table_blank_line
 
 	   <tr>
 		<td WIDTH='33%'>&nbsp;ID</td>
-		<td ALIGN='left' COLSPAN='2'>$host_link</td>
+		<td ALIGN='left' COLSPAN='3'>$host_link</td>
 	   </tr>	
 	   <tr>
 		<td>&nbsp;IP address</td>
-		<td ALIGN='left' COLSPAN='2'><strong>$ip</strong></td>
+		<td ALIGN='left' COLSPAN='3'><strong>$ip</strong></td>
 	   </tr>	
 	   <tr>
 		<td>&nbsp;Hostname</td>
-		<td ALIGN='left' COLSPAN='2'><strong>$hostname</strong></td>
+		<td ALIGN='left' COLSPAN='3'><strong>$hostname</strong></td>
 	   </tr>	
 
 	   $table_blank_line
 	   <tr>
-		<th ALIGN='left' COLSPAN='3'>Attributes :</th>
+		<th ALIGN='left' COLSPAN='2'>Attributes :</th>
+		<th ALIGN='left'>Last modified</th>
+		<th ALIGN='left'>Last updated</th>
 	   </tr>
 	   $table_blank_line
 
@@ -149,9 +153,7 @@ EOH
 	my $showsection = 0;
 
 	foreach my $attr (@attrs) {
-		my $key = $attr->key ();
 		my $section = $attr->section ();
-		my $value = $attr->get ();
 					
 		if ($section ne $lastsection) {
 			if (! $is_admin and ! $is_helpdesk) {
@@ -174,7 +176,7 @@ EOH
 				$q->print (<<EOH);
 	   $table_blank_line
 	   <tr>
-		<th ALIGN='left' COLSPAN='3'>&nbsp;&nbsp;$section</th>
+		<th ALIGN='left' COLSPAN='4'>&nbsp;&nbsp;$section</th>
 	   </tr>
 EOH
 			}
@@ -183,10 +185,17 @@ EOH
 		}
 
 		if ($showsection) {
+			my $key = $attr->key () || 'NULL';
+			my $value = $attr->get () || 'NULL';
+			my $lastmodified = $attr->lastmodified () || 'NULL';
+			my $lastupdated = $attr->lastupdated () || 'NULL';
+
 			$q->print (<<EOH);
 		   <tr>
 			<td>&nbsp;&nbsp;&nbsp;&nbsp;$key</td>
-			<td COLSPAN='2'>$value</td>
+			<td>$value</td>
+			<td>$lastmodified</td>
+			<td>$lastupdated</td>
 		   </tr>
 EOH
 		}
