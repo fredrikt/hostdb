@@ -342,9 +342,9 @@ sub valid_mac_address
 }
 
 
-=head2 check_valid_subnet
+=head2 is_valid_subnet
 
-	if (! $hostdb->check_valid_subnet ("130.237.0.0/16")) {
+	if (! $hostdb->is_valid_subnet ("130.237.0.0/16")) {
 		die ("The world is going under, 130.237.0.0/16 " .
 		     "is no longer a valid subnet!\n");
 	}
@@ -353,7 +353,7 @@ sub valid_mac_address
 
 
 =cut
-sub check_valid_subnet
+sub is_valid_subnet
 {
 	my $self = shift;
 	my $subnet = shift;
@@ -1855,7 +1855,7 @@ sub subnet
 
 		$self->_debug_print ("setting subnet '$subnet'");
 
-		return undef if (! $self->check_valid_subnet ($subnet));
+		return undef if (! $self->is_valid_subnet ($subnet));
 	
 		my ($netaddr, $slash) = split ('/', $subnet);
 

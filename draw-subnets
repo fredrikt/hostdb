@@ -91,7 +91,7 @@ foreach $supernet (@drawsubnets) {
 		next;
 	}
 
-	if ($hostdb->check_valid_subnet ($supernet)) {
+	if ($hostdb->is_valid_subnet ($supernet)) {
 		do_supernet ($supernet, \%colors);
 	} else {
 		warn ("Ignoring invalid supernet '$supernet'\n");

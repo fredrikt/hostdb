@@ -62,7 +62,7 @@ sub list_subnet
 	my $q = shift;
 	my $subnet = shift;
 
-	if ($hostdb->check_valid_subnet ($subnet)) {
+	if ($hostdb->is_valid_subnet ($subnet)) {
 		my @hosts = $hostdb->findhostbyiprange ($hostdb->get_netaddr ($subnet),
 				$hostdb->get_broadcast ($subnet));
 		my @subnets;
