@@ -58,28 +58,48 @@ if (! $opt_force) {
 
 my $zonename = $zone->zonename ();
 
-my @hosts_in_zone = $hostdb->findhostbywildcardname ("%.$zonename");
+my @hosts_in_zone = $hostdb->findhostbyzone ($zonename);
+my @aliases_in_zone = $hostdb->findaliasbyzone ($zonename);
 
-if (@hosts_in_zone) {
+if (@hosts_in_zone or @aliases_in_zone) {
+
+    if (@hosts_in_zone) {
 	print ("\nThe following hosts are currently in the zone you are trying to remove :\n\n");
-
-	printf "   %-7s %-7s %-16s %s\n", "id", "partof", "ip", "hostname";
+	
+	printf "   %-7s %-7s %-16s %s\n", 'id', 'partof', 'ip', 'hostname';
 	foreach my $host (@hosts_in_zone) {
-		printf "   %-7s %-7s %-16s %s\n", $host->id (),
-			defined ($host->partof ())?$host->partof ():"-",
-			$host->ip (), $host->hostname ();
+	    printf "   %-7s %-7s %-16s %s\n", $host->id (),
+	    defined ($host->partof ())?$host->partof ():'-',
+	    $host->ip (), $host->hostname ();
 	}
+    }
 
-	if (! $opt_sue_me) {
-		print "\n\nMove the hosts to another zone before removing the zone, or if\n" .
-		       "you REALLY want to do it anyways run this command again with --sue_me\n\n";
+    if (@aliases_in_zone) {
+	print ("\nThe following aliases are currently in the zone you are trying to remove :\n\n");
+	
+	printf "   %-7s %-25s %s\n", 'id', 'aliasname', 'hostname';
+	foreach my $alias (@aliases_in_zone) {
+	    my $h = $hostdb->findhostbyid ($alias->hostid ());
+	    my $hostname = 'NOT FOUND';
+	    if ($h) {
+		$hostname = $h->hostname () . ' (id ' . $h->id () . ')';
+	    }
+	    printf "   %-7s %-25s %s\n", $alias->id (), $alias->aliasname (), $hostname;
 
-		die ("Not deleting zone since it contains host objects.\n");
-	} else {
-		print "\n\nSince you said I could sue you, I will remove the zone anyways\n" .
-		       "but PLEASE run 'housekeep-dnszone' now or DNS zone config building\n" .
-		       "might get really messed up!\n\n";
 	}
+    }
+
+
+    if (! $opt_sue_me) {
+	print "\n\nMove the hosts to another zone before removing the zone, or if\n" .
+	    "you REALLY want to do it anyways run this command again with --sue_me\n\n";
+	
+	die ("Not deleting zone since it contains host objects.\n");
+    } else {
+	print "\n\nSince you said I could sue you, I will remove the zone anyways\n" .
+	    "but PLEASE run 'housekeep-dnszone' now or DNS zone config building\n" .
+	    "might get really messed up!\n\n";
+    }
 }
 
 $zone->delete ($opt_force?"YES":"WELL, UHH") or die ("$0: Could not delete zone object - $zone->{error}\n");
