@@ -47,7 +47,7 @@ ${msg}Syntax: $0 [options] <IP/FQDN/MAC/ID>
 	object modifiers :
 		--ip		IP address
 		--hostname	FQDN
-		--partof	parent Host ID
+		--partof n	parent Host ID
 		--dhcpmode	STATIC or DYNAMIC
 		--dhcpstatus	ENABLED or DISABLED
 		--dnsmode	A_AND_PTR or A
@@ -98,7 +98,7 @@ if (! $opt_force) {
 	
 	if ($opt_partof) {
 		$h = $hostdb->findhostbyid ($opt_partof);
-		die ("$0: A parent host with ID $opt_mac_address could not be found, use --force to set partof anyways.\n") if (defined ($h));
+		die ("$0: A parent host with ID $opt_partof could not be found, use --force to set partof anyways.\n") unless (defined ($h));
 	}
 }
 
