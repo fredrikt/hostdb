@@ -9,6 +9,7 @@ use Socket;
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK);
 
 use HOSTDB::Db;
+use HOSTDB::Auth;
 use HOSTDB::Object::Host;
 use HOSTDB::Object::Zone;
 use HOSTDB::Object::Subnet;
@@ -67,13 +68,16 @@ sub new
 	my %me = @_;
 	my $this = bless \%me,$class;
 	$this->init ($self);
+	$this->{error} = '';
 	$this;
 }
+
 
 sub init
 {
 	my $self = shift;
 }
+
 
 =head2 get_inifile
 
@@ -94,6 +98,7 @@ sub get_inifile
 
 	return ($fn);
 }
+
 
 =head2 clean_hostname
 
@@ -185,27 +190,27 @@ sub is_valid_fqdn
 	# call it valid. Go check some RFC or something.
 	if ($#hostname_parts < 2) {
 		$self->_debug_print ("hostname '$hostname' is incomplete");
-		goto ERROR;
+		return 0;
 	}
 
 	# first part (hostname) may NOT begin with a digit and may NOT
 	# contain an underscore
 	if ($hostname !~ /^[a-zA-Z0-9]/o) {
 		$self->_debug_print ("hostname '$hostname' does not begin with an alphabetic character (a-zA-Z)");
-		goto ERROR;
+		return 0;
 	}
 	$illegal_chars = $hostname_parts[0];
 	$illegal_chars =~ s/[a-zA-Z0-9\-]//og;
 	if ($illegal_chars) {
 		$self->_debug_print ("hostname part '$hostname_parts[0]' of FQDN '$hostname' contains illegal characters ($illegal_chars)");
-		goto ERROR;
+		return 0;
 	}
 
 	# check TLD, only letters and between 2 and 6 chars long
 	# 2 is for 'se', 6 is 'museum'
 	if ($hostname_parts[$#hostname_parts] !~ /^[a-zA-Z]{2,6}$/o) {
 		$self->_debug_print ("TLD part '$hostname_parts[$#hostname_parts]' of FQDN '$hostname' is invalid (should be 2-6 characters and only alphabetic)");
-		goto ERROR;
+		return 0;
 	}
 
 	# check it all, a bit more relaxed than above (underscores allowed
@@ -214,13 +219,12 @@ sub is_valid_fqdn
 	$illegal_chars =~ s/[a-zA-Z0-9\._-]//og;
 	if ($illegal_chars) {
 		$self->_debug_print ("'$hostname' has illegal characters in it ($illegal_chars)");
-		goto ERROR;
+		return 0;
 	}
 
+	$self->_debug_print ("'$hostname' is a valid FQDN");
+
 	return 1;
-ERROR:
-	$self->_set_error ("'$hostname' is not a valid FQDN");
-	return 0;
 }
 
 
@@ -243,14 +247,14 @@ sub is_valid_domainname
 
 	if ($#domainname_parts < 1) {
 		$self->_debug_print ("domainname '$domainname' is incomplete");
-		goto ERROR;
+		return 0;
 	}
 
 	# check TLD, only letters and between 2 and 6 chars long
 	# 2 is for 'se', 6 is 'museum'
 	if ($domainname_parts[$#domainname_parts] !~ /^[a-zA-Z]{2,6}$/o) {
 		$self->_debug_print ("TLD part '$domainname_parts[$#domainname_parts]' of domain name '$domainname' is invalid (should be 2-6 characters and only alphabetic)");
-		goto ERROR;
+		return 0;
 	}
 
 	# check it all, a bit more relaxed than above (underscores allowed
@@ -260,13 +264,11 @@ sub is_valid_domainname
 	# what is left are illegal chars
 	if ($illegal_chars) {
 		$self->_debug_print ("'$domainname' has illegal characters in it ($illegal_chars)");
-		goto ERROR;
+		return 0;
 	}
 
+	$self->_debug_print ("'$domainname' is a valid domainname");
 	return 1;
-ERROR:
-	$self->_set_error ("'$domainname' is not a valid domain name");
-	return 0;
 }
 
 
@@ -339,10 +341,11 @@ sub is_valid_mac_address
 	my $mac = shift;
 
 	if ($mac =~ /^[\da-f]{2,2}:[\da-f]{2,2}:[\da-f]{2,2}:[\da-f]{2,2}:[\da-f]{2,2}:[\da-f]{2,2}$/o) {
+		$self->_debug_print ("'$mac' is valid");
 		return 1;
 	}
 
-	$self->_set_error ("Invalid mac address");
+	$self->_debug_print ("Invalid mac address '$mac'");
 	return 0;
 }
 
@@ -418,18 +421,18 @@ sub is_valid_ip
 	# exactly self explanatory and even I don't remember the reasoning
 	# any more
 
-	$self->_debug_print ("ip '$ip'");
-
 	if ($ip =~ /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/o) {
 		my @ip = ($1, $2, $3, $4);
 
 		return 1 if ($ip eq "0.0.0.0");
 		
 		if ($self->aton ($ip) > 0) {
-			$self->_debug_print ("is a valid IP");
+			$self->_debug_print ("'$ip' is a valid IP");
 			return 1;
 		}
 	}
+
+	$self->_debug_print ("ip '$ip' is NOT a valid IP");
 
 	return 0;
 }
@@ -629,7 +632,11 @@ sub _set_error
 	my $self = shift;
 	my @error = @_;
 
-	$self->{error} = join (" ", @error);
+	if (! defined ($_[0])) {
+		$self->{error} = '';	
+	} else {
+		$self->{error} = join (" ", @error);
+	}
 
 	return undef;
 }
