@@ -118,8 +118,7 @@ if ($action eq 'commit') {
 		if ($@) {
 			error_line ($q, "Could not commit changes: $@");
 			warn ("$i Changes to host with id '$id' could not be committed ($@)\n");
-		} else {
-			
+		} else {			
 			warn ("$i Changes to host with id '$id' committed successfully\n");
 		}
 	}
