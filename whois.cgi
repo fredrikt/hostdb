@@ -92,7 +92,7 @@ sub whois_form
 {
     my $q = shift;
 
-    my @popup_values = ('Guess', 'IP', 'FQDN', 'MAC', 'ID', 'Zone', 'Subnet');
+    my @popup_values = ('Guess', 'IP', 'FQDN', 'MAC', 'ID', 'Zone', 'Subnet', 'AliasID');
 
     my $popup_value = '';
     my $whoisdata;
@@ -207,6 +207,15 @@ sub perform_search
 	    }
 	    
 	    return undef;
+	} elsif ($whoisdatatype eq 'aliasid') {
+	    if ($search_for !~ /^\d+$/) {
+		error_line ($q, "Invalid alias ID : '$search_for'");
+	    } else {
+		my $alias = $hostdb->findhostaliasbyid ($search_for);
+		print_alias ($hostdb, $q, $alias, $remote_user, $is_admin, $is_helpdesk);
+
+		$q->print ("$table_blank_line");
+	    }
 	} else {
 	    if (is_wildcard ($search_for)) {
 		if (! $is_admin and ! $is_helpdesk) {
@@ -253,7 +262,18 @@ EOH
 	    
 	    return 1;
 	} else {
-	    if ($whoisdatatype ne 'zone') {
+	    if ($whoisdatatype eq 'aliasid') {
+		# placeholder
+		$q->print ("\n");
+	    } elsif ($whoisdatatype eq 'zone') {
+		if ($search_for !~ /\.in-addr\.arpa$/) {
+		    $q->print (<<EOH);
+						<tr>
+						  <td COLSPAN='4'>No hosts found in zone '$search_for'</td>
+						</tr>
+EOH
+		}
+	    } else {
 		error_line ($q, "No match, searched for '$search_for' of type '$whoisdatatype'");
 		
 		if ($hostdb->is_valid_domainname ($search_for)) {
@@ -266,14 +286,6 @@ EOH
 						called '$search_for'? I can\'t guess if it is a zonename
 						or a hostname.
 						</td></tr>
-EOH
-		}
-	    } else {
-		if ($search_for !~ /\.in-addr\.arpa$/) {
-		    $q->print (<<EOH);
-						<tr>
-						  <td COLSPAN='4'>No hosts found in zone '$search_for'</td>
-						</tr>
 EOH
 		}
 	    }
@@ -605,7 +617,7 @@ sub print_host_info
     if (! $is_admin and ! $is_helpdesk) {
 	$authorized = 0 if (! defined ($subnet) or ! $hostdb->auth->is_allowed_write ($subnet, $remote_user));
 		
-	# if there is no zone, only base desicion on subnet rights
+	# if there is no zone, only base decision on subnet rights
 	$authorized = 0 if (defined ($zone) and ! $hostdb->auth->is_allowed_write ($zone, $remote_user));
     }
 
@@ -648,6 +660,24 @@ sub print_host_info
 	}
     }
 
+    my $add_alias_link = '';
+    if ($links{hostalias}) {
+	$add_alias_link = "[<a HREF='$links{hostalias};hostid=$id'>add alias</a>]";
+    }
+
+    my $aliases_tr = '';
+    my @hostaliases = $host->init_aliases ();
+    if (@hostaliases) {
+	my @a;
+	foreach my $alias (@hostaliases) {
+	    my $a_id = $alias->id ();
+	    my $a_name = $alias->aliasname ();
+	    push (@a, "<a HREF='$me;type=aliasid;data=$a_id'>$a_name</a>");
+	}
+	my $aliases = join (",&nbsp", @a);
+	$aliases_tr = "\t<tr>\n\t\t$empty_td\n\t\t<td>Aliases</td>\n\t\t<td>$aliases</td>\n\t</tr>";
+    }
+
     # format some things...
 	
     if ($dhcpstatus ne 'ENABLED') {
@@ -678,7 +708,7 @@ sub print_host_info
 	   <tr>
 		$empty_td
 		<td>ID</td>
-		<td>$id&nbsp;$modify_link $hostattributes_link</td>
+		<td>$id&nbsp;$modify_link $hostattributes_link $add_alias_link</td>
 	   </tr>	
 	   <tr>
 		$empty_td
@@ -707,7 +737,10 @@ EOH
     }
 
     $q->print (<<EOH);
+	   $aliases_tr
+
 	   $table_blank_line
+
 	   <tr>
 		<th ALIGN='left' COLSPAN='4'>DNS</th>
 	   </tr>
@@ -848,6 +881,86 @@ sub print_brief_subnet
 EOH
 
     return 1;
+}
+
+sub print_alias
+{
+    my $hostdb = shift;
+    my $q = shift;
+    my $alias = shift;
+    my $remote_user = shift;
+    my $is_admin = shift;
+    my $is_helpdesk = shift;
+
+    error_line ($q, 'No alias found'), return undef unless ($alias);
+
+    my $me = $q->state_url ();
+
+    # HTML interpolation
+    my $aliasname = $alias->aliasname ();
+    my $id = $alias->id ();
+    my $hostid = $alias->hostid ();
+    my $comment = $alias->comment () || '';
+    my $ttl = $alias->ttl () || 'default';
+
+    my $hostname = 'NOT FOUND';
+    my $hostlink = '';
+    my $zone;
+    my $host = $hostdb->findhostbyid ($hostid);
+    if ($host) {
+	$hostname = $host->hostname ();
+	$hostlink = "<a HREF='$me;type=ID;data=$hostid'>$hostname</a>";
+	
+	# get zone of host
+	$zone = $hostdb->findzonebyhostname ($host->hostname ());
+    }
+
+    # check that user is allowed to edit both current zone and subnet
+
+    my $authorized = 1;
+
+    if (! $is_admin and ! $is_helpdesk) {
+        # if there is no zone, disallow editing
+        $authorized = 0 if (! defined ($zone) or ! $hostdb->auth->is_allowed_write ($zone, $remote_user));
+    }
+
+    my $modify_link = '<!-- hostalias cgi not defined -->';
+    $modify_link = $authorized?"[<a HREF='$links{hostalias};id=$id'>modify</a>]":'<!-- not authorized to modify -->' if (defined ($links{hostalias}));
+    my $delete_link = '<!-- deletehostalias cgi not defined -->';
+    $delete_link = $authorized?"[<a HREF='$links{deletehostalias};id=$id'>delete</a>]":'<!-- not authorized to delete -->' if (defined ($links{deletehostalias}));
+    
+
+    $q->print (<<EOH);
+    			<tr><th COLSPAN='3' ALIGN='left'>Alias (CNAME) :</th></tr>
+                        <tr>
+			   $empty_td
+                           <th ALIGN='left'>Aliasname</th>
+                           <td>$aliasname</td>
+                        </tr>
+			<tr>
+			   $empty_td
+			   <td>ID</td>
+			   <td>$id&nbsp;$modify_link&nbsp;$delete_link</td>
+			</td>
+                        <tr>
+                           $empty_td
+                           <td>DNS TTL</td>
+                           <td>$ttl</td>
+                        </tr>
+                        <tr>
+                           $empty_td
+                           <td>Comment</td>
+                           <td>$comment</td>
+                        </tr>
+
+			$table_blank_line
+			<tr>
+			   $empty_td
+			   <th ALIGN='left'>Hostname</th>
+			   <td>$hostlink</td>
+			</tr>
+EOH
+
 }
 
 sub safe_div
