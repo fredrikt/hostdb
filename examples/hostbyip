@@ -30,14 +30,33 @@ if ($#searchfor == -1) {
 	die ("Syntax: $0 [-d] IP-address ...\n");
 }
 
-printf ("%-7s %-7s %-16s %s\n", "id", "partof", "ip", "hostname");
+my $first = 1;
+my $match_count = 0;
 
-foreach my $searchhost (sort @searchfor) {
-	foreach my $host ($hostdb->findhostbyip($searchhost)) {
+foreach my $t_search (sort @searchfor) {
+	if (! $hostdb->check_valid_ip ($t_search)) {
+		warn ("Invalid IP address '$t_search'\n");
+		next;
+	}
+
+	my @hostlist = $hostdb->findhostbyip ($t_search);
+	if ($#hostlist == -1) {
+		warn ("No entrys matching '$t_search'\n");
+		next;
+	}
+
+	foreach my $host (@hostlist) {
+		printf ("%-7s %-7s %-16s %s\n", "id", "partof", "ip", "hostname"),
+			$first = 0 if ($first);
+
 		printf ("%-7s %-7s %-16s %s\n", $host->id (),
 			$host->partof () == 0?"-":$host->partof (),
 			$host->ip (), $host->hostname ());
+
+		$match_count++;
 	}
 
 	print ("\n");
 }
+
+exit ($match_count == 0);

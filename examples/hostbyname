@@ -31,15 +31,34 @@ if ($#searchfor == -1) {
 	die ("Syntax: $0 [-d] hostname ...\n");
 }
 
-printf ("%-7s %-7s %-16s %s\n", "id", "partof", "ip", "hostname");
+my $first = 1;
+my $match_count = 0;
 
-foreach my $searchhost (sort @searchfor) {
-	foreach my $matching_host_ref ($hostdb->findhostbyname($searchhost)) {
+foreach my $t_search (sort @searchfor) {
+	if (! $hostdb->valid_fqdn ($t_search)) {
+		warn ("Invalid FQDN '$t_search'\n");
+		next;
+	}
+
+	my @hostlist = $hostdb->findhostbyname ($t_search);
+	if ($#hostlist == -1) {
+		warn ("No entrys matching '$t_search'\n");
+		next;
+	}
+	
+	foreach my $matching_host_ref (@hostlist) {
 		foreach my $host (@$matching_host_ref) {
+			printf ("%-7s %-7s %-16s %s\n", "id", "partof", "ip", "hostname"),
+				$first = 0 if ($first);
+
 			printf ("%-7s %-7s %-16s %s\n", $host->id (),
 				$host->partof () == 0?"-":$host->partof (),
 				$host->ip (), $host->hostname ());
+
+			$match_count++;
 		}
 		print ("\n");
 	}
 }
+
+exit ($match_count == 0);
