@@ -1,0 +1,105 @@
+#!/usr/bin/env perl
+#
+# $Id$
+#
+
+use strict;
+use Getopt::Std;
+use vars qw ($opt_h $opt_Z $opt_D);
+
+getopts ('hZD:');
+
+if ($opt_h) {
+	die (<<EOM);
+Syntax: $0 [options] zonefile ...
+
+	options:
+		-Z	print zone name
+		-D dir	chdir to dir
+EOM
+}
+
+my @files = @ARGV;
+
+my $print_zonename = $opt_Z;
+my $dir = $opt_D;
+
+chdir ($dir) or die ("$0: Could not chdir to '$dir': $!\n") if ($dir);
+
+foreach my $file (@files) {
+	my $header_printed = 0;
+	my $first = 1;
+	my $zonename;
+
+	# XXX fix this, it is SU.SE filename convention specific
+	$zonename = $file;
+	$zonename =~ s/\.\.ZONE$//o;
+
+	open (DIFF, "cvs diff $file |") or die ("$0: popen(cvs diff $file) failed: $!\n");
+
+	my @diff;
+	my $line;
+
+	while ($line = <DIFF>) {
+		next if ($line !~ /^[+-](.)/o);
+		next if ($1 eq "+" or $1 eq "-");
+
+		# line begins with a + or a -, but not more than one...
+		push (@diff, $line);
+	}
+
+	close (DIFF);
+
+	my @output;
+	my @saved_soa;
+	my $saved_soa_str;
+	foreach $line (@diff) {
+		if ($line =~ /^([+-])(\S+\s+\d+\s+IN\s+SOA\s+\S+\s\S+\s)(\d+)(\s+\d+\s+\d+\s+\d+\s+\d+)$/o) {
+			my $action = $1;
+			my $lhs = $2;
+			my $serial = $3;
+			my $rhs = $4;
+			
+			if ($action eq "-") {
+				# save parameters
+				$saved_soa_str = $line;
+				@saved_soa = ($lhs, $serial, $rhs);
+			} elsif ($action eq "+") {
+				if ($serial ne $saved_soa[1]) {
+					print ("$zonename ") if ($print_zonename);
+					$header_printed = 1;
+					print ("SOA serial $serial");
+				}
+				
+				if ($lhs ne $saved_soa[0] or $rhs ne $saved_soa[2]) {
+					# something more than the serial number changed
+					
+					print ("$saved_soa_str$line");
+				}
+				
+				$header_printed = 1;
+			} else {
+				die ("$0: unexpected SOA action, programming error\n");
+			}
+		} else {
+			if ($first) {
+				if ($print_zonename and ! $header_printed) {
+					print ("$zonename (SOA serial not changed)");
+					$header_printed = 1;
+				}
+				
+				print (" :\n\n") if ($header_printed);
+
+				$first = 0;
+			}
+			
+			print ($line);
+		}
+	}
+
+	print ("\n") if ($header_printed and $first);	# nothing except header has been printed
+
+	print ("\n") if ($#files != -1);
+}
+
+exit (0);
