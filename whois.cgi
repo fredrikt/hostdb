@@ -63,7 +63,7 @@ sub whois_form
 	# HTML 
         my $state_field = $q->state_field ();
 	my $me = $q->state_url ();
-        my $popup = $q->popup_menu (-name => "whoisdatatype", -values => ['Guess', 'IP', 'FQDN', 'MAC', 'ID']);
+        my $popup = $q->popup_menu (-name => "whoisdatatype", -values => ['Guess', 'IP', 'FQDN', 'MAC', 'ID'], -default => 'Guess');
 	my $datafield = $q->textfield ("whoisdata");
 	my $submit = $q->submit ("Search");
 
@@ -99,68 +99,14 @@ sub perform_search
 		my $search_for = $q->param ('whoisdata');
 		my $whoisdatatype = $q->param ('whoisdatatype');
 
-		if ($whoisdatatype eq "Guess" or ! $whoisdatatype) {
-			my $t = $search_for;
-			if ($hostdb->clean_mac_address ($t)) {
-				$search_for = $t;
-				$whoisdatatype = 'MAC';
-			} elsif ($search_for =~ /^[+-]*(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.in-addr\.arpa\.*$/i) {
-				$whoisdatatype = 'IP';
-				$search_for = "$4.$3.$2.$1";
-			} elsif ($hostdb->is_valid_ip ($search_for)) {
-				$whoisdatatype = 'IP';
-			} elsif ($hostdb->clean_hostname ($t)) {
-				$whoisdatatype = 'FQDN';
-				$search_for = $t;
-			} elsif ($search_for =~ /^\d+$/) { 
-				$whoisdatatype = 'ID';
-			} else {
-				error_line ($q, "Search failed: could not guess data type");
-				return undef;
-			}
-		}
-
-		my @host_refs;
-			
-		if ($whoisdatatype eq "IP") {
-			if ($hostdb->is_valid_ip ($search_for)) {
-				@host_refs = $hostdb->findhostbyip ($search_for);
-			} else {
-				error_line ($q, "Search failed: '$search_for' is not a valid IP address");
-				return undef;
-			}
-		} elsif ($whoisdatatype eq "FQDN") {
-			my $t = $search_for;
-			if ($hostdb->clean_hostname ($t)) {
-				$search_for = $t;
-				@host_refs = $hostdb->findhostbyname ($search_for);
-			} else {
-				error_line ($q, "Search failed: '$search_for' is not a valid FQDN");
-				return undef;
-			}
-		} elsif ($whoisdatatype eq "MAC") {
-			my $t = $search_for;
-			if ($hostdb->clean_mac_address ($t)) {
-				$search_for = $t;
-				@host_refs = $hostdb->findhostbymac ($search_for);
-			} else {
-				error_line ($q, "Search failed: '$search_for' is not a valid MAC address");
-				return undef;
-			}
-		} elsif ($whoisdatatype eq "ID") {
-			if ($search_for =~ /^\d+$/) { 
-				@host_refs = $hostdb->findhostbyid ($search_for);
-			} else {
-				error_line ($q, "Search failed: '$search_for' is not a valid ID");
-				return undef;
-			}
-		} else {
-			error_line ($q, "Search failed: don't recognize whois datatype '$whoisdatatype'");
+		my @host_refs = $hostdb->findhost ($whoisdatatype, $search_for);
+		if (defined ($hostdb->{error})) {
+			error_line ($hostdb->{error});
 			return undef;
 		}
-
+		
 		if (@host_refs) {
-		  if (1 == @host_refs) {
+			if (1 == @host_refs) {
 				# only one host, show detailed information
 				foreach my $host (@host_refs) {
 					$q->print ("<tr><th COLSPAN='2' ALIGN='left'>Host :</th></tr>");
