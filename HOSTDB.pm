@@ -658,14 +658,14 @@ sub init
 	if (defined ($self->{dsn})) {
 		$self->{_dbh} = DBI->connect ($self->{dsn}, $self->{user}, $self->{password}) or die "$DBI::errstr";
 
-		$self->{_hostbyid} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.config WHERE id = ? ORDER BY id") or die "$DBI::errstr";
-		$self->{_hostbypartof} =	$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.config WHERE partof = ? ORDER BY id") or die "$DBI::errstr";
-		$self->{_hostbymac} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.config WHERE mac = ? ORDER BY mac") or die "$DBI::errstr";
-		$self->{_hostbyname} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.config WHERE hostname = ? ORDER BY hostname") or die "$DBI::errstr";
-		$self->{_hostbywildcardname} =	$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.config WHERE hostname LIKE ? ORDER BY hostname") or die "$DBI::errstr";
-		$self->{_hostbyip} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.config WHERE ip = ? ORDER BY n_ip") or die "$DBI::errstr";
-		$self->{_hostbyiprange} =	$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.config WHERE n_ip >= ? AND n_ip <= ? ORDER BY n_ip") or die "$DBI::errstr";
-		$self->{_allhosts} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.config ORDER BY id") or die "$DBI::errstr";
+		$self->{_hostbyid} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.host WHERE id = ? ORDER BY id") or die "$DBI::errstr";
+		$self->{_hostbypartof} =	$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.host WHERE partof = ? ORDER BY id") or die "$DBI::errstr";
+		$self->{_hostbymac} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.host WHERE mac = ? ORDER BY mac") or die "$DBI::errstr";
+		$self->{_hostbyname} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.host WHERE hostname = ? ORDER BY hostname") or die "$DBI::errstr";
+		$self->{_hostbywildcardname} =	$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.host WHERE hostname LIKE ? ORDER BY hostname") or die "$DBI::errstr";
+		$self->{_hostbyip} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.host WHERE ip = ? ORDER BY n_ip") or die "$DBI::errstr";
+		$self->{_hostbyiprange} =	$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.host WHERE n_ip >= ? AND n_ip <= ? ORDER BY n_ip") or die "$DBI::errstr";
+		$self->{_allhosts} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.host ORDER BY id") or die "$DBI::errstr";
 
 		$self->{_zonebyname} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.zone WHERE zonename = ? ORDER BY zonename") or die "$DBI::errstr";
 		$self->{_allzones} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.zone ORDER BY zonename") or die "$DBI::errstr";
@@ -1151,9 +1151,9 @@ sub init
 	$self->_debug_print ("creating object");
 
 	if ($hostdb->{_dbh}) {
-		$self->{_new_host} = $hostdb->{_dbh}->prepare ("INSERT INTO $hostdb->{db}.config (mac, hostname, ip, n_ip, owner, ttl, user, partof, reverse, last_modified_ts, mac_address_ts) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)")
+		$self->{_new_host} = $hostdb->{_dbh}->prepare ("INSERT INTO $hostdb->{db}.host (mac, hostname, ip, n_ip, owner, ttl, user, partof, reverse, last_modified_ts, mac_address_ts) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)")
 			or die "$DBI::errstr";
-		$self->{_update_host} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.config SET mac = ?, hostname = ?, ip = ?, n_ip = ?, owner = ?, ttl = ?, user = ?, partof = ?, reverse = ?, last_modified_ts = NOW(), mac_address_ts = ?, WHERE id = ?")
+		$self->{_update_host} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.host SET mac = ?, hostname = ?, ip = ?, n_ip = ?, owner = ?, ttl = ?, user = ?, partof = ?, reverse = ?, last_modified_ts = NOW(), mac_address_ts = ?, WHERE id = ?")
 			or die "$DBI::errstr";
 
 		$self->{_get_last_id} = $hostdb->{_dbh}->prepare ("SELECT LAST_INSERT_ID()")

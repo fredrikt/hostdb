@@ -3,8 +3,9 @@
 # The tables associated with hosts and DNS zone generation
 #
 
-CREATE TABLE config (
+CREATE TABLE host (
 	id INT AUTO_INCREMENT NOT NULL,
+	dynamic ENUM('Y', 'N') DEFAULT 'N',
 	mac CHAR(17),
 	hostname VARCHAR(255) NOT NULL,
 	ip CHAR(15) NOT NULL,
