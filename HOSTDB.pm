@@ -1717,13 +1717,9 @@ sub init
 	if ($hostdb->{_dbh}) {
 		$self->{_new_zone} = $hostdb->{_dbh}->prepare ("INSERT INTO $hostdb->{db}.zone (zonename, delegated, default_ttl, ttl, mname, rname, serial, refresh, retry, expiry, minimum, owner) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
 			or die "$DBI::errstr";
-		$self->{_update_zone} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.zone SET zonename = ?, delegated = ?, default_ttl = ?, ttl = ?, mname = ?, rname = ?, serial = ?, refresh = ?, retry = ?, expiry = ?, minimum = ?, owner = ? WHERE zonename = ?")
+		$self->{_update_zone} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.zone SET zonename = ?, delegated = ?, default_ttl = ?, ttl = ?, mname = ?, rname = ?, serial = ?, refresh = ?, retry = ?, expiry = ?, minimum = ?, owner = ? WHERE id = ?")
 			or die "$DBI::errstr";
 	}
-
-	# XXX ugly hack to differentiate on zones already in DB
-	# (find* sets this to 1) and new zones
-	$self->{in_db} = 0;
 
 	return 1;
 }
@@ -1760,9 +1756,9 @@ sub commit
 			);
 
 	my $sth;
-	if (defined ($self->{in_db}) and $self->{in_db} >= 1) {
+	if (defined ($self->id ())) {
 		$sth = $self->{_update_zone};
-		$sth->execute (@db_values, $self->{zonename})
+		$sth->execute (@db_values, $self->id ())
 			or die "$DBI::errstr";
 		
 		# XXX check number of rows affected?
@@ -1778,6 +1774,18 @@ sub commit
 	}	
 
 	return 1;
+}
+
+sub id
+{
+	my $self = shift;
+
+	if (@_) {
+		$self->_set_error ("this is a read-only function, it is a database auto increment");
+		return undef;
+	}
+
+	return ($self->{id});
 }
 
 sub zonename
