@@ -23,7 +23,9 @@ if (! $subnet_name or $opt_h) {
 	    "		-D	debug\n" .
 	    "		-d	description\n" .
 	    "		-s	short description\n" .
-	    "		-c	color\n" .
+	    "		-c	color (currently html color syntax without the # (eg. ffffcc))\n" .
+	    "\n" .
+	    "	subnet is the subnet in slash notation (eg. 192.168.1.0/24)\n" .
 	    "\n");
 }
 

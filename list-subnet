@@ -28,7 +28,9 @@ my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
 my @searchfor = @ARGV;
 
 if ($#searchfor == -1) {
-	die ("Syntax: $0 [-d] netaddr/slash ...\n");
+	die ("Syntax: $0 [-d] subnet/slash ...\n" .
+	     "	subnet is the subnet in slash notation (eg. 192.168.1.0/24)\n" .
+	     "\n");
 }
 
 while ($ARGV[0]) {
