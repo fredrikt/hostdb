@@ -26,7 +26,6 @@ my $dump_cache = defined ($opt_D);
 my $read_cache = defined ($opt_r);
 my $write_cache = defined ($opt_w);
 my @files = @ARGV;
-my $default_ttl;
 my $filelistfile;
 
 if ($opt_f) {
@@ -48,6 +47,7 @@ if ($#files == -1 and ! $read_cache) {
 	     "		-f file		read list of cisco-output-files from file\n" .
 	     "		-w cachefile	don't update HOSTDB, write to a hash cache file\n" .
 	     "		-r cachefile	read from hash cache file and update HOSTDB\n" .
+	     "		-D		dump cache to stdout\n" .
 	     "\n"
 	    );
 }
@@ -232,31 +232,36 @@ sub update_db
 			die ("$0: Failed to create host object: $hostdb->{error}\n") unless (defined ($host));
 			
 			$host->ip ($ip) or warn ($host->{error}), $valid = 0;
-			$host->dnsstatus ("DISABLED") or warn ($host->{error}), $valid = 0;
-			$host->hostname ("NULL") or warn ($host->{error}), $valid = 0;
-			$host->owner ("mac-import") or warn ($host->{error}), $valid = 0;
+			$host->dnsstatus ('DISABLED') or warn ($host->{error}), $valid = 0;
+			$host->dnsmode ('A_AND_PTR') or warn ($host->{error}), $valid = 0;
+			$host->dhcpstatus ('DISABLED') or warn ($host->{error}), $valid = 0;
+			$host->hostname ('NULL') or warn ($host->{error}), $valid = 0;
+			$host->owner ('mac-import') or warn ($host->{error}), $valid = 0;
 		}
 
 		my @mac_l = split (";", $ip_to_mac->{$ip});
 		my $mac_count = $#mac_l + 1;
 
 		my $is_dynamic = ((defined ($host->hostname ()) and $host->hostname () =~ /^.*dhcp.*/oi) or
+				  (defined ($host->dhcpmode ()) and $host->dhcpmode () eq 'DYNAMIC') or
 				       $mac_count >= 5);
 				
 		my $ts = "";	
+		$host->mac_address_ts ('unixtime:' . $ip_mac_to_ts->{"$ip;$mac"}) or warn ($host->{error}), $valid = 0;
+		$ts = unixtime_to_datetime ($ip_mac_to_ts->{"$ip;$mac"});
+
 		if ($is_dynamic) {
 			print ("Set IP $ip to dynamic\n") if ($debug);
 
-			$host->mac_address ("NULL") or warn ($host->{error}), $valid = 0;
-			$host->mac_address_ts ("NULL") or warn ($host->{error}), $valid = 0;
-			$host->dhcpmode ("DYNAMIC") or warn ($host->{error}), $valid = 0;
+			$host->mac_address ('NULL') or warn ($host->{error}), $valid = 0;
+			$host->dhcpmode ('DYNAMIC') or warn ($host->{error}), $valid = 0;
 
 			$mac = "dynamic";
 		} else {
+			$host->dhcpmode ('STATIC') or warn ($host->{error}), $valid = 0;
 			$host->mac_address ($mac) or warn ($host->{error}), $valid = 0;
-			$host->mac_address_ts ("unixtime:" . $ip_mac_to_ts->{"$ip;$mac"}) or warn ($host->{error}), $valid = 0;
-			$ts = unixtime_to_datetime ($ip_mac_to_ts->{"$ip;$mac"});
 		}
+
 
 		if ($valid) {
 			$host->commit();
@@ -293,6 +298,8 @@ sub dump_cache
 	my $ip_mac_to_count = shift;
 	my $debug = shift;
 
+	my $highest_ts = 0;
+
 	print ("Cache database dump :\n\n");
 	
 	foreach my $ip (sort ipsort keys %$ip_to_mac) {
@@ -306,6 +313,10 @@ sub dump_cache
 			my $count = $ip_mac_to_count->{"$ip;$mac"};
 			
 			print ("	$mac	$ts	$count\n");
+
+			$highest_ts = $ip_mac_to_ts->{"$ip;$mac"} if ($ip_mac_to_ts->{"$ip;$mac"} > $highest_ts);
 		}
 	}
+
+	print ("\nHighest timestamp: $highest_ts (" . localtime ($highest_ts) . ")\n");
 }
