@@ -40,23 +40,23 @@ while ($searchfor[0]) {
 			my $subnet;
 			
 			foreach $subnet (@subnets) {
-				my $color = undef;
+				my $color = '';
 
-				if ($subnet->htmlcolor ()) {
-					$color = " (color '" . $subnet->htmlcolor () . "')";
+				if (defined ($subnet->htmlcolor ())) {
+					$color = " (color '" . $subnet->htmlcolor () . "') ";
 				}
 				
-				printf ("%-23s (%s)$color :\n", $subnet->subnet(),
-					($subnet->description ()?$subnet->description ():"no description"));
+				printf "%-23s (%s)%sowner '%s' :\n", $subnet->subnet(),
+					(defined ($subnet->description ())?$subnet->description ():"no description"),
+					$color, $subnet->owner ();
 
 				my @subnet_hosts = get_hosts_in_subnet ($subnet->subnet(), @hosts);
 				if (@subnet_hosts) {
 					my $host;
 					foreach $host (@subnet_hosts) {
-						printf ("	%-20s %s\n",
+						printf "	%-20s %s\n",
 							$host->ip (),
-							$host->hostname ()
-						       );
+							defined ($host->hostname ())?$host->hostname ():"NULL";
 					}
 				}
 			}
