@@ -8,7 +8,7 @@
 use strict;
 use HOSTDB;
 use Getopt::Long;
-use vars qw ($opt_id $opt_zonename $opt_debug $opt_force $opt_quiet);
+use vars qw ($opt_id $opt_zonename $opt_debug $opt_force $opt_quiet $opt_sue_me);
 
 my %o = ();
 my $res = GetOptions (
@@ -16,6 +16,7 @@ my $res = GetOptions (
 	    "zonename=s",
 	    "debug",
 	    "force",
+	    "sue_me",
 	    "quiet"
 	   );
 
@@ -47,12 +48,38 @@ die ("$0: Could not find zone object\n") unless ($zone);
 
 if (! $opt_quiet) {
 	printf ("%-25s %-10s %-15s %s\n", "zonename", "serial", "owner", "delegated");
-	printf ("%-25s %-10s %-15s %s\n", $zone->zonename (),
-		$zone->serial (), $zone->owner (), $zone->delegated ());
+	printf "%-25s %-10s %-15s %s\n", $zone->zonename (),
+		$zone->serial (), $zone->owner (), $zone->delegated ();
 }
 
 if (! $opt_force) {
 	die ("$0: Dying, you have to delete with --force\n");
+}
+
+my $zonename = $zone->zonename ();
+
+my @hosts_in_zone = $hostdb->findhostbywildcardname ("%.$zonename");
+
+if (@hosts_in_zone) {
+	print ("\nThe following hosts are currently in the zone you are trying to remove :\n\n");
+
+	printf "   %-7s %-7s %-16s %s\n", "id", "partof", "ip", "hostname";
+	foreach my $host (@hosts_in_zone) {
+		printf "   %-7s %-7s %-16s %s\n", $host->id (),
+			defined ($host->partof ())?$host->partof ():"-",
+			$host->ip (), $host->hostname ();
+	}
+
+	if (! $opt_sue_me) {
+		print "\n\nMove the hosts to another zone before removing the zone, or if\n" .
+		       "you REALLY want to do it anyways run this command again with --sue_me\n\n";
+
+		die ("Not deleting zone since it contains host objects.\n");
+	} else {
+		print "\n\nSince you said I could sue you, I will remove the zone anyways\n" .
+		       "but PLEASE run 'housekeep-dnszone' now or DNS zone config building\n" .
+		       "might get really messed up!\n\n";
+	}
 }
 
 $zone->delete ($opt_force?"YES":"WELL, UHH") or die ("$0: Could not delete zone object - $zone->{error}\n");
