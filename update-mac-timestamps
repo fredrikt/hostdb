@@ -24,8 +24,8 @@ my $default_ttl;
 
 if ($#files == -1 or defined ($opt_h)) {
 	die (<<EOM);
-Syntax: $0 [options] [cisco-output-file ...]\n" .
-	options :\n" .
+Syntax: $0 [options] [cisco-output-file ...]\n
+	options :\n
 		-d		debug
 		-q		quiet
 		-r suffix	rename files if successfull, append suffix
@@ -103,8 +103,19 @@ sub update_db
 		my $host = $hostdb->findhostbyip ($ip);
 				
 		if (defined ($host)) {
+			my $id = $host->id ();
 			my $host_mac = $host->mac_address ();
-					
+		
+			if ($host->dhcpmode () eq 'DYNAMIC') {
+				if (defined ($host_mac)) {
+				   	my $valid = 1;
+					$host->mac_address ('NULL') or warn ("Failed to clear MAC address on dynamic host $id (IP $ip): $host->{error}\n"), $valid = 0;
+					$host->commit () if ($valid);
+					warn ("Cleared MAC address on dynamic host $id (IP $ip)\n") if ($debug and $valid);
+				}
+				next;
+			}
+
 			if (! defined ($host_mac)) {
 				# no mac in db, put this one there
 				$host->mac_address ($mac);
@@ -120,7 +131,7 @@ sub update_db
 				   	my $valid = 1;
 					$host->mac_address_ts ("unixtime:$ts") or warn ("Failed to set TS on $ip: $host->{error}\n"), $valid = 0;
 					$host->commit () if ($valid);
-					warn ("Set new timestamp on $ip\n") if ($debug);
+					warn ("Set new timestamp on $ip\n") if ($debug and $valid);
 				} else {
 					warn ("Database timestamp on $ip ($host_mac_ts) greater than this: $ts\n") if ($debug);
 				}
