@@ -67,6 +67,8 @@ if (defined ($id) and $id ne '') {
 		# set some defaults
 		$host->profile ('default');
 		$host->manual_dnszone ('N');
+		$host->dnsmode('A_AND_PTR');
+		$host->dnsstatus('ENABLED');
 	}
 }
 
@@ -428,7 +430,7 @@ sub create_datafield
 			return ($q->$func (-name => $attribute, -default => $curr));
 		}
 	} else {
-		return ($curr);
+		return ("$curr (read only)");
 	}
 }
 
@@ -581,7 +583,7 @@ sub host_form
 			<td><strong>$hostname</strong></td>
 			$empty_td
 			$empty_td
-		</tr>	
+		</tr>
 
 		<tr>
 			<td>DNS mode</td>
