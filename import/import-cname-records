@@ -64,7 +64,13 @@ foreach my $file (@files) {
     my @delayed;
     while (my $rad = <FIL>) {
 	my $skip_copy = 0;
-	next if ($rad =~ /^\s*;/); # skip comments
+	if ($rad =~ /^\s*;/) {
+	    # skip comments
+	    if ($output_filename) {
+		print (OUTFILE "$rad");
+	    }
+	    next;
+	}
 
 	chomp ($rad);
 
@@ -139,7 +145,7 @@ sub add_host
     my @hosts = $hostdb->findhost ('guess', $hostname);
     if (! @hosts) {
 	warn ("$0: Alias '$aliasname' skipped. No host named '$hostname' found in HOSTDB.\n");
-	return 1;
+	return 0;
     }
 
     if (0 + @hosts != 1) {
@@ -163,7 +169,7 @@ sub add_host
     die ("$0: ERROR: Could not create hostalias object: $host->{error}\n") unless ($alias);
 
     my $set_ttl = $host->ttl () || 'NULL';
-    $set_ttl = $ttl if (defined ($ttl));
+    $set_ttl = $ttl if (defined ($ttl) and $ttl);
     $alias->aliasname ($aliasname)	or die ("$0: Could not set 'aliasname': $alias->{error}\n");
     $alias->dnsstatus ('ENABLED')	or die ("$0: Could not set 'dnsstatus': $alias->{error}\n");
     $alias->ttl ($set_ttl)		or die ("$0: Could not set 'ttl' ('$set_ttl'): $alias->{error}\n");
