@@ -74,6 +74,8 @@ if (! $opt_force) {
     die ("$0: A host with IP $ip already exists, use --force to add anyways.\n") if (defined ($h));
     $h = $hostdb->findhostbyname ($hostname);
     die ("$0: A host with hostname $hostname already exists, use --force to add anyways.\n") if (defined ($h));
+    $h = $hostdb->findhostbyaliasname ($hostname);
+    die ("$0: A host with alias name $hostname already exists, use --force to add anyways.\n") if (defined ($h));
 
     if ($opt_mac_address) {
 	$h = $hostdb->findhostbymac ($opt_mac_address);
