@@ -97,6 +97,8 @@ sub get_alias
 	# all numeric, look for alias using id
 	@alias_refs = $hostdb->findhostaliasbyid ($search_for);
     } else {
+	die ("$0: '$search_for' is not a valid hostname (and it does not appear to be an alias ID)!\n")
+	    unless ($hostdb->clean_hostname ($search_for));
 	@alias_refs = $hostdb->findhostaliasbyname ($search_for);
     }
 
