@@ -803,7 +803,14 @@ sub html_links
 	if (defined ($ini)) {
 		foreach my $name ('showsubnet', 'deletehost', 'whois', 'home', 'netplan',
 				  'modifyzone', 'modifysubnet', 'modifyhost') {
-			$res{$name} = $q->state_url ($ini->val ('subnet', "${name}_uri")) if ($ini->val ('subnet', "${name}_uri"));
+			if ($ini->val ('subnet', "${name}_uri")) {
+				my $l = $ini->val ('subnet', "${name}_uri");
+				if ($l =~ /\.html$/) {
+					$res{$name} = $l;
+				} else {
+					$res{$name} = $q->state_url ($l);
+				}
+			}
 		}
 	}
 	
