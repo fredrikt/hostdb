@@ -17,21 +17,35 @@ getopts ('Dhd:s:c:');
 my $debug = 0;
 my $subnet_name = shift;
 
-if (! $subnet_name or $opt_h) {
-	die("Syntax: $0 [options] subnet\n" . 
-	    "	options:\n" .
-	    "		-D	debug\n" .
-	    "		-d	description\n" .
-	    "		-s	short description\n" .
-	    "		-c	color (currently html color syntax without the # (eg. ffffcc))\n" .
-	    "\n" .
-	    "	subnet is the subnet in slash notation (eg. 192.168.1.0/24)\n" .
-	    "\n");
-}
-
 $debug = 1 if (defined ($opt_D));
 
 my $hostdbini = Config::IniFiles->new (-file => HOSTDB::get_inifile ());
+
+my %colors = load_colors ($hostdbini);
+
+if (! $subnet_name or $opt_h) {
+	# interpolation
+	my $inifilename = HOSTDB::get_inifile ();
+	my $colors = join ("\n			", sort keys %colors);
+
+	$colors = "Colors defined in $inifilename :\n			$colors" if ($colors);
+	
+	die(<<EOT);
+Syntax: $0 [options] subnet
+	options:
+		-D	debug
+		-d	description
+		-s	short description
+		-c	color
+
+	subnet is the subnet in slash notation (eg. 192.168.1.0/24)
+	
+	color should be in html color syntax (eg. "#ffffcc") or
+	a color defined in $inifilename
+	
+		$colors
+EOT
+}
 
 my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
 			  db => $hostdbini->val ('db', 'database'),
@@ -42,7 +56,9 @@ my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
 
 my $subnet = $hostdb->findsubnet ($subnet_name);
 
-die ("Could not find subnet '$subnet_name': " . $hostdb->{error} . "\n") if (! $subnet);
+die ("Could not find subnet '$subnet_name' in database\n") if (! $subnet);
+
+test_color (\%colors, $opt_c) if (defined ($opt_c));
 
 $subnet->description ($opt_d) if (defined ($opt_d));
 $subnet->short_description ($opt_s) if (defined ($opt_s));
@@ -51,3 +67,50 @@ $subnet->htmlcolor ($opt_c) if (defined ($opt_c));
 $subnet->commit() or die ("Could not commit subnet object: " . $hostdb->{error} . "\n");
 
 exit (0);
+
+
+sub load_colors
+{
+	my $hostdbini = shift;
+	my %res;
+	
+	my @colors = $hostdbini->Parameters ('subnet_colors');
+
+	my $t;
+	foreach $t (@colors) {
+		$res{$t} = $hostdbini->val ('subnet_colors', $t);
+	}
+
+	# make RED the default so that a non-specified color is obvious
+	$res{default} = "#ff0000" if (! defined ($res{default}));
+	
+	return %res;
+}
+
+sub is_valid_color
+{
+	my $in = shift;
+	
+	return 1 if ($in =~ /^#[0-9a-f]{6,6}$/i);
+	return 0;
+}
+
+sub test_color
+{
+	my $colors_ref = shift;
+	my $color_name = shift;
+
+	my $c = $color_name;
+
+	if (defined ($colors_ref->{$color_name})) {
+		$c = $colors_ref->{$color_name};
+
+		if (! is_valid_color ($c)) {
+			die ("$0: Color '$color_name' resolved to '$c' which is an invalid HTML color.\n");
+		}
+	}
+
+	if (! is_valid_color ($c)) {
+		warn ("$0: Color '$c' is an invalid HTML color.\n");
+	}
+}
