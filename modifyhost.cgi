@@ -154,7 +154,8 @@ sub modify_host
 			       'owner' =>	'owner',
 			       'ttl' =>		'ttl',
 			       'user' =>	'user',
-			       'partof' =>	'partof'
+			       'partof' =>	'partof',
+			       'ip' =>		'ip'
 			      );
 			      
 		foreach my $name (keys %changer) {
