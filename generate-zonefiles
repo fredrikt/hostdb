@@ -1,4 +1,4 @@
-#!/usr/local/bin/perl
+#!/usr/local/bin/perl -w
 #
 # $Id$
 #
@@ -10,22 +10,25 @@ use Config::IniFiles;
 #use lib 'blib/lib';
 use HOSTDB;
 use Getopt::Std;
-use vars qw ($opt_h $opt_d $opt_o);
+use vars qw ($opt_h $opt_d $opt_o $opt_q);
 use FileHandle;
 
-my $debug = 0;
+getopts ('hdo:q');
 
-getopts ('hdo:');
+my $debug = defined ($opt_d);
+my $quiet = defined ($opt_q);
 
 if ($opt_h or ! $ARGV[0]) {
-	die("Syntax: $0 [options] zone ...\n" . 
-	    "	options:\n" .
-	    "		-d	debug\n" .
-	    "		-o	output dir\n" .
-	    "\n");
+	die(<<EOT);
+Syntax: $0 [options] zone ...
+	options:
+		-d	debug
+		-o	output dir
+		-q	quiet mode
+
+EOT
 }
 
-$debug = 1 if (defined ($opt_d));
 my $output_dir = $opt_o;
 $output_dir =~ s/\/$//o;	# remove trailing slash
 
@@ -136,11 +139,11 @@ sub gen_zonefile
 
 	open ($ZONEFILE, "> $fn") or warn ("$0: Couldn't open '$fn' for writing: $!\n"), return 0;
 	
-	close ($ZONEFILE, return 0) if (!soa_rr ($hostdb, $zonename, $zone_param_ref, $ZONEFILE, $fn));
+	close ($ZONEFILE), return 0 if (!soa_rr ($hostdb, $zonename, $zone_param_ref, $ZONEFILE, $fn));
 
 	if ($zonename =~ /\.in-addr\.arpa$/) {
 		if ($zonename =~ /.+\.\d+\.\d+\.\d+\.in-addr\.arpa$/) {
-			warn ("$0: Classless in-addr.arpa not implemented ($zonename)\n");
+			warn ("$0: Classless in-addr.arpa not implemented ($zonename)\n") unless ($quiet);
 			return undef;
 		}
 		
@@ -149,17 +152,17 @@ sub gen_zonefile
 			return 0;
 		}
 	} elsif ($zonename =~ /\.e164\.arpa$/) {
-		warn ("$0: zone '$zonename' - e164.arpa not implemented\n");
+		warn ("$0: zone '$zonename' - e164.arpa not implemented\n") unless ($quiet);
 		print ($ZONEFILE "; $0: HOSTDB - e164.arpa not implemented\n");
 	} elsif ($zonename =~ /\.ip6\.arpa$/) {
-		warn ("$0: zone '$zonename' - ip6.arpa not implemented\n");
+		warn ("$0: zone '$zonename' - ip6.arpa not implemented\n") unless ($quiet);
 		print ($ZONEFILE "; $0: HOSTDB - ip6.arpa not implemented\n");
 	} elsif ($zonename =~ /\.arpa$/) {
-		warn ("$0: zone '$zonename' - unknown .arpa, I'd better not try\n");
+		warn ("$0: zone '$zonename' - unknown .arpa, I'd better not try\n") unless ($quiet);
 		print ($ZONEFILE "; $0: HOSTDB - unknown .arpa, I'd better not try\n");
 	} elsif ($zonename =~ /\.ip6\.int$/) {
 		warn ("$0: ip6.int not implemented\n");
-		print ($ZONEFILE "; $0: HOSTDB - ip6.int not implemented (and most probably never will be)\n");
+		print ($ZONEFILE "; $0: HOSTDB - ip6.int not implemented (and most probably never will be)\n") unless ($quiet);
 	} else {
 		if (! a_rr ($hostdb, $zonename, $zone_parameters{default_ttl}, $ZONEFILE, $fn, @all_zones)) {
 			close ($ZONEFILE);
@@ -229,7 +232,7 @@ sub ipv4_ptr_rr
 
 		my $hostname = $host->hostname ();
 		my $hostip = $host->ip ();
-		my $rr_ttl = $host->ttl ();
+		my $rr_ttl = $host->ttl () || '';
 		
 		$rr_ttl = "" if ($rr_ttl eq $default_ttl);
 			
@@ -243,7 +246,7 @@ sub ipv4_ptr_rr
 			
 		$included_hosts_count++;
 	}
-	print ("found $included_hosts_count hosts in $zonename\n");
+	print ("found $included_hosts_count hosts in $zonename\n") unless ($quiet);
 
 	return 1;
 }
@@ -285,7 +288,7 @@ sub a_rr
 		if (host_in_zone ($hostname, $zonename, @all_zones)) {
 			$hostname .= ".";
 
-			my $rr_ttl = $host->ttl ();
+			my $rr_ttl = $host->ttl () || '';
 		
 			$rr_ttl = "" if ($rr_ttl eq $default_ttl);
 			
@@ -301,11 +304,13 @@ sub a_rr
 			$skipped_hosts_count++;
 		}
 	}
-	if ($skipped_hosts_count) {
-		print ("found $included_hosts_count hosts in $zonename, " .
-		       "$skipped_hosts_count found to be in subzones\n");
-	} else {
-		print ("found $included_hosts_count hosts in $zonename\n");
+	unless ($quiet) {
+		if ($skipped_hosts_count) {
+			printf "found %d hosts in %s, %d found to be in subzones\n",
+			       $included_hosts_count, $zonename, $skipped_hosts_count
+		} else {
+			print ("found $included_hosts_count hosts in $zonename\n") unless ($quiet);
+		}
 	}
 	return 1;
 }
