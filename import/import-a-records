@@ -14,95 +14,94 @@ my @files = @ARGV;
 my $default_ttl;
 
 if ($#files == -1) {
-	die ("Syntax: $0 zonefiles\n");
+    die ("Syntax: $0 zonefiles\n");
 }
 
 my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
 			      debug => $debug
-			     );
+			      );
 foreach my $file (@files) {
-	open (FIL, "< $file") or die ("Could not open $file for reading: $!\n");
+    open (FIL, "< $file") or die ("Could not open $file for reading: $!\n");
 
-	my $imported = 0;
-	$default_ttl = 0;
-	my @delayed;
-	while (my $rad = <FIL>) {
-		chomp ($rad);
-		
-		$default_ttl = $1 if ($rad =~ /^\$TTL\s+(\d+)/);
+    my $imported = 0;
+    $default_ttl = 0;
+    my @delayed;
+    while (my $rad = <FIL>) {
+	chomp ($rad);
 
-		if ($rad =~ /^(\S+?)\s+(\d+)\s+A\s+([\d\.]+)$/) {
-			my ($name, $ttl, $ip) = ($1, $2, $3);
+	$default_ttl = $1 if ($rad =~ /^\$TTL\s+(\d+)/);
 
-			my $delay = 0;
+	if ($rad =~ /^(\S+?)\s+(\d+)\s+A\s+([\d\.]+)$/) {
+	    my ($name, $ttl, $ip) = ($1, $2, $3);
 
-			if ($name =~ /^(b2-gw2|ny-gw2|physto-gw|stud-gw|su2-gw)\./) {
-				# name is one of our routers which has multiple IPs with
-				# the same name. see if it is the loopback address, delay
-				# if not (since we want the loopback address to be the
-				# primary hostname).
-				$delay = 1 if ($ip !~ /^130\.237\.154\.(25|131|128|203|130)$/);
-			}
+	    my $delay = 0;
 
-			$delay = 1 if ($name =~ /^(mbox|mx)\.su\.se\.$/);
+	    if ($name =~ /^(b2-gw2|ny-gw2|physto-gw|stud-gw|su2-gw)\./) {
+		# name is one of our routers which has multiple IPs with
+		# the same name. see if it is the loopback address, delay
+		# if not (since we want the loopback address to be the
+		# primary hostname).
+		$delay = 1 if ($ip !~ /^130\.237\.154\.(25|131|128|203|130)$/);
+	    }
 
-			if ($delay) {
-				my @info = ($name, $ttl, $ip);
-				push (@delayed, \@info);
-				next;
-			}
-			
-			$imported++ if (add_host ($hostdb, 0, $name, $ttl, $ip));
-		}
+	    $delay = 1 if ($name =~ /^(mbox|mx)\.su\.se\.$/);
+
+	    if ($delay) {
+		my @info = ($name, $ttl, $ip);
+		push (@delayed, \@info);
+		next;
+	    }
+
+	    $imported++ if (add_host ($hostdb, 0, $name, $ttl, $ip));
 	}
+    }
 
-	foreach my $arrayref (@delayed) {
-		my ($name, $ttl, $ip) = @{ $arrayref };
+    foreach my $arrayref (@delayed) {
+	my ($name, $ttl, $ip) = @{ $arrayref };
 
-		$imported++ if (add_host ($hostdb, 1, $name, $ttl, $ip));
-	}
+	$imported++ if (add_host ($hostdb, 1, $name, $ttl, $ip));
+    }
 
-	print ("Imported $imported A RR's from file $file\n");
-	
-	close (FIL);
+    print ("Imported $imported A RR's from file $file\n");
+
+    close (FIL);
 }
 
 print ("done\n");
 
 sub add_host
 {
-	my ($hostdb, $lookuphost, $name, $ttl, $ip) = @_;
-	
-	my $host = $hostdb->create_host();
+    my ($hostdb, $lookuphost, $name, $ttl, $ip) = @_;
 
-	die ("$0: Could not create host object: $hostdb->{error}\n") unless ($host);
-	if ($lookuphost) {
-		my $super_host = $hostdb->findhostbyip ($ip);
-		$host->partof ($super_host->id ()) if (defined ($super_host) and $super_host->id ());
-		undef ($super_host);
-	}
-			
-	my $valid = 1;
-	$host->hostname ("$name") or warn ($host->{error}), $valid = 0;
-	$host->ip ("$ip") or warn ($host->{error}), $valid = 0;
-	if ($ttl ne $default_ttl) {
-		$host->ttl ("$ttl") or warn ($host->{error}), $valid = 0;
-	}
-	$host->user ("dns-import") or warn ($host->{error}), $valid = 0;
-	$host->owner ("dns-import") or warn ($host->{error}), $valid = 0;
-	$host->dnsmode ("A_AND_PTR") or warn ($host->{error}), $valid = 0;
-	$host->dnsstatus ("ENABLED") or warn ($host->{error}), $valid = 0;
-	if ($name =~ /^dhcp/ and $name !~ /^dhcp\d\.su\.se$/) {
-		$host->dhcpmode ("DYNAMIC") or warn ($host->{error}), $valid = 0;
-	} else {
-		$host->dhcpmode ("STATIC") or warn ($host->{error}), $valid = 0;
-	}
-	$host->dhcpstatus ("ENABLED");
-			
-	$host->commit() if ($valid);
+    my $host = $hostdb->create_host();
 
-	undef ($host);
-	
-	return $valid;
+    die ("$0: Could not create host object: $hostdb->{error}\n") unless ($host);
+    if ($lookuphost) {
+	my $super_host = $hostdb->findhostbyip ($ip);
+	$host->partof ($super_host->id ()) if (defined ($super_host) and $super_host->id ());
+	undef ($super_host);
+    }
+
+    my $valid = 1;
+    $host->hostname ("$name") or warn ($host->{error}), $valid = 0;
+    $host->ip ("$ip") or warn ($host->{error}), $valid = 0;
+    if ($ttl ne $default_ttl) {
+	$host->ttl ("$ttl") or warn ($host->{error}), $valid = 0;
+    }
+    $host->user ("dns-import") or warn ($host->{error}), $valid = 0;
+    $host->owner ("dns-import") or warn ($host->{error}), $valid = 0;
+    $host->dnsmode ("A_AND_PTR") or warn ($host->{error}), $valid = 0;
+    $host->dnsstatus ("ENABLED") or warn ($host->{error}), $valid = 0;
+    if ($name =~ /^dhcp/ and $name !~ /^dhcp\d\.su\.se$/) {
+	$host->dhcpmode ("DYNAMIC") or warn ($host->{error}), $valid = 0;
+    } else {
+	$host->dhcpmode ("STATIC") or warn ($host->{error}), $valid = 0;
+    }
+    $host->dhcpstatus ("ENABLED");
+
+    $host->commit() if ($valid);
+
+    undef ($host);
+
+    return $valid;
 }
-
