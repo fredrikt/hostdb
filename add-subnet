@@ -7,36 +7,146 @@
 
 use strict;
 use HOSTDB;
+use Getopt::Long;
+use vars qw ($opt_ipver $opt_htmlcolor $opt_dhcpconfig $opt_profileslist $opt_force $opt_debug $opt_d $opt_h $opt_help);
 
-my $debug = 0;
+my %o = ();
+my $res = GetOptions (
+	    "ipver=i",
+	    "htmlcolor=s",
+	    "dhcpconfig=s",
+	    "profileslist=s",
+	    "force",
+	    "debug",
+	    "d",
+	    "h",
+	    "help"
+	   );
+
+
+my $hostdbini = Config::IniFiles->new (-file => HOSTDB::get_inifile ());
+die ("$0: Config file access problem.\n") unless ($hostdbini);
+
+my %colors = load_colors ($hostdbini);
+
+my $debug = defined ($opt_d) || defined ($opt_debug);
 if (defined ($ARGV[0]) and $ARGV[0] eq "-d") {
 	shift (@ARGV);
 	$debug = 1;
 }
 
-if ($#ARGV != 3) {
+usage () if (4 != @ARGV or $opt_h or $opt_help);
+
+my $subnet_name = shift;
+my $owner = shift;
+my $short_desc = shift;
+my $desc = shift;
+
+usage () if (! $subnet_name or ! $owner or ! $short_desc or ! $desc);
+
+
+my $hostdb = HOSTDB::DB->new (ini => $hostdbini,
+			      debug => $debug
+			     );
+
+my $ipver = $opt_ipver || '4';
+
+my $subnet = $hostdb->create_subnet ($ipver, $subnet_name);
+
+die ("Could not create subnet object: " . $hostdb->{error} . "\n") if (! $subnet);
+
+# set some defaults before checking if they are specified
+$subnet->profilelist ('default');
+
+$subnet->owner ($owner);
+$subnet->short_description ($short_desc);
+$subnet->description ($desc);
+
+# set optional parameters
+$subnet->ipver ($opt_ipver)			or die ("$0: Invalid ipver - $subnet->{error}\n") if (defined ($opt_ipver));
+$subnet->htmlcolor ($opt_htmlcolor)		or die ("$0: Invalid htmlcolor - $subnet->{error}\n") if (defined ($opt_htmlcolor));
+$subnet->dhcpconfig ($opt_dhcpconfig)		or die ("$0: Invalid dhcpconfig - $subnet->{error}\n") if (defined ($opt_dhcpconfig));
+$subnet->profilelist ($opt_profileslist)	or die ("$0: Invalid profileslist - $subnet->{error}\n") if (defined ($opt_profileslist));
+
+
+$subnet->commit() or die ("Could not commit subnet object: " . $subnet->{error} . "\n");
+
+exit (0);
+
+
+sub load_colors
+{
+	my $hostdbini = shift;
+	my %res;
+	
+	my @colors = $hostdbini->Parameters ('subnet_colors');
+
+	my $t;
+	foreach $t (@colors) {
+		$res{$t} = $hostdbini->val ('subnet_colors', $t);
+	}
+
+	# make RED the default so that a non-specified color is obvious
+	$res{default} = "#ff0000" if (! defined ($res{default}));
+	
+	return %res;
+}
+
+sub is_valid_color
+{
+	my $in = shift;
+	
+	return 1 if ($in =~ /^#[0-9a-f]{6,6}$/i);
+	return 0;
+}
+
+sub test_color
+{
+	my $colors_ref = shift;
+	my $color_name = shift;
+
+	my $c = $color_name;
+
+	if (defined ($colors_ref->{$color_name})) {
+		$c = $colors_ref->{$color_name};
+
+		if (! is_valid_color ($c)) {
+			die ("$0: Color '$color_name' resolved to '$c' which is an invalid HTML color.\n");
+		}
+	}
+
+	if (! is_valid_color ($c)) {
+		warn ("$0: Color '$c' is an invalid HTML color.\n");
+	}
+}
+
+sub usage
+{
+	# interpolation
+	my $inifilename = HOSTDB::get_inifile ();
+	my $colors = join ("\n			", sort keys %colors);
+
+	$colors = "Colors defined in $inifilename :\n			$colors" if ($colors);
+	
 	die (<<EOT);
-Syntax: $0 subnet owner short-desc long-desc
+Syntax: $0 [options] subnet owner short-desc long-desc
 	subnet is the subnet in slash notation (eg. 192.168.1.0/24)
 	owner is the HOSTDB::Auth identifier that will be able to modify things in this subnet
 	short-desc is what is shown in the overview netplan
 	long-desc is the long description of the subnet
 
+	options :
+		--ipver		IP version (only 4 is implemented yet)
+		--htmlcolor	color (see below)
+		--dhcpconfig	free-text DHCP config for subnet (use cautiously)
+		--profileslist	comma-separated list of profiles for this subnet
+		--force		does not do anything yet
+		--debug		enable debug information
+
+	color should be in html color syntax (eg. "#ffffcc") or
+	a color defined in $inifilename
+	
+		$colors
+
 EOT
 }
-
-my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
-			      debug => $debug
-			     );
-
-my $subnet = $hostdb->create_subnet (4, $ARGV[0]);
-
-die ("Could not create subnet object: " . $hostdb->{error} . "\n") if (! $subnet);
-
-$subnet->owner ($ARGV[1]);
-$subnet->short_description ($ARGV[2]);
-$subnet->description ($ARGV[3]);
-
-$subnet->commit() or die ("Could not commit subnet object: " . $subnet->{error} . "\n");
-
-exit (0);
