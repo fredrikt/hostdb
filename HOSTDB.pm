@@ -925,7 +925,7 @@ sub _format_datetime
 	if ($in =~ /^\d{2,4}-\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}:\d{1,2}$/o) {
 		return ($in);
 	} elsif ($in eq "NOW" or $in eq "NOW()") {
-		retrurn ($self->_unixtime_to_datetime (time ()));
+		return ($self->_unixtime_to_datetime (time ()));
 	} elsif ($in =~ /^unixtime:(\d+)$/oi) {
 		return ($self->_unixtime_to_datetime ($1));
 	} elsif ($in eq 'NULL') {
