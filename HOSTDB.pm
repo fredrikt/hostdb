@@ -40,7 +40,7 @@ HOSTDB - Perl extension to access host database.
 
 =head1 DESCRIPTION
 
-The host database contains DNS and DHCP type host info, use this perl module
+The host database contains DNS, subnet and DHCP type host info, use this perl module
 to access the data.
 
 =head1 EXPORT
@@ -323,6 +323,159 @@ sub valid_mac_address
 }
 
 
+=head2 aton
+
+	$n_ip = $hostdb->ntoa($ip);
+
+	Returns the IP address in binary data representation.
+	Just a wrapper for inet_aton().
+
+
+=cut
+sub aton
+{
+	my $self = shift;
+	my $val = shift;
+
+	return unpack ('N', Socket::inet_aton ($val));
+}
+
+
+=head2 ntoa
+
+	$ip = $hostdb->ntoa($n_ip);
+
+	Returns the IP address in ascii representation.
+	Just a wrapper for inet_ntoa().
+
+
+=cut
+sub ntoa
+{
+	my $self = shift;
+	my $val = shift;
+	
+	return Socket::inet_ntoa (pack ('N', $val));
+}
+
+
+=head2 slashtonetmask
+
+	$netmask = $hostdb->slashtonetmask("26");
+
+	Returns the slash notation for the specified netmask
+	(255.255.255.192 in the example)
+
+
+=cut
+sub slashtonetmask
+{
+	my $self = shift;
+	my $slash = shift;
+
+	if ($slash < 0 or $slash > 32) {
+		$self->_set_error ("slash '$slash' invalid for IPv4"); # and IPv6 don't use netmasks
+		return undef;
+	}
+
+	return ("0.0.0.0") if ($slash == 0);
+	return ("255.255.255.255") if ($slash == 32);
+	
+	return $self->ntoa (-(1 << (32 - $slash)));
+}
+
+
+=head2 netmasktoslash
+
+	$slashnotation = $hostdb->netmasktoslash("255.255.255.192");
+
+	Returns the slash notation for the specified netmask
+	(26 in the example)
+
+
+=cut
+sub netmasktoslash
+{
+	my $self = shift;
+	my $netmask = $self->aton(shift);
+
+	my $slash = 0;
+
+	my $t;
+	for $t (0..3) {
+		my $o = ($netmask >> ($t * 8)) & 0xff;
+		
+		while ($o) {
+			$slash++ if ($o & 1);
+			
+			$o = $o >> 1;
+		}
+	}
+
+	return $slash;
+}
+
+=head2 get_num_addresses
+
+	$slash = 24;
+	$numhosts = $hostdb->get_num_addresses ($slash);
+	
+	Returns the number of addresses in a network of size $slash
+	(255 in the example)
+
+
+=cut
+sub get_num_addresses
+{
+	my $self = shift;
+	my $slash = shift;
+	
+	# XXX make unsigned
+	return int (1 << (32 - $slash));
+}
+
+
+=head2 get_netaddr
+
+	$netaddr = $hostdb->get_netaddr ("192.168.100.4/24");
+
+	Returns the net address of the IP and subnet you specified
+	(192.168.100.0 in the example)
+
+
+=cut
+sub get_netaddr
+{
+	my $self = shift;
+	my $subnet = shift;
+	
+	my ($netaddr, $slash) = split('/', $subnet);
+	
+	return $self->ntoa ($self->aton ($netaddr) & $self->aton ($self->slashtonetmask ($slash)));
+
+}
+
+
+=head2 get_broadcast
+
+	$broadcast = $hostdb->get_broadcast ("192.168.100.4/24");
+
+	Returns the broadcast address of the IP and subnet you specified
+	(192.168.100.255 in the example)
+
+
+=cut
+sub get_broadcast
+{
+	my $self = shift;
+	my $subnet = shift;
+	
+	my ($netaddr, $slash) = split('/', $subnet);
+	
+	return $self->ntoa ($self->aton ($self->get_netaddr ($subnet)) + $self->get_num_addresses ($slash) - 1);
+}
+
+
 =head2 dump
 
 	$hostdb->dump();
@@ -418,6 +571,10 @@ sub init
 
 		$self->{_zonebyname} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.zone WHERE zonename = ? ORDER BY zonename") or die "$DBI::errstr";
 		$self->{_allzones} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.zone ORDER BY zonename") or die "$DBI::errstr";
+
+		$self->{_subnet} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.subnet WHERE netaddr = ? ORDER BY n_netaddr");
+		$self->{_subnet_longer_prefix} =	$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.subnet WHERE n_netaddr > ? AND n_netaddr < ? ORDER BY n_netaddr");
+		$self->{_subnet_closest_match} =	$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.subnet WHERE n_netaddr < ? ORDER BY n_netaddr REVERSE LIMIT 1");
 	} else {
 		$self->_debug_print ("DSN not provided, not connecting to database.");
 	}
@@ -432,41 +589,14 @@ sub DESTROY
 	$self->{_dbh}->disconnect();
 }
 
-sub aton
-{
-	my $self = shift;
-	my $val = shift;
 
-	return unpack ('N', Socket::inet_aton ($val));
-}
+#######################################
+# package HOSTDB::DB public functions #
+#######################################
 
-sub ntoa
-{
-	my $self = shift;
-	my $val = shift;
-	
-	return Socket::inet_ntoa (pack ('N', $val));
-}
 
-sub slashtonetmask
-{
-	my $self = shift;
-	my $slash = shift;
+=head1 PACKAGE HOSTDB::DB FUNCTIONS
 
-	if ($slash < 0 or $slash > 31) {
-		$self->_set_error ("slash '$slash' invalid for IPv4"); # and IPv6 don't use netmasks
-		return undef;
-	}
-	return $self->ntoa (-(1 << (32 - $slash)));
-}
-
-sub netmasktoslash
-{
-	my $self = shift;
-	my $slash = shift;
-
-	return undef;
-}
 
 =head2 user
 
@@ -505,7 +635,8 @@ sub user
 	$host = $hostdb->create_host();
 
 	Gets you a brand new HOSTDB::Object::Host object.
-	
+
+
 =cut
 sub create_host
 {
@@ -525,7 +656,8 @@ sub create_host
 	$zone = $hostdb->create_zone();
 
 	Gets you a brand new HOSTDB::Object::Zone object.
-	
+
+
 =cut
 sub create_zone
 {
@@ -548,7 +680,8 @@ sub create_zone
 
 	The 4 is IPv4. This is just planning ahead, IPv6 is not implemented
 	in a number of places.
-	
+
+
 =cut
 sub create_subnet
 {
@@ -583,6 +716,7 @@ sub create_subnet
 
 	HOST2	IP 2.3.4.5	HOSTNAME foo.it.su.se.
 		IP 3.4.5.6	HOSTNAME min.it.su.se.
+
 
 =cut
 sub findhostbyname
@@ -622,6 +756,7 @@ sub findhostbyname
 		print ("$host->{ip}	$host->{hostname}\n");
 	}
 
+
 =cut
 sub findhostbyip
 {
@@ -632,10 +767,12 @@ sub findhostbyip
 	$self->_find(_hostbyip => 'HOSTDB::Object::Host', $_[0]);
 }
 
+
 =head2 findhostbyid
 
 	$host = $hostdb->findhostbyid ($id);
-	
+
+
 =cut
 sub findhostbyid
 {
@@ -649,7 +786,8 @@ sub findhostbyid
 =head2 findhostbypartof
 
 	blah
-	
+
+
 =cut
 sub findhostbypartof
 {
@@ -664,7 +802,8 @@ sub findhostbypartof
 =head2 findzonebyname
 
 	$zone = $hostdb->findzonebyname ($zonename);
-	
+
+
 =cut
 sub findzonebyname
 {
@@ -678,7 +817,8 @@ sub findzonebyname
 =head2 findallzones
 
 	@zones = $hostdb->findallzones ();
-	
+
+
 =cut
 sub findallzones
 {
@@ -1216,14 +1356,14 @@ sub init
 	
 	if ($hostdb->{_dbh}) {
 		$self->{_new_subnet} = $hostdb->{_dbh}->prepare ("INSERT INTO $hostdb->{db}.subnet " .
-			"(ipver, netaddr, slashnotation, netmask, description, short_description," .
-			" n_netaddr, n_netmask, htmlcolor, dhcpconfig) " .
-			"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+			"(ipver, netaddr, slashnotation, netmask, broadcast, addresses, description, " .
+			"short_description, n_netaddr, n_netmask, n_broadcast, htmlcolor, dhcpconfig) " .
+			"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
 			or die "$DBI::errstr";
 		$self->{_update_subnet} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.subnet SET " .
-			"ipver = ?, netaddr = ?, slashnotation = ?, netmask = ?, description = ?, " .
-			"short_description = ?, n_netaddr = ?, n_netmask = ?, htmlcolor = ?, " .
-			"dhcpconfig = ? WHERE netaddr = ?")
+			"ipver = ?, netaddr = ?, slashnotation = ?, netmask = ?, broadcast = ?, " .
+			"description = ?, short_description = ?, n_netaddr = ?, n_netmask = ?, " .
+			"n_broadcast = ?,htmlcolor = ?, dhcpconfig = ? WHERE netaddr = ?")
 			or die "$DBI::errstr";
 	} else {
 		$hostdb->_debug_print ("NOT preparing database stuff");
@@ -1302,11 +1442,18 @@ sub subnet
 		my ($netaddr, $slash) = split ('/', $subnet);
 
 		$self->{netaddr} = $netaddr;
-		$self->{n_netaddr} = $self->aton ($netaddr);
-
 		$self->{slashnotation} = $slash;
+
+		# All these are redundantly stored. Some people I'm sure
+		# calls it database bloat, poor design etcetera but I call
+		# it simpler querys, less code (except here), less bugs.
+		# In one word - better.
+		$self->{n_netaddr} = $self->aton ($netaddr);
 		$self->{netmask} = $self->slashtonetmask ($slash);
 		$self->{n_netmask} = $self->aton ($self->slashtonetmask ($slash));
+		$self->{addresses} = $self->get_num_addresses ($slash);
+		$self->{broadcast} = $self->get_broadcast ($subnet);
+		$self->{n_broadcast} = $self->aton ($self->{broadcast});
 
 		return 1;
 	}
@@ -1339,7 +1486,8 @@ sub netaddr
 	my $self = shift;
 
 	if (@_) {
-		$self->_set_error ("this is a read-only function, use subnet() instead");
+		$self->_set_error ("this is a read-only function, it gets set by subnet()");
+		return undef;
 	}
 
 	return ($self->{netaddr});
@@ -1350,7 +1498,8 @@ sub slashnotation
 	my $self = shift;
 
 	if (@_) {
-		$self->_set_error ("this is a read-only function, use subnet() instead");
+		$self->_set_error ("this is a read-only function, it gets set by subnet()");
+		return undef;
 	}
 
 	return ($self->{slashnotation});
@@ -1361,10 +1510,35 @@ sub netmask
 	my $self = shift;
 
 	if (@_) {
-		$self->_set_error ("this is a read-only function, use subnet() instead");
+		$self->_set_error ("this is a read-only function, it gets set by subnet()");
+		return undef;
 	}
 
 	return ($self->{netmask});
+}
+
+sub broadcast
+{
+	my $self = shift;
+
+	if (@_) {
+		$self->_set_error ("this is a read-only function, it gets set by subnet()");
+		return undef;
+	}
+
+	return ($self->{broadcast});
+}
+
+sub addresses
+{
+	my $self = shift;
+
+	if (@_) {
+		$self->_set_error ("this is a read-only function, it gets set by subnet()");
+		return undef;
+	}
+
+	return ($self->{addresses});
 }
 
 sub description
@@ -1402,7 +1576,8 @@ sub n_netaddr
 	my $self = shift;
 
 	if (@_) {
-		$self->_set_error ("this is a read-only function, use subnet() instead");
+		$self->_set_error ("this is a read-only function, it gets set by subnet()");
+		return undef;
 	}
 
 	return ($self->{n_netaddr});
@@ -1413,10 +1588,23 @@ sub n_netmask
 	my $self = shift;
 
 	if (@_) {
-		$self->_set_error ("this is a read-only function, use subnet() instead");
+		$self->_set_error ("this is a read-only function, it gets set by subnet()");
+		return undef;
 	}
 
 	return ($self->{n_netmask});
+}
+
+sub n_broadcast
+{
+	my $self = shift;
+
+	if (@_) {
+		$self->_set_error ("this is a read-only function, it gets set by subnet()");
+		return undef;
+	}
+
+	return ($self->{n_broadcast});
 }
 
 sub htmlcolor
@@ -1473,9 +1661,10 @@ sub commit
 
 		$sth = $self->{_new_subnet};
 		$sth->execute ($self->ipver (), $self->netaddr (), $self->slashnotation (),
-			       $self->netmask (), $self->description (), $self->short_description (),
-			       $self->n_netaddr (), $self->n_netmask (), $self->htmlcolor (),
-			       $self->dhcpconfig ()
+			       $self->netmask (), $self->broadcast (), $self->addresses(),
+			       $self->description (), $self->short_description (),
+			       $self->n_netaddr (), $self->n_netmask (), $self->n_broadcast (),
+			       $self->htmlcolor (), $self->dhcpconfig ()
 			      )
 			or die "$DBI::errstr";
 
