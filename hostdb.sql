@@ -11,6 +11,8 @@ CREATE TABLE host (
 	dnsmode ENUM ('A_AND_PTR', 'A') DEFAULT 'A_AND_PTR' NOT NULL,
 	dnsstatus ENUM ('ENABLED', 'DISABLED') DEFAULT 'ENABLED' NOT NULL,
 	hostname VARCHAR(255),
+	dnszone VARCHAR(255),
+	manual_dnszone ENUM ('Y', 'N') NOT NULL DEFAULT 'N',
 	ip CHAR(15) NOT NULL,
 	n_ip INT UNSIGNED NOT NULL,
 	owner VARCHAR(255) NOT NULL,
