@@ -4,30 +4,30 @@
 #
 
 CREATE TABLE config (
-        id INT AUTO_INCREMENT NOT NULL,
-        mac CHAR(17),
-        hostname VARCHAR(255) NOT NULL,
-        ip CHAR(15) NOT NULL,
+	id INT AUTO_INCREMENT NOT NULL,
+	mac CHAR(17),
+	hostname VARCHAR(255) NOT NULL,
+	ip CHAR(15) NOT NULL,
 	n_ip INT UNSIGNED NOT NULL,
-        owner VARCHAR(255) NOT NULL,
-        ttl INT,
-        user VARCHAR(255),
-        partof INT,
-        reverse ENUM('Y', 'N') DEFAULT 'N',
-        client_id VARCHAR(255),
-        options MEDIUMBLOB,
-        PRIMARY KEY (id)
+	owner VARCHAR(255) NOT NULL,
+	ttl INT,
+	user VARCHAR(255),
+	partof INT,
+	reverse ENUM('Y', 'N') DEFAULT 'N',
+	client_id VARCHAR(255),
+	options MEDIUMBLOB,
+	PRIMARY KEY (id)
 );
 
 CREATE TABLE zone (
-        zonename VARCHAR(255) NOT NULL,
-        serial INT NOT NULL,
+	zonename VARCHAR(255) NOT NULL,
+	serial INT NOT NULL,
 	refresh INT,
 	retry INT,
 	expiry INT,
 	minimum INT,
-        owner VARCHAR(255),
-        PRIMARY KEY (zonename)
+	owner VARCHAR(255),
+	PRIMARY KEY (zonename)
 );
 
 # the use of unsigned int for n_netaddr and n_netmask is not enough for IPv6.
