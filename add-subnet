@@ -14,7 +14,7 @@ if (defined ($ARGV[0]) and $ARGV[0] eq "-d") {
 	$debug = 1;
 }
 
-if ($#ARGV != 2) {
+if ($#ARGV != 3) {
 	die (<<EOT);
 Syntax: $0 subnet owner short-desc long-desc
 	subnet is the subnet in slash notation (eg. 192.168.1.0/24)
