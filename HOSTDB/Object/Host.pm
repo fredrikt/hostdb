@@ -558,7 +558,7 @@ sub ttl
 				$self->_set_error ("Invalid TTL time value '$newvalue'");
 				return 0;
 			}
-			$self->{ttl} = $newvalue;
+			$self->{ttl} = $self->_nameserver_time_to_seconds ($newvalue);
 		}
 
 		return 1;
