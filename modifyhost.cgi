@@ -57,6 +57,8 @@ $q->print (<<EOH);
 			<td COLSPAN='2' ALIGN='center'>
 				<h3>HOSTDB: Add/Modify Host</h3>
 			</td>
+			<td>&nbsp;</td>
+			<td>&nbsp;</td>
 		</tr>
 		$table_blank_line
 EOH
@@ -76,6 +78,7 @@ SWITCH:
 		} else {
 			$host = $hostdb->create_host ();
 			error_line ($q, "$0: Could not create host entry: $hostdb->{error}\n"), last SWITCH unless (defined ($host));
+			$host->profile ('default');
 		}
 
 		if (modify_host ($hostdb, $host, $q, $remote_user)) {
@@ -210,7 +213,18 @@ sub modify_host
 						if (defined ($new_zone)) {
 							if (! $hostdb->auth->is_allowed_write ($new_zone, $remote_user)) {
 								die ("You do not have sufficient access to the new hostnames zone '" . 
-								     $new_zone->zone () . "'");
+								     $new_zone->zonename () . "'");
+							}
+
+							if ($host->manual_dnszone () ne 'Y') {
+								$host->dnszone ($new_zone->zonename ());
+							} else {
+								if ($host->dnszone () ne $new_zone->zonename ()) {
+									push (@warning, "Not changing DNS zone, but hostname " .
+									      "indicates it should be changed from '" .
+									      $host->dnszone () . "' to '" . 
+									      $new_zone->zonename () . "'");
+								}
 							}
 						} else {
 							push (@warning, "No DNS zone for hostname '$hostname' found in database");
@@ -365,13 +379,13 @@ sub host_form
 		<tr>
 			<td>IP address $required</td>
 			<td><strong>$ip</strong></td>
-			<td>DNS</td>
+			<td>&nbsp;&nbsp;DNS</td>
 			<td>$dnsstatus</td>
 		</tr>
 		<tr>
 			<td>MAC Address</td>
 			<td>$mac</td>
-			<td>DHCP</td>
+			<td>&nbsp;&nbsp;DHCP</td>
 			<td>$dhcpstatus</td>
 		</tr>	
 		<tr>
@@ -383,7 +397,7 @@ sub host_form
 		<tr>
 			<td>DNS mode</td>
 			<td>$dnsmode</td>
-			<td>DHCP mode</td>
+			<td>&nbsp;&nbsp;DHCP mode</td>
 			<td>$dhcpmode</td>
 		</tr>
 		<tr>
