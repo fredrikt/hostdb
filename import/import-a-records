@@ -57,9 +57,9 @@ foreach my $file (@files) {
     my $imported = 0;
     $default_ttl = 0;
     my @delayed;
-    my $skip_copy = 0;
-
     while (my $rad = <FIL>) {
+	my $skip_copy = 0;
+
 	chomp ($rad);
 
 	$default_ttl = $1 if ($rad =~ /^\$TTL\s+(\d+)/);
@@ -123,6 +123,12 @@ sub add_host
 {
     my ($hostdb, $findparent, $name, $ttl, $ip, $debug, $dry_run) = @_;
 
+    my $clean_hostname = $name;
+    if (! $hostdb->clean_hostname ($clean_hostname)) {
+	warn ("$0: '$name' is not a clean hostname! Skipped.\n");
+	return 0;
+    }
+
     my $host = $hostdb->findhostbyname ($name);
     my $dnszone;
 
@@ -133,7 +139,7 @@ sub add_host
 
     $host = undef;
 
-    my $z = $hostdb->findzonebyhostname ($name);
+    my $z = $hostdb->findzonebyhostname ($clean_hostname);
 
     warn ("$0: Could not find a suitable DNS zone for hostname '$name'\n"), return undef unless defined ($z);
     $dnszone = $z->zonename ();
@@ -172,7 +178,6 @@ sub add_host
     if ($ttl ne $default_ttl) {
 	$host->ttl ("$ttl") or warn ($host->{error}), $valid = 0;
     }
-    $host->user ("dns-import") or warn ($host->{error}), $valid = 0;
     $host->owner ("dns-import") or warn ($host->{error}), $valid = 0;
     $host->dnsmode ("A_AND_PTR") or warn ($host->{error}), $valid = 0;
     $host->dnsstatus ("ENABLED") or warn ($host->{error}), $valid = 0;
