@@ -253,8 +253,11 @@ sub print_host_info
 
     # get subnet
     my $subnet = $hostdb->findsubnetbyip ($host->ip () || $q->param ('ip'));
-    my $subnet_link = $subnet->subnet ();
-    $subnet_link = "<a HREF='$links{showsubnet};subnet=$subnet_link'>$subnet_link</a>" if ($links{showsubnet});
+    my $subnet_link = 'unknown';
+    if (defined ($subnet)) {
+	$subnet_link = $subnet->subnet ();
+	$subnet_link = "<a HREF='$links{showsubnet};subnet=$subnet_link'>$subnet_link</a>" if ($links{showsubnet});
+    }
 
 
     $q->print (<<EOH);
