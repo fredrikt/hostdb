@@ -595,6 +595,12 @@ sub findzonebyhostname
 	my $hostname = shift;
 
 	my $checkzone = $hostname;
+
+	return undef if (! $self->clean_hostname ($hostname));
+
+	# append trailing dot
+	$checkzone .= '.';
+
 	while ($checkzone) {
 		my $zone = $self->findzonebyname ($checkzone);
 		if (defined ($zone)) {
@@ -605,6 +611,8 @@ sub findzonebyhostname
 
 		# strip up to and including the first dot (min.it.su.se -> it.su.se)
 		$checkzone =~ s/^.+?\.(.*)/$1/;
+		warn ("CHECKZONE NOW '$checkzone'\n");
+
 	}
 
 	$self->_debug_print ("No zone found for hostname '$hostname'");
@@ -636,6 +644,12 @@ sub findzonenamebyhostname
 	my @all_zones = @_;
 
 	my $checkzone = $hostname;
+
+	return undef if (! $self->clean_hostname ($hostname));
+
+	# append trailing dot
+	$checkzone .= '.';
+
 	while ($checkzone) {
 		if (grep (/^$checkzone$/, @all_zones)) {
 			# we have a match
