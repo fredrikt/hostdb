@@ -245,7 +245,7 @@ sub dnszone
 {
 	my $self = shift;
 
-	$self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_domainname_or_null, @_);
+	$self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_clean_domainname, @_);
 }
 
 
