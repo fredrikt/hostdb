@@ -107,13 +107,12 @@ sub _set_or_get_attribute
 	    }
 	}
 
-	if ($newvalue ne $saved_value) {
-	    # just debug outputting
-	    my $a = $newvalue || 'undef';
-	    my $b = $saved_value || 'undef';
+	# just debug outputting
+	my $a = $newvalue || 'undef';
+	my $b = $saved_value || 'undef';
+	if ($a ne $b) {
 	    $self->_debug_print ("Setting attribute '$key' to $a (was: $b)");
 	} else {
-	    my $a = $newvalue || 'undef';
 	    $self->_debug_print ("Setting attribute '$key' to $a");
 	}
 
@@ -205,9 +204,9 @@ sub _validate_nameserver_time_or_null
 	$_[0] = undef;
     } elsif (! $self->is_valid_nameserver_time ($newvalue)) {
 	return ('Invalid TTL time value');
+    } else {
+	$_[0] = $self->_nameserver_time_to_seconds ($newvalue);
     }
-
-    $_[0] = $self->_nameserver_time_to_seconds ($newvalue);
 
     return 0;
 }
