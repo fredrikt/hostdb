@@ -365,7 +365,7 @@ sub create_hostalias
 
 =head2 dhcpmode
 
-	Set DHCP mode for this host. This can be either DYNAMIC or STATIC.
+    Set DHCP mode for this host. This can be either DYNAMIC or STATIC.
 
 
 	# set property
@@ -377,30 +377,16 @@ sub create_hostalias
 =cut
 sub dhcpmode
 {
-	my $self = shift;
-
-	if (@_) {
-		my $newvalue = shift;
-	
-		if ($newvalue eq 'DYNAMIC' or $newvalue eq 'STATIC') {
-			$self->{dhcpmode} = $newvalue;
-		} else {
-			$self->_set_error ("Invalid dhcpmode '$newvalue'");
-			return 0;
-		}
-
-		return 1;
-	}
-
-	return ($self->{dhcpmode});
+    my $self = shift;
+    $self->_set_or_get_attribute (undef, \&_validate_dhcpmode, @_);
 }
 
 
 =head2 dhcpstatus
 
-	Set DHCP status for this host. This can be either ENABLED or DISABLED.
-	This effectively controls wheter to generate any DHCP config for this
-	host or not.
+    Set DHCP status for this host. This can be either ENABLED or DISABLED.
+    This effectively controls wheter to generate any DHCP config for this
+    host or not.
 
 	# set property
 	$host->dhcpstatus ("DISABLED");
@@ -413,29 +399,15 @@ sub dhcpmode
 =cut
 sub dhcpstatus
 {
-	my $self = shift;
-
-	if (@_) {
-		my $newvalue = shift;
-	
-		if ($newvalue eq 'ENABLED' or $newvalue eq 'DISABLED') {
-			$self->{dhcpstatus} = $newvalue;
-		} else {
-			$self->_set_error ("Invalid dhcpstatus '$newvalue'");
-			return 0;
-		}
-
-		return 1;
-	}
-
-	return ($self->{dhcpstatus});
+    my $self = shift;
+    $self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_enabled_or_disabled, @_);
 }
 
 
 =head2 mac_address
 
-	Get or set this hosts MAC address (hardware address).
-	Uses clean_mac_address () on supplied value.
+    Get or set this hosts MAC address (hardware address).
+    Uses clean_mac_address () on supplied value.
 
 	print ("Old MAC address: " . $host->mac_address ());
 	$host->mac_address ($new_mac) or warn ("Failed setting value\n");
@@ -444,29 +416,16 @@ sub dhcpstatus
 =cut
 sub mac_address
 {
-	my $self = shift;
-
-	if (@_) {
-		my $newvalue = shift;
-		if ($newvalue eq 'NULL') {
-			$self->{mac} = undef;
-			return 1;
-		}
-		return 0 if (! $self->clean_mac_address ($newvalue));
-		$self->{mac} = $newvalue;
-
-		return 1;
-	}
-
-	return ($self->{mac});
+    my $self = shift;
+    $self->_set_or_get_attribute ('mac', \&_validate_mac_address, @_);
 }
 
 
 =head2 dnsmode
 
-	Set DHCP mode for this host. This can be either A_AND_PTR or A.
-	'A_AND_PTR' is for regular hosts, it will generate both A and PTR
-	DNS records. 'A' is to just generate an A record and no PTR.
+    Set DNS mode for this host. This can be either A_AND_PTR or A.
+    'A_AND_PTR' is for regular hosts, it will generate both A and PTR
+    DNS records. 'A' is to just generate an A record and no PTR.
 
 
 	# set property
@@ -478,30 +437,16 @@ sub mac_address
 =cut
 sub dnsmode
 {
-	my $self = shift;
-
-	if (@_) {
-		my $newvalue = shift;
-	
-		if ($newvalue eq 'A_AND_PTR' or $newvalue eq 'A') {
-			$self->{dnsmode} = $newvalue;
-		} else {
-			$self->_set_error ("Invalid dnsmode '$newvalue'");
-			return 0;
-		}
-
-		return 1;
-	}
-
-	return ($self->{dnsmode});
+    my $self = shift;
+    $self->_set_or_get_attribute (undef, \&_validate_dnsmode, @_);
 }
 
 
 =head2 dnsstatus
 
-	Set DNS status for this host. This can be either ENABLED or DISABLED.
-	This effectively controls wheter to generate any DNS config for this
-	host or not.
+    Set DNS status for this host. This can be either ENABLED or DISABLED.
+    This effectively controls wheter to generate any DNS config for this
+    host or not.
 
 	# set property
 	$host->dnsstatus ("DISABLED");
@@ -514,29 +459,15 @@ sub dnsmode
 =cut
 sub dnsstatus
 {
-	my $self = shift;
-
-	if (@_) {
-		my $newvalue = shift;
-	
-		if ($newvalue eq 'ENABLED' or $newvalue eq 'DISABLED') {
-			$self->{dnsstatus} = $newvalue;
-		} else {
-			$self->_set_error ("Invalid dnsstatus '$newvalue'");
-			return 0;
-		}
-
-		return 1;
-	}
-
-	return ($self->{dnsstatus});
+    my $self = shift;
+    $self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_enabled_or_disabled, @_);
 }
 
 
 =head2 hostname
 
-	Get or set this hosts hostname.
-	Uses clean_hostname () on supplied value.
+    Get or set this hosts hostname.
+    Uses clean_hostname () on supplied value.
 
 	print ("Old hostname: " . $host->hostname ());
 	$host->hostname ($new_hostname) or warn ("Failed setting value\n");
@@ -545,33 +476,15 @@ sub dnsstatus
 =cut
 sub hostname
 {
-	my $self = shift;
-
-	if (@_) {
-		my $newvalue = shift;
-
-		if ($newvalue eq 'NULL') {
-			$self->{hostname} = undef;
-			return 1;
-		}
-	
-		if (! $self->clean_hostname ($newvalue)) {
-			$self->_set_error ("Invalid hostname '$newvalue'");
-			return 0;
-		}
-		$self->{hostname} = $newvalue;
-
-		return 1;
-	}
-
-	return ($self->{hostname});
+    my $self = shift;
+    $self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_clean_hostname, @_);
 }
 
 
 =head2 dnszone
 
-	Get or set this hosts DNS zonename.
-	Uses clean_domainname () on supplied value.
+    Get or set this hosts DNS zonename.
+    Uses clean_domainname () on supplied value.
 
 	print ("Old zonename: " . $host->dnszone ());
 	$host->dnszone ($new_zonename) or warn ("Failed setting value\n");
@@ -580,67 +493,33 @@ sub hostname
 =cut
 sub dnszone
 {
-	my $self = shift;
-
-	if (@_) {
-		my $newvalue = shift;
-
-		if ($newvalue eq 'NULL') {
-			$self->{dnszone} = undef;
-			return 1;
-		}
-	
-		if (! $self->clean_domainname ($newvalue)) {
-			$self->_set_error ("Invalid dnszone '$newvalue'");
-			return 0;
-		}
-		$self->{dnszone} = $newvalue;
-
-		return 1;
-	}
-
-	return ($self->{dnszone});
+    my $self = shift;
+    $self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_clean_domainname, @_);
 }
 
 
 =head2 manual_dnszone
 
-	If this is 'Y' (the default), operations that change the hostname
-	or change zones will automatically update this objects dnszone.
-	Glue records could be obtained through setting this to 'N' and setting
-	dnszone to the parent zone.
+    If this is 'Y' (the default), operations that change the hostname
+    or change zones will automatically update this objects dnszone.
+    Glue records could be obtained through setting this to 'N' and setting
+    dnszone to the parent zone.
 
-	XXX example
+    XXX example
 
 
 =cut
 sub manual_dnszone
 {
-	my $self = shift;
-
-	if (@_) {
-		my $newvalue = shift;
-	
-		if ($newvalue =~ /^y/oi) {
-			$self->{manual_dnszone} = 'Y';
-		} elsif ($newvalue =~ /^n/oi) {
-			$self->{manual_dnszone} = 'N';
-		} else {
-			$self->_set_error ("Invalid manual_dnszone '$newvalue'");
-			return 0;
-		}
-		
-		return 1;
-	}
-
-	return ($self->{manual_dnszone});
+    my $self = shift;
+    $self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_y_or_n, @_);
 }
 
 
 =head2 ip
 
-	Get or set this hosts IP address. This function also updates the
-	numerical IP address field n_ip.
+    Get or set this hosts IP address. This function also updates the
+    numerical IP address field n_ip.
 
 	print ("Old IP: " . $host->ip ());
 	$host->ip ($new_ip) or warn ("Failed setting value\n");
@@ -649,56 +528,51 @@ sub manual_dnszone
 =cut
 sub ip
 {
-	my $self = shift;
+    my $self = shift;
 
-	if (@_) {
-		my $newvalue = shift;
-	
-		if (! $self->is_valid_ip ($newvalue)) {
-			$self->_set_error ("Invalid IP address '$newvalue'");
-			return 0;
-		}
-
-		$self->{ip} = $newvalue;
-
-		# redundantly stored, but this enables us to do much simpler
-		# database querys (for hosts in ranges of IPs etc.)
-		$self->{n_ip} = $self->aton ($newvalue);
-	
-		return 1;
+    if (@_) {
+	my $newvalue = shift;
+		
+	if (! $self->is_valid_ip ($newvalue)) {
+	    $self->_set_error ("Invalid IP address '$newvalue'");
+	    return 0;
 	}
 
-	return ($self->{ip});
+	$self->{ip} = $newvalue;
+	
+	# redundantly stored, but this enables us to do much simpler
+	# database querys (for hosts in ranges of IPs etc.)
+	$self->{n_ip} = $self->aton ($newvalue);
+	
+	return 1;
+    }
+    
+    return ($self->{ip});
 }
 
 
 =head2 n_ip
 
-	Read only function that returns this hosts IP address in host order.
+    Read only function that returns this hosts IP address in host order.
+    Use the ip() function to set this value.
 
 
 =cut
 sub n_ip
 {
-	my $self = shift;
-
-	if (@_) {
-		$self->_set_error ("this is a read-only function, it gets set by ip()");
-		return undef;
-	}
-
-	return ($self->{n_ip});
+    my $self = shift;
+    $self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_read_only, @_);
 }
 
 
 =head2 ttl
 
-	Get or set this hosts DNS records TTL value. This should be
-	either a number of seconds, or something that
-	is_valid_nameserver_time () validates (the default function
-	validates things parseable by BIND9, such as 1d or 1w2d3h4m5s).
+    Get or set this hosts DNS records TTL value. This should be
+    either a number of seconds, or something that
+    is_valid_nameserver_time () validates (the default function
+    validates things parseable by BIND9, such as 1d or 1w2d3h4m5s).
 
-	If you want to use the default TTL value, set to "NULL".
+    If you want to use the default TTL value, set to "NULL".
 
 	print ("Old ttl: " . $host->ttl ());
 	$host->ttl ($new_ttl) or warn ("Failed setting value\n");
@@ -707,25 +581,8 @@ sub n_ip
 =cut
 sub ttl
 {
-	my $self = shift;
-
-	if (@_) {
-		my $newvalue = lc (shift);
-
-		if ($newvalue eq 'null') {
-			$self->{ttl} = undef;
-		} else {
-			if (! $self->is_valid_nameserver_time ($newvalue)) {
-				$self->_set_error ("Invalid TTL time value '$newvalue'");
-				return 0;
-			}
-			$self->{ttl} = $self->_nameserver_time_to_seconds ($newvalue);
-		}
-
-		return 1;
-	}
-
-	return ($self->{ttl});
+    my $self = shift;
+    $self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_nameserver_time_or_null, @_);
 }
 
 
@@ -736,31 +593,14 @@ sub ttl
 =cut
 sub profile
 {
-	my $self = shift;
-
-	if (@_) {
-		my $newvalue = shift;
-
-		if ($newvalue eq 'NULL') {
-			$self->{profile} = 'default';
-		} else {
-			if (! $self->is_valid_profilename ($newvalue)) {
-				$self->_set_error ("Invalid profile name '$newvalue'");
-				return undef;
-			}
-			$self->{profile} = $newvalue;
-		}
-
-		return 1;
-	}
-
-	return ($self->{profile});
+    my $self = shift;
+    $self->_set_or_get_attribute ('mac', \&_validate_profile, @_);
 }
 
 
 =head2 comment
 
-	Get or set this hosts comment. Just an informative field.
+    Get or set this hosts comment. Just an informative field.
 
 	print ("Old comment: " . $host->comment ());
 	$host->comment ($new_comment) or warn ("Failed setting comment\n");
@@ -769,22 +609,8 @@ sub profile
 =cut
 sub comment
 {
-	my $self = shift;
-
-	if (@_) {
-		my $newvalue = shift;
-
-		if (length ($newvalue) > 255) {
-			$self->_set_error ('Comment too long (max 255 chars)');
-			return 0;
-		}
-
-		$self->{comment} = $newvalue;
-	
-		return 1;
-	}
-
-	return ($self->{comment});
+    my $self = shift;
+    $self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_string_comment, @_);
 }
 
 
@@ -803,36 +629,10 @@ sub comment
 =cut
 sub owner
 {
-	my $self = shift;
+    my $self = shift;
 
-	if (@_) {
-		my %newlist;
-		foreach my $tt (@_) {
-			my $t = $tt;
-			# remove spaces around commas
-			$t =~ s/\s*,\s*/,/o;
-			
-			foreach my $newvalue (split (',', $t)) {
-				if (! $self->is_valid_username ($newvalue)) {
-					$self->_set_error ("Invalid owner list member '$newvalue'");
-					return 0;
-				}
-				$newlist{$newvalue} = 1;
-			}
-		}
-
-		my $newvalue = join (',', sort keys %newlist);
-
-		if (length ($newvalue) > 255) {
-			$self->_set_error ('Owner too long (max 255 chars)');
-		}
-
-		$self->{owner} = $newvalue;
-		
-		return 1;
-	}
-
-	return ($self->{owner});
+    my $l = join (',', @_) if (@_);
+    $self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_list_of_usernames, $l);
 }
 
 
@@ -843,25 +643,19 @@ sub owner
 =cut
 sub id
 {
-	my $self = shift;
-
-	if (@_) {
-		$self->_set_error ("id is read only");
-		return 0;
-	}
-
-	return ($self->{id});
+    my $self = shift;
+    $self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_read_only, @_);
 }
 
 
 =head2 partof
 
-	Get or set which other host object this host object is to be
-	considered a part of. A host with multiple network interface
-	cards (meaning multiple MAC addresses and possibly multiple
-	DNS records) will have a primary host id object and one or
-	more other host objects which has partof () set to the primary
-	host objects id ().
+    Get or set which other host object this host object is to be
+    considered a part of. A host with multiple network interface
+    cards (meaning multiple MAC addresses and possibly multiple
+    DNS records) will have a primary host id object and one or
+    more other host objects which has partof () set to the primary
+    host objects id ().
 
 	print ("Old partof: " . $host->partof ());
 	$parent = $hostdb->findhostbyname ("server.example.com");
@@ -872,32 +666,8 @@ sub id
 =cut
 sub partof
 {
-	my $self = shift;
-
-	if (@_) {
-		my $newvalue = shift;
-	
-		if (! defined ($newvalue) or $newvalue eq 'NULL') {
-			$self->{partof} = undef;
-			return 1;
-		}
-
-		if ((int($newvalue) == 0) and ($newvalue !~ /^0+$/)) {
-			$self->_set_error ("Invalid partof");
-			return 0;
-		}
-
-		if (int($newvalue) != 0 and (int($newvalue) == int($self->{id}))) {
-			$self->_set_error ("Host cannot be partof itself");
-			return 0;
-		}
-
-		$self->{partof} = int($newvalue);
-
-		return 1;
-	}
-
-	return ($self->{partof});
+    my $self = shift;
+    $self->_set_or_get_attribute (undef, \&_validate_partof, @_);
 }
 
 
@@ -906,7 +676,7 @@ sub partof
 	Get or set the MAC address timestamp field of this host object.
 	This is intended to be a timestamp of what the time was when this
 	hosts IP was seen using this MAC address on the network. This is
-	good because it let's network administrators see what IP addresses
+	good because it let\'s network administrators see what IP addresses
 	are actually being used and not.
 
 	Valid formats for setting are: yyyy-mm-dd hh:mm:ss
@@ -918,27 +688,7 @@ sub mac_address_ts
 {
 	my $self = shift;
 
-	if (@_) {
-		my $newvalue = shift;
-
-		my $fmtvalue = $self->_format_datetime ($newvalue);
-		if (defined ($fmtvalue)) {
-			if ($fmtvalue eq 'NULL') {
-				$self->{mac_address_ts} = undef;
-			} else {
-				$self->{mac_address_ts} = $fmtvalue;
-			}
-
-			return 1;
-		} else {
-			$self->_set_error ("Invalid mac_address timestamp format");
-			return 0;
-		}
-
-		return 1;
-	}
-
-	return ($self->{mac_address_ts});
+	$self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_datetime, @_);
 }
 
 
@@ -959,12 +709,7 @@ sub unix_mac_address_ts
 {
 	my $self = shift;
 
-	if (@_) {
-		$self->_set_error ("unix_mac_address_ts is read only");
-		return 0;
-	}
-
-	return ($self->{unix_mac_address_ts});
+	$self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_read_only, @_);
 }
 
 
@@ -974,6 +719,120 @@ sub unix_mac_address_ts
 	but are documented here as well just for the sake of documentation.
 
 
+=head2 _validate_dhcpmode
+
+    _set_or_get_attribute validator function for dhcpmode
+
+
+=cut
+sub _validate_dhcpmode
+{
+    my $self = shift;
+    my $key = shift;
+    my $newvalue = uc ($_[0]);
+
+    if ($newvalue ne 'STATIC' and $newvalue ne 'DYNAMIC') {
+        return ('Value is neither STATIC nor DYNAMIC');
+    }
+
+    # write back to $_[0] if our uc () changed the value
+    $_[0] = $newvalue if ($newvalue ne $_[0]);
+
+    return 0;
+}
+
+
+=head2 _validate_dnsmode
+
+    _set_or_get_attribute validator function for dnsmode
+
+
+=cut
+sub _validate_dnsmode
+{
+    my $self = shift;
+    my $key = shift;
+    my $newvalue = uc ($_[0]);
+
+    if ($newvalue ne 'A_AND_PTR' and $newvalue ne 'A') {
+        return ('Value is neither A_AND_PTR nor A');
+    }
+
+    # write back to $_[0] if our uc () changed the value
+    $_[0] = $newvalue if ($newvalue ne $_[0]);
+
+    return 0;
+}
+
+
+=head2 _validate_mac_address
+
+    _set_or_get_attribute validator function for mac_address
+
+
+=cut
+sub _validate_mac_address
+{
+    my $self = shift;
+    my $key = shift;
+    my $newvalue = lc ($_[0]);
+
+    if ($newvalue eq 'null') {
+	$_[0] = undef;
+    } elsif (! $self->clean_mac_address ($_[0])) {
+	return ('Invalid MAC address');
+    }
+
+    return 0;
+}
+
+
+=head2 _validate_profile
+
+    _set_or_get_attribute validator function for profile
+
+
+=cut
+sub _validate_profile
+{
+    my $self = shift;
+    my $key = shift;
+    my $newvalue = lc ($_[0]);
+
+    if ($newvalue eq 'null') {
+	$_[0] = 'default';
+    } elsif (! $self->is_valid_profilename ($newvalue)) {
+	return ('Invalid profile');
+    }
+
+    return 0;
+}
+
+
+=head2 _validate_partof
+
+    _set_or_get_attribute validator function for partof
+
+
+=cut
+sub _validate_partof
+{
+    my $self = shift;
+    my $key = shift;
+    my $newvalue = lc ($_[0]);
+
+    if (! defined ($newvalue) or $newvalue eq 'null') {
+	$_[0] = undef;
+    } elsif ((int ($newvalue) == 0) and ($newvalue !~ /^0+$/)) {
+	return ('Invalid partof');
+    } elsif (int ($newvalue) != 0 and (int ($newvalue) == int ($self->{id}))) {
+	return ('Host cannot be partof itself');
+    } else {
+	$_[0] = int($newvalue);
+    }
+
+    return 0;
+}
 
 
 1;
