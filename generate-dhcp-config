@@ -157,9 +157,9 @@ sub print_dhcp_config
 		print ($OUT "	range $t;\n") or warn ("$0: Could not write to file '$outfile.new': $!\n"), return undef;		;
 	}
 
-	$generated_files_ref->{$fn} = 1;
 	close ($OUT);
-	rename ("$outfile.new", $outfile) or warn ("$0: Could not rename '$outfile.new' to '$outfile': $!\n");
+	rename ("$outfile.new", $outfile) or warn ("$0: Could not rename '$outfile.new' to '$outfile': $!\n"), return undef;
+	$generated_files_ref->{$fn} = 1;
 	
 	foreach my $profile (@subnet_profiles) {
 		my $fn = "${subnet_name}_id${subnet_id}-${profile}";
