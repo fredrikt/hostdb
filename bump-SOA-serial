@@ -104,10 +104,10 @@ sub update_serial
 	}
 	
 	if ($old_serial ne $new_serial) {
-		my $new_zonefile = $zonefile . ".BUMP-$$";
+		my $new_zonefile;
 
 		if ($zonefile) {
-			my $new_zonefile = $zonefile . ".BUMP-$$";
+			$new_zonefile = $zonefile . ".BUMP-$$";
 			my $r = make_new_zonefile ($zonefile, $old_serial,
 						   $new_zonefile, $new_serial);
 			if (! $r) {
