@@ -92,9 +92,13 @@ sub init
 			or die "$DBI::errstr";
 		$self->{_update_host} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.host SET dhcpmode = ?, dhcpstatus = ?, mac = ?, dnsmode = ?, dnsstatus = ?, hostname = ?, ip = ?, n_ip = ?, owner = ?, ttl = ?, user = ?, partof = ?, mac_address_ts = ? WHERE id = ?")
 			or die "$DBI::errstr";
+		$self->{_delete_host} = $hostdb->{_dbh}->prepare ("DELETE FROM $hostdb->{db}.host WHERE id = ?")
+			or die "$DBI::errstr";
 
 		$self->{_get_last_id} = $hostdb->{_dbh}->prepare ("SELECT LAST_INSERT_ID()")
 			or die "$DBI::errstr";
+	} else {
+		$hostdb->_debug_print ("NOT preparing database stuff");
 	}
 	
 	return 1;
@@ -155,6 +159,36 @@ sub commit
 		$self->{id} = $t[0];
 		$sth->finish ();
 	}	
+
+	return 1;
+}
+
+
+=head2 delete
+
+	Not yet documented, saving that for a rainy day.
+
+
+=cut
+sub delete
+{
+	my $self = shift;
+	my $check = shift;
+
+	return 0 if ($check ne "YES");
+
+	my $sth;
+	if (defined ($self->{id})) {
+		$sth = $self->{_delete_host};
+		$sth->execute ($self->id ()) or die "$DBI::errstr";
+		
+		# XXX check number of rows affected?
+
+		$sth->finish();
+	} else {
+		$self->_set_error ("Host not in database");
+		return 0;
+	}
 
 	return 1;
 }
