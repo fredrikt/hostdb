@@ -37,7 +37,7 @@ my $showsubnet_path = $q->state_url ($hostdbini->val ('subnet', 'showsubnet_uri'
 
 my %colors = load_colors ($hostdbini);
 
-$q->begin (title => 'Modify/Add Subnet');
+$q->begin (title => 'Modify Subnet');
 my $remote_user = '';
 if (defined ($ENV{REMOTE_USER}) and $ENV{REMOTE_USER} =~ /^[a-z0-9]{,50}$/) {
 	$remote_user = $ENV{REMOTE_USER};
@@ -61,16 +61,17 @@ my $subnet;
 my $id = $q->param('id');
 if (defined ($id) and $id ne '') {
 	$subnet = get_subnet ($hostdb, $id);
-} else {
-	$subnet = $hostdb->create_subnet ();
-	if (defined ($subnet)) {
-		# set some defaults
-		$subnet->profilelist ('default');
-	}
 }
+# else {
+#	$subnet = $hostdb->create_subnet ();
+#	if (defined ($subnet)) {
+#		# set some defaults
+#		$subnet->profilelist ('default');
+#	}
+#}
 
 if (! defined ($subnet)) {
-	$q->print ("&nbsp;<p><ul><font COLOR='red' SIZE='3'><strong>No subnet found and none could be created (hostdb error: $hostdb->{error})</strong></font></ul>\n\n");
+	$q->print ("&nbsp;<p><ul><font COLOR='red' SIZE='3'><strong>No subnet found (hostdb error: $hostdb->{error})</strong></font></ul>\n\n");
 	$q->end ();
 	die ("$0: Could not get/create subnet (hostdb error: $hostdb->{error})");
 }
