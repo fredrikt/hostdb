@@ -192,10 +192,10 @@ EOH
 
 			$q->print (<<EOH);
 		   <tr>
-			<td>&nbsp;&nbsp;&nbsp;&nbsp;$key</td>
+			<td NOWRAP>&nbsp;&nbsp;&nbsp;&nbsp;$key</td>
 			<td>$value</td>
-			<td>$lastmodified</td>
-			<td>$lastupdated</td>
+			<td NOWRAP>$lastmodified&nbsp;&nbsp;</td>
+			<td NOWRAP>$lastupdated&nbsp;&nbsp;</td>
 		   </tr>
 EOH
 		}
