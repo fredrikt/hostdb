@@ -12,21 +12,24 @@
 use strict;
 use HOSTDB;
 use Getopt::Std;
-use vars qw ($opt_h $opt_d $opt_q);
+use vars qw ($opt_h $opt_d $opt_q $opt_r);
 
-getopts ('hdq');
+getopts ('hdqr:');
 
 my $debug = defined ($opt_d);
 my $quiet = defined ($opt_q);
+my $rename_suffix = $opt_r;
 my @files = @ARGV;
 my $default_ttl;
 
 if ($#files == -1 or defined ($opt_h)) {
-	die ("Syntax: $0 [options] [cisco-output-file ...]\n" .
-	     "	options :\n" .
-	     "		-d	debug\n" .
-	     "		-q	quiet\n"
-	    );
+	die (<<EOM);
+Syntax: $0 [options] [cisco-output-file ...]\n" .
+	options :\n" .
+		-d		debug
+		-q		quiet
+		-r suffix	rename files if successfull, append suffix
+EOM
 }
 
 my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
@@ -35,15 +38,34 @@ my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
 
 parse_files ($hostdb, $debug, $quiet, @files);
 
+print ("*** Parsing " . ($#files + 1) . " files\n") unless ($quiet);
+
+my %data;
+parse_files ($hostdb, \%data, $debug, $quiet, @files);
+
+print ("*** Updating database\n") if (! $quiet);
+
+update_db ($hostdb, \%data, $debug, $quiet);
+
+if (defined ($rename_suffix)) {
+	print ("*** Renaming " . ($#files + 1) . " files (suffix $rename_suffix)\n") unless ($quiet);
+
+	rename_files ($rename_suffix, @files);
+}
+
+exit (0);
+
 
 sub parse_files
 {
 	my $hostdb = shift;
+	my $data = shift;
 	my $debug = shift;
 	my $quiet = shift;
 	my @files = @_;
 
 	foreach my $file (@files) {
+		chomp ($file);
 		open (FIL, "< $file") or warn ("$0: Could not open $file for reading: $!\n"), next;
 
 		my $ts = (stat ($file))[9];
@@ -58,38 +80,68 @@ sub parse_files
 
 				warn ("IP $ip MAC $mac TS $ts\n") if ($debug);
 
-				my $host = $hostdb->findhostbyip ($ip);
-				
-				if (defined ($host)) {
-					my $host_mac = $host->mac_address ();
-					
-					if (! defined ($host_mac)) {
-						# no mac in db, put this one there
-						$host->mac_address ($mac);
-						$host_mac = $mac;
-					}
-					
-					if ($host_mac eq $mac) {
-						my $host_mac_ts = $host->mac_address_ts ();
-						
-						if (! defined ($host_mac_ts) or
-						    ($host_mac_ts < $ts)) {
-						    	my $valid = 1;
-							$host->mac_address_ts ($ts) or warn ("Failed to set TS on $ip: $host->{error}\n"), $valid = 0;
-							$host->commit () if ($valid);
-							warn ("Set new timestamp on $ip\n") if ($debug);
-						} else {
-							warn ("Database timestamp on $ip ($host_mac_ts) greater than this: $ts\n") if ($debug);
-						}
-					} else {
-						warn ("Unexpected mac-address on $ip: $mac (db has $host_mac) - ignoring\n") unless ($quiet);
-					}			
-				} else {
-					warn ("No host with IP '$ip' in database\n") unless ($quiet);
-				}
+				$data{"$ip;$mac"} = $ts if (! defined ($data{"$ip;$mac"}) or
+							    $ts > $data{"$ip;$mac"});
 			}
 		}
 		close (FIL);
 		print ("$file\n") unless ($quiet);
+	}
+}
+
+sub update_db
+{
+	my $hostdb = shift;
+	my $data = shift;
+	my $debug = shift;
+	my $quiet = shift;
+
+	my $ip_mac;
+	foreach $ip_mac (keys %$data) {
+		my ($ip, $mac) = split (";", $ip_mac);
+	
+		warn ("IP $ip MAC $mac\n") if ($debug);
+
+		my $host = $hostdb->findhostbyip ($ip);
+				
+		if (defined ($host)) {
+			my $host_mac = $host->mac_address ();
+					
+			if (! defined ($host_mac)) {
+				# no mac in db, put this one there
+				$host->mac_address ($mac);
+				$host_mac = $mac;
+			}
+					
+			if ($host_mac eq $mac) {
+				my $host_mac_ts = $host->unix_mac_address_ts ();
+				my $ts = $data{$ip_mac};
+			
+				if (! defined ($host_mac_ts) or
+				    ($host_mac_ts < $ts)) {
+				   	my $valid = 1;
+					$host->mac_address_ts ("unixtime:$ts") or warn ("Failed to set TS on $ip: $host->{error}\n"), $valid = 0;
+					$host->commit () if ($valid);
+					warn ("Set new timestamp on $ip\n") if ($debug);
+				} else {
+					warn ("Database timestamp on $ip ($host_mac_ts) greater than this: $ts\n") if ($debug);
+				}
+			} else {
+				warn ("Unexpected mac-address on $ip: $mac (db has $host_mac) - ignoring\n") unless ($quiet);
+			}			
+		} else {
+			warn ("No host with IP '$ip' in database\n") unless ($quiet);
+		}
+	}
+}
+
+sub rename_files
+{
+	my $suffix = shift;
+	my @files = @_;
+
+	my $t;
+	foreach $t (@files) {
+		rename ($t, "${t}${suffix}") or warn ("$0: Could not rename '$t' to '${t}${suffix}': $!\n");
 	}
 }
