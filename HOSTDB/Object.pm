@@ -362,7 +362,9 @@ sub _validate_list_of_usernames
 {
     my $self = shift;
     my $key = shift;
-    my $in = shift;
+    my $orig_val = $_[0];
+
+    my $in = $orig_val; # make copy to not modify $_[0] (yet)
 
     return ('Empty username') if (! $in);
 
