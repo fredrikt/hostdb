@@ -67,50 +67,6 @@ sub DESTROY
 =head1 PUBLIC FUNCTIONS
 
 
-=head2 is_allowed_write
-
-	Takes a candidate and any object that has a owner () function as argument.
-	Checks for the candidate in what is returned by the owner () function and
-	in the admins-variable from the config file. If an LDAP server is supplied
-	in the config file, then all elements of the lists are looked up in LDAP
-	so that you can have groups in LDAP that are allowed to edit HOSTDB objects.
-
-	$is_allowed = $hostdb->auth->is_allowed_write ($host, $user);
-
-
-=cut
-sub is_allowed_write
-{
-	my $self = shift;
-	my $o = shift;
-	my $candidate = shift;
-
-	$self->_debug_print ("Checking if '$candidate' may write to object '$o'");
-
-	if (defined ($self->{authorization}) and $self->{authorization} eq 'DISABLED') {
-		$self->_debug_print ("Authorization DISABLED (through configuration)");
-		return 1;
-	}
-
-	my $owner = $o->owner ();
-
-	$self->_debug_print ("Owner of object is '$owner'");
-
-	$self->_debug_print ("Object has no owner, returning undef"), return undef unless ($owner);
-
-	return 1 if $self->_is_in_list ($candidate, "admin", $self->admin_list ());
-
-	return 1 if $self->_is_in_list ($candidate, "object owner", split (',', $owner));
-
-	# no exact match, now go chase users in LDAP
-
-	return 1 if $self->_is_in_list ($candidate, "LDAP admin", $self->_ldap_explode ($self->admin_list ()));
-
-	return 1 if $self->_is_in_list ($candidate, "LDAP object owner", $self->_ldap_explode (split (',', $owner)));
-
-	return 0;
-}
-
 sub is_owner
 {
 	my $self = shift;
@@ -157,6 +113,44 @@ sub is_admin
 
 	return 1 if $self->_is_in_list ($candidate, "admin", $self->admin_list ());
 	return 1 if $self->_is_in_list ($candidate, "LDAP admin", $self->_ldap_explode ($self->admin_list ()));
+
+	return 0;
+}
+
+
+=head2 is_allowed_write
+
+	Takes a candidate and any object that has a owner () function as argument.
+	Checks for the candidate in what is returned by the owner () function and
+	in the admins-variable from the config file. If an LDAP server is supplied
+	in the config file, then all elements of the lists are looked up in LDAP
+	so that you can have groups in LDAP that are allowed to edit HOSTDB objects.
+
+	$is_allowed = $hostdb->auth->is_allowed_write ($host, $user);
+
+
+=cut
+sub is_allowed_write
+{
+	my $self = shift;
+	my $o = shift;
+	my $candidate = shift;
+
+	$self->_debug_print ("Checking if '$candidate' may write to object '$o'");
+
+	if (defined ($self->{authorization}) and $self->{authorization} eq 'DISABLED') {
+		$self->_debug_print ("Authorization DISABLED (through configuration)");
+		return 1;
+	}
+
+	my $owner = $o->owner ();
+
+	$self->_debug_print ("Owner of object is '$owner'");
+
+	$self->_debug_print ("Object has no owner, returning undef"), return undef unless ($owner);
+
+	return 1 if $self->is_admin ($candidate);
+	return 1 if $self->is_owner ($o, $candidate);
 
 	return 0;
 }
