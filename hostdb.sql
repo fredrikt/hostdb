@@ -19,10 +19,14 @@ CREATE TABLE config (
 );
 
 CREATE TABLE zone (
-        name VARCHAR(255) NOT NULL,
+        zonename VARCHAR(255) NOT NULL,
         serial INT NOT NULL,
+	refresh INT,
+	retry INT,
+	expiry INT,
+	minimum INT,
         owner VARCHAR(255),
-        PRIMARY KEY (name)
+        PRIMARY KEY (zonename)
 );
 
 # this is an EXAMPLE grant command, you need to replace $database, $user, example.org and $password
