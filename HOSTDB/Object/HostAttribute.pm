@@ -211,6 +211,11 @@ sub key
 	if (@_) {
 		my $newvalue = shift;
 	
+		if (! defined ($newvalue)) {
+			$self->_set_error ('Key cannot be undefined');
+			return 0;
+		}
+
 		$self->{v_key} = $newvalue;
 
 		return 1;
@@ -233,6 +238,11 @@ sub section
 	if (@_) {
 		my $newvalue = shift;
 	
+		if (! defined ($newvalue)) {
+			$self->_set_error ('Section cannot be undefined');
+			return 0;
+		}
+
 		$self->{v_section} = $newvalue;
 
 		return 1;
@@ -254,6 +264,13 @@ sub type
 
 	if (@_) {
 		my $newvalue = shift;
+
+		if (! defined ($newvalue)) {
+			$self->_set_error ('Type cannot be undefined');
+			return 0;
+		}
+
+		$newvalue = 'int' if ($newvalue eq 'integer');
 	
 		if ($newvalue eq 'string' or
 		    $newvalue eq 'int' or
@@ -308,18 +325,21 @@ sub set
 		my $type = shift;
 		my $newvalue = shift;
 
-		if ($type eq 'string') {
-			$self->v_string ($newvalue);
-		} elsif ($type eq 'int') {
-			$self->v_int ($newvalue);
-		} elsif ($type eq 'blob') {
-			$self->v_blob ($newvalue);
-		} else {
-			$self->_set_error ("Invalid attribute type '$self->{v_type}'");
+		if (! defined ($type)) {
+			$self->_set_error ("Attribute type must be defined");
 			return 0;
 		}
 
-		return 1;
+		if ($type eq 'string') {
+			return $self->v_string ($newvalue);
+		} elsif ($type eq 'int' or $type eq 'integer') {
+			return $self->v_int ($newvalue);
+		} elsif ($type eq 'blob') {
+			return $self->v_blob ($newvalue);
+		} else {
+			$self->_set_error ("Invalid attribute type '$type'");
+			return 0;
+		}
 	}
 
 	return 0;
@@ -379,6 +399,16 @@ sub v_int
 	if (@_) {
 		my $newvalue = shift;
 
+		$self->_debug_print ("FREDRIK: Setting v_int to '$newvalue'");
+		$newvalue = 'NULL' if (! defined ($newvalue));
+
+		if (lc ($newvalue) ne 'null' and $newvalue !~ /^0+$/) {
+			if ($newvalue !~ /^\d+$/ or int ($newvalue) == 0) {
+				$self->_set_error ("'$newvalue' is not a valid integer");
+				return 0;
+			}
+		}
+
 		$self->{v_string} = undef;
 		$self->{v_blob} = undef;
 	
@@ -389,7 +419,9 @@ sub v_int
 			return 1;
 		}
 
-		$self->{v_int} = $newvalue;
+		$self->_debug_print ("Setting v_int to '$newvalue'");
+
+		$self->{v_int} = int ($newvalue);
 
 		return 1;
 	}
@@ -453,7 +485,7 @@ sub lastmodified
 
 			return 1;
 		} else {
-			$self->_set_error ("Invalid mac_address timestamp format");
+			$self->_set_error ("Invalid lastmodified timestamp format");
 			return 0;
 		}
 
@@ -513,7 +545,7 @@ sub lastupdated
 
 			return 1;
 		} else {
-			$self->_set_error ("Invalid mac_address timestamp format");
+			$self->_set_error ("Invalid lastupdated timestamp format");
 			return 0;
 		}
 
