@@ -62,20 +62,27 @@ foreach my $file (@files) {
 
 		if ($rad =~ /^Internet\s+([0-9\.]+)\s+(\d|\-)+\s+([0-9a-f\.]+)\s+/) {
 			my ($ip, $mac) = ($1, $3);
+
+			my $is_dynamic = 0;
 		
 			$hostdb->clean_mac_address ($mac);
 			warn ("Invalid MAC address '$3' on $file:$.\n"), next unless ($hostdb->valid_mac_address ($mac));
 
 			# shortcut as early as possible if we've seen this ip and mac earlier this run
-			if ($seen{$ip}) {
-				if ($seen{$ip} ne $mac) {
-					warn("Ignoring additional MAC address ($mac) for IP $ip ($seen{$ip})\n");
+			if (defined ($seen{$ip}{count})) {
+				if ($seen{$ip}{$mac}) {
+					warn("Ignoring MAC ($mac) for IP $ip (seen $seen{count} MACs for this IP))\n");
 					$total_duplicate_count++;
 				}
 				
-				next;
+				if ($seen{$ip}{count} >= 5 and ! defined ($seen{$ip}{dynamic})) {
+					$is_dynamic = 1;
+				} else {
+					next;
+				}
 			}
-			$seen{$ip} = $mac;
+			$seen{$ip}{count}++ if (undef ($seen{$ip}{$mac}));
+			$seen{$ip}{$mac} = 1;
 
 			#warn ("IP $ip MAC $mac\n");
 			my $host = $hostdb->findhostbyip ($ip);
@@ -85,14 +92,21 @@ foreach my $file (@files) {
 				$failed_count++;
 				$total_failed_count++;
 			} else {
-				if ($host->hostname () =~ /^.*dhcp.*/oi) {
-					warn ("Ignoring dynamic host $ip ($host->{hostname})\n");
-					$total_ignore_count++;
-				}
-
 				my $valid = 1;
 
-				next if ($host->mac () eq $mac);
+				$is_dynamic = 1 if ($host->hostname () =~ /^.*dhcp.*/oi);
+				
+				if ($is_dynamic) {
+					printf ("Set IP $ip to dynamic\n");
+
+					$host->mac ("") or warn ($host->{error}), $valid = 0;
+					$host->dynamic ("Y") or warn ($host->{error}), $valid = 0;
+
+					$host->commit () if ($valid);
+					next;
+				}
+
+				next if ($host->mac_address () eq $mac);
 				
 				$host->mac_address ($mac) or warn ($host->{error}), $valid = 0;
 				if ($valid) {
@@ -108,11 +122,10 @@ foreach my $file (@files) {
 				}
 			}
 		}
-
 	}
 	close (FIL);
 	
-	print ("$file: set $set_count mac addresses, failed to set $failed_count\n");
+	print ("$file: set $set_count MAC addresses, failed to set $failed_count\n");
 }
 
 print("\n\nTotal statistics:\n",
