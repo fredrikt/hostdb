@@ -126,7 +126,7 @@ sub modify_host
 	my $q = shift;
 	my $remote_user = shift;
 	
-	my @changelog;
+	my (@changelog, @warning);
 	
 	eval {
 		die ("No host object") unless ($host);
@@ -206,11 +206,13 @@ sub modify_host
 				
 						my $new_zone = $hostdb->findzonebyhostname ($hostname);
 				
-						die ("Invalid new hostname '$hostname': no zone for that hostname found in database") if (! defined ($new_zone));
-				
-						if (! $hostdb->auth->is_allowed_write ($new_zone, $remote_user)) {
-							die ("You do not have sufficient access to the new hostnames zone '" . 
-							     $new_zone->zone () . "'");
+						if (defined ($new_zone)) {
+							if (! $hostdb->auth->is_allowed_write ($new_zone, $remote_user)) {
+								die ("You do not have sufficient access to the new hostnames zone '" . 
+								     $new_zone->zone () . "'");
+							}
+						} else {
+							push (@warning, "No DNS zone for hostname '$hostname' found in database");
 						}
 					} elsif ($name eq 'partof') {
 						# changing partof, look it up using hostdb->findhost so that
@@ -242,6 +244,12 @@ sub modify_host
 		chomp ($@);
 		error_line ($q, "Failed to set host attribute: $@: $host->{error}");
 		return 0;
+	}
+	
+	if (@warning) {
+		foreach my $t (@warning) {
+			error_line ($q, "Warning: $t");
+		}
 	}
 	
 	return 1;
