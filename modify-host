@@ -134,11 +134,13 @@ if (defined ($opt_dnszone)) {
 		my $z = $hostdb->findzonebyhostname ($opt_hostname);
 
 		if (defined ($z)) {
-			if ($host->manual_dnszone () ne 'Y') {
-				$host->dnszone ($z->zonename);
-				warn ("$0: You changed hostname so I changed DNS zone for you (to " . $host->dnszone () . ")\n");
-			} else {
-				warn ("$0: NOT changing DNS zone (to " . $z->zonename () . ") since manual_dnszone is set to 'Y' for this host\n");
+			if ($host->dnszone () ne $z->zonename()) {
+				if ($host->manual_dnszone () ne 'Y') {
+					warn ("$0: You changed hostname so I changed DNS zone for you (from " . $host->dnszone () . " to " . $z->zonename () . ")\n");
+					$host->dnszone ($z->zonename ());
+				} else {
+					warn ("$0: NOT changing DNS zone (from " . $host->dnszone () . " to " . $z->zonename () . ") since manual_dnszone is set to 'Y' for this host\n");
+				}
 			}
 		} else {
 			warn ("$0: Could not find a suitable dnszone for new hostname '$opt_hostname'\n");
