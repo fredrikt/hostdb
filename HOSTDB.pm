@@ -894,7 +894,7 @@ sub _nameserver_time_to_seconds
 		$seconds += int ($1) * 60;
 		$in = $2;
 	}
-	if ($in =~ /^\d+$/) {
+	if ($in =~ /^\d+(s*)$/) {
 		$seconds += int ($in);
 		$in = '';
 	}
