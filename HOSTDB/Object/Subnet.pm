@@ -666,6 +666,13 @@ sub profilelist
 {
 	my $self = shift;
 
+	sub _profilelist_sort
+	{
+		# sort 'default' before anything else
+		return -1 if ($a eq 'default');
+		return $a cmp $b;
+	}
+
 	if (@_) {
 		my %newlist;
 		foreach my $tt (@_) {
@@ -683,7 +690,8 @@ sub profilelist
 		}
 		$newlist{default} = 1;
 
-		my $newvalue = join (',', sort keys %newlist);
+		my $newvalue = join (',', 'default', sort
+					_profilelist_sort keys %newlist);
 
 		if (length ($newvalue) > 255) {
 			$self->_set_error ('profilelist too long (max 255 chars)');
@@ -694,10 +702,8 @@ sub profilelist
 		return 1;
 	}
 
-	return ($self->{profilelist});
+	return (join (',', sort _profilelist_sort split (',', $self->{profilelist})));
 }
-
-
 
 
 
