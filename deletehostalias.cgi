@@ -15,7 +15,7 @@ my ($table_blank_line, $table_hr_line, $empty_td) = HOSTDB::StdCGI::get_table_va
 my $debug = HOSTDB::StdCGI::parse_debug_arg (@ARGV);
 my ($hostdbini, $hostdb, $q, $remote_user) = HOSTDB::StdCGI::get_hostdb_and_sucgi ('Delete Host alias', $debug);
 my (%links, $is_admin, $is_helpdesk, $me);
-HOSTDB::StdCGI::get_cgi_common_variables ($q, $hostdb, $remote_user, \%links, \$is_admin, \$is_helpdesk, $me);
+HOSTDB::StdCGI::get_cgi_common_variables ($q, $hostdb, $remote_user, \%links, \$is_admin, \$is_helpdesk, \$me);
 ## end generic initialization
 
 my ($alias, $hostid, $host);
@@ -27,6 +27,7 @@ if (defined ($id) and $id ne '') {
 	# we located using the hostid HTML form parameter above.
 	$hostid = $alias->hostid ();
 	$host = get_host_using_id ($hostdb, $hostid, $q);
+	$id = $alias->id (); # read back wins over html parameters
     }
 }
 
@@ -76,10 +77,11 @@ if ($action eq 'Delete') {
     if (! $is_admin) {
 	if (! defined ($subnet) or ! $hostdb->auth->is_allowed_write ($subnet, $remote_user)) {
 	    error_line ($q, "You do not have sufficient access to subnet '" . $subnet->subnet () . "'");
+	    $authorized = 0;
 	}
 	
 	# if there is no zone, only base desicion on subnet rights
-	if (defined ($zone) and ! $hostdb->auth->is_allowed_write ($zone, $remote_user)) {
+	if ($authorized and defined ($zone) and ! $hostdb->auth->is_allowed_write ($zone, $remote_user)) {
 	    error_line ($q, "You do not have sufficient access to zone '" . $zone->zone () . "'");
 	    $authorized = 0;
 	}
