@@ -28,7 +28,7 @@ my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
 my @searchfor = @ARGV;
 
 if ($#searchfor == -1) {
-	die ("Syntax: $0 [-d] IP/mac ...\n");
+	die ("Syntax: $0 [-d] <IP/FQDN/MAC> ...\n");
 }
 
 my $first = 1;
