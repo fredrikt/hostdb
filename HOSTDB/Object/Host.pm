@@ -182,7 +182,7 @@ sub dhcpmode
 		if ($newvalue eq "DYNAMIC" or $newvalue eq "STATIC") {
 			$self->{dhcpmode} = $newvalue;
 		} else {
-			$self->set_error ("Invalid dhcpmode '$newvalue'");
+			$self->_set_error ("Invalid dhcpmode '$newvalue'");
 			return 0;
 		}
 
@@ -218,7 +218,7 @@ sub dhcpstatus
 		if ($newvalue eq "ENABLED" or $newvalue eq "DISABLED") {
 			$self->{dhcpstatus} = $newvalue;
 		} else {
-			$self->set_error ("Invalid dhcpstatus '$newvalue'");
+			$self->_set_error ("Invalid dhcpstatus '$newvalue'");
 			return 0;
 		}
 
@@ -283,7 +283,7 @@ sub dnsmode
 		if ($newvalue eq "A_AND_PTR" or $newvalue eq "A") {
 			$self->{dnsmode} = $newvalue;
 		} else {
-			$self->set_error ("Invalid dnsmode '$newvalue'");
+			$self->_set_error ("Invalid dnsmode '$newvalue'");
 			return 0;
 		}
 
@@ -319,7 +319,7 @@ sub dnsstatus
 		if ($newvalue eq "ENABLED" or $newvalue eq "DISABLED") {
 			$self->{dnsstatus} = $newvalue;
 		} else {
-			$self->set_error ("Invalid dnsstatus '$newvalue'");
+			$self->_set_error ("Invalid dnsstatus '$newvalue'");
 			return 0;
 		}
 
@@ -549,7 +549,7 @@ sub partof
 		my $newvalue = shift;
 	
 		if ((int($newvalue) == 0) and ($newvalue ne "0")) {
-			$self->set_error ("Invalid partof");
+			$self->_set_error ("Invalid partof");
 			return 0;
 		}
 		$self->{partof} = int($newvalue);
@@ -588,7 +588,7 @@ sub mac_address_ts
 		} elsif ($newvalue =~ /^unixtime:(\d+)$/oi) {
 			$self->{mac_address_ts} = $self->unixtime_to_datetime ($1);
 		} else {
-			$self->set_error ("Invalid mac_address timestamp format");
+			$self->_set_error ("Invalid mac_address timestamp format");
 			return 0;
 		}
 

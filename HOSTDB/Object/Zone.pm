@@ -197,7 +197,7 @@ sub delegated
 		} elsif ($newvalue =~ /^n/i or $newvalue == 0) {
 			$self->{delegated} = "N";
 		} else {
-			$self->set_error ("Invalid delegated format");
+			$self->_set_error ("Invalid delegated format");
 			return 0;
 		}
 		
