@@ -285,7 +285,7 @@ sub print_zone_info
 		</tr>
 		<tr>
 			<td>&nbsp;&nbsp;Default TTL</td>
-			<td>$default_ttl</td>
+			<td>$default_ttl seconds</td>
 			<td>($zone_defaults{default_ttl})</td>
 			$empty_td
 		</tr>
@@ -566,7 +566,7 @@ EOH
 	   <tr>
 		$empty_td
 		<td>TTL</td>
-		<td>$ttl</td>
+		<td>$ttl seconds</td>
 	   </tr>
 	   <tr>
 		$empty_td
