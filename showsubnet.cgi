@@ -54,7 +54,9 @@ $q->print (<<EOH);
 	   $table_blank_line
 EOH
 
-list_subnet ($hostdb, $q, $subnet);
+my $static_flag_days = $hostdbini->val ('subnet', 'static_flag_days');
+my $dynamic_flag_days = $hostdbini->val ('subnet', 'static_flag_days');
+list_subnet ($hostdb, $q, $subnet, $static_flag_days, $dynamic_flag_days);
 
 $q->end ();
 
@@ -64,6 +66,8 @@ sub list_subnet
 	my $hostdb = shift;
 	my $q = shift;
 	my $subnet = shift;
+	my $static_flag_days = shift;
+	my $dynamic_flag_days = shift;
 
 	if ($hostdb->is_valid_subnet ($subnet)) {
 		my @hosts = $hostdb->findhostbyiprange ($hostdb->get_netaddr ($subnet),
@@ -76,6 +80,11 @@ sub list_subnet
 			my $subnet;
 			
 			foreach $subnet (@subnets) {
+				my $static_hosts = 0;
+				my $static_in_use = 0;
+				my $dynamic_in_use = 0;
+				my $dynamic_hosts = 0;
+
 				# HTML
 				my $h_subnet = $subnet->subnet ();
 				my $me = $q->state_url ();
@@ -109,7 +118,6 @@ EOH
 
 				# loop from first to last host address in subnet
 				my ($i, @o);
-				my $in_use_count = 0;
 				push (@o, <<EOH);
 					<tr>
 						<th ALIGN='left'>IP</th>
@@ -151,11 +159,20 @@ EOH
 						my $ts_font = "";
 						my $ts_font_end = "";
 						
-						# XXX make these two parameters configurable from hostdb.ini
-						my $ts_flag_days = 30;
-						my $ts_flag_color = '#dd0000';
+						my $ts_flag_color = '#dd0000'; # bright red
+						my $ts_flag_days = $static_flag_days;
 						
 						my $h_u_t = $host->unix_mac_address_ts ();
+
+						if ($host->dhcpmode () eq 'DYNAMIC') {
+							$ts_flag_days = $dynamic_flag_days;
+							$dynamic_hosts++;
+							$dynamic_in_use++ if (defined ($h_u_t));
+							$mac = 'dynamic';
+						} else {
+							$static_hosts++;
+						}
+						
 						if (defined ($h_u_t) and
 						    (time () - $h_u_t) >= ($ts_flag_days * 86400)) {
 							# host has not been seen in active use
@@ -163,7 +180,8 @@ EOH
 							$ts_font = "<font COLOR='$ts_flag_color'>";
 							$ts_font_end = "</font>";
 						} else {
-							$in_use_count++ if (defined ($h_u_t));
+							$static_in_use++ if (defined ($h_u_t) and
+									     $host->dhcpmode () eq 'STATIC');
 						}
 						
 						push (@o, <<EOH);
@@ -179,10 +197,15 @@ EOH
 
 				# HTML
 				my $netmask = $subnet->netmask ();
-				my $num_hosts = ($#subnet_hosts + 1);
+				my $num_hosts = $static_hosts + $dynamic_hosts;
 				my $num_addrs = ($subnet->addresses () - 2);
-				my $dns_usage_percent = int (safe_div ($num_hosts, $num_addrs) * 100);
-				my $active_usage_percent = int (safe_div ($in_use_count, $num_addrs) * 100);
+				my $static_percent = int (safe_div ($static_hosts, $num_addrs) * 100);
+				my $dynamic_percent = int (safe_div ($dynamic_hosts, $num_addrs) * 100);
+				my $host_object_usage_percent = int (safe_div ($num_hosts, $num_addrs) * 100);
+				my $static_usage_percent = int (safe_div ($static_in_use, $num_hosts) * 100);
+				my $dynamic_usage_percent = int (safe_div ($dynamic_in_use, $dynamic_hosts) * 100);
+				my $addresses_needed = $static_in_use + $dynamic_percent;
+				my $needed_percent = int (safe_div ($addresses_needed, $num_addrs) * 100);
 
 				$q->print (<<EOH);
 					<tr>
@@ -190,12 +213,30 @@ EOH
 					   <td COLSPAN='2'>$netmask</td>
 					</tr>
 					<tr>
-					   <td COLSPAN='2'>Host object usage</td>
-					   <td COLSPAN='2'>$num_hosts/$num_addrs ($dns_usage_percent%)</td>
+					   <td COLSPAN='2'>Hosts registered</td>
+					   <td COLSPAN='2'>$num_hosts/$num_addrs ($host_object_usage_percent%)</td>
+					</tr>
+					
+					$table_blank_line
+					
+					<tr>
+					   <td>Static hosts</td>
+					   <td>$static_hosts/$num_addrs ($static_percent%)</td>
+					   <td>in use</td>
+					   <td>$static_in_use/$num_addrs ($static_usage_percent%)</td>
 					</tr>
 					<tr>
-					   <td COLSPAN='2'>Hosts in active use</td>
-					   <td COLSPAN='2'>$in_use_count/$num_addrs ($active_usage_percent%)</td>
+					   <td>Dynamic hosts</td>
+					   <td>$dynamic_hosts/$num_addrs ($dynamic_percent%)</td>
+					   <td>in use</td>
+					   <td>$dynamic_in_use/$num_addrs ($dynamic_usage_percent%)</td>
+					</tr>
+					
+					$table_blank_line
+					
+					<tr>
+					   <td COLSPAN='2'>Addresses needed</td>
+					   <td COLSPAN='2'>$static_in_use + $dynamic_hosts = $addresses_needed/$num_addrs ($needed_percent%)</td>
 					</tr>
 					$table_blank_line
 EOH
