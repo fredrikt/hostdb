@@ -16,7 +16,7 @@ my ($table_blank_line, $table_hr_line, $empty_td) = HOSTDB::StdCGI::get_table_va
 my $debug = HOSTDB::StdCGI::parse_debug_arg (@ARGV);
 my ($hostdbini, $hostdb, $q, $remote_user) = HOSTDB::StdCGI::get_hostdb_and_sucgi ('Modify/Add Host alias', $debug);
 my (%links, $is_admin, $is_helpdesk, $me);
-HOSTDB::StdCGI::get_cgi_common_variables ($q, $hostdb, $remote_user, \%links, \$is_admin, \$is_helpdesk, $me);
+HOSTDB::StdCGI::get_cgi_common_variables ($q, $hostdb, $remote_user, \%links, \$is_admin, \$is_helpdesk, \$me);
 ## end generic initialization
 
 my @readwrite_attributes = ('aliasname', 'comment', 'dnsstatus', 'ttl');
