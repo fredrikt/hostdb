@@ -321,7 +321,7 @@ sub mname
 		my $newvalue = shift;
 
 		if ($newvalue eq 'NULL') {
-			$self->{mname} = 'NULL';
+			$self->{mname} = undef;
 		} else {
 			my $illegal_chars = $newvalue;
 			$illegal_chars =~ s/[a-zA-Z0-9\.\-]//og;
@@ -354,7 +354,7 @@ sub rname
 		my $newvalue = shift;
 
 		if ($newvalue eq 'NULL') {
-			$self->{rname} = 'NULL';
+			$self->{rname} = undef;
 		} else {
 			if ($newvalue =~ /@/) {
 				$self->_set_error ("SOA rname ($newvalue) should not contain '\@' signs.");
@@ -392,7 +392,7 @@ sub refresh
 		my $newvalue = shift;
 
 		if ($newvalue eq 'NULL') {
-			$self->{refresh} = 'NULL';
+			$self->{refresh} = undef;
 		} else {
 			if (! $self->is_valid_nameserver_time ($newvalue)) {
 				$self->_set_error ("Invalid refresh '$newvalue'");
@@ -424,7 +424,7 @@ sub ttl
 		my $newvalue = shift;
 
 		if ($newvalue eq 'NULL') {
-			$self->{ttl} = 'NULL';
+			$self->{ttl} = undef;
 		} else {
 			if (! $self->is_valid_nameserver_time ($newvalue)) {
 				$self->_set_error ("Invalid refresh '$newvalue'");
@@ -455,7 +455,7 @@ sub retry
 		my $newvalue = shift;
 
 		if ($newvalue eq 'NULL') {
-			$self->{retry} = 'NULL';
+			$self->{retry} = undef;
 		} else {
 			if (! $self->is_valid_nameserver_time ($newvalue)) {
 				$self->_set_error ("Invalid retry '$newvalue'");
@@ -486,7 +486,7 @@ sub expiry
 		my $newvalue = shift;
 
 		if ($newvalue eq 'NULL') {
-			$self->{expiry} = 'NULL';
+			$self->{expiry} = undef;
 		} else {
 			if (! $self->is_valid_nameserver_time ($newvalue)) {
 				$self->_set_error ("Invalid retry '$newvalue'");
@@ -517,7 +517,7 @@ sub minimum
 		my $newvalue = shift;
 
 		if ($newvalue eq 'NULL') {
-			$self->{minimum} = 'NULL';
+			$self->{minimum} = undef;
 		} else {
 			if (! $self->is_valid_nameserver_time ($newvalue)) {
 				$self->_set_error ("Invalid retry '$newvalue'");
