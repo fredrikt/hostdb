@@ -2,7 +2,7 @@
 #
 # $Id$
 #
-# script to manually add a subnet to our database
+# script to modify subnets in our database
 #
 
 use strict;
