@@ -105,6 +105,39 @@ sub clean_hostname
 }
 
 
+=head2 clean_zonename
+
+	if (! $hostdb->clean_zonename ($zonename)) {
+		print ("given zonename was invalid: $hostdb->{error}\n");
+	} else {
+		print ("new zonename: $zonename\n");
+	}
+
+	This function modified the variable passed to it, like chomp().
+
+	It converts the zonename to lower case, strips any trailing dots
+	and finally returns the result of valid_zonename ($new_zonename).
+
+=cut
+sub clean_zonename
+{
+	my $self = shift;
+	my $new = lc ($_[0]);	# lowercase
+	my $valid;
+
+	$new =~ s/\.+$//o;	# strip trailing dots
+
+	$valid = $self->valid_zonename ("$new");
+	
+	if ($valid and ($new ne $_[0])) {
+		$self->_debug_print ("changed '$_[0]' into '$new'");
+		$_[0] = $new;
+	}
+
+	return $valid;
+}
+
+
 =head2 valid_fqdn
 
 	$is_valid = $hostdb->valid_fqdn ($hostname);
@@ -123,7 +156,9 @@ sub valid_fqdn
 	my @hostname_parts = split (/\./, $hostname);
 	my $illegal_chars;
 
-	if ($#hostname_parts < 1) {
+	# XXX is 'su.se' a valid FQDN if such an A record exists? For now we don't
+	# call it valid. Go check some RFC or something.
+	if ($#hostname_parts < 2) {
 		$self->_debug_print ("hostname '$hostname' is incomplete");
 		goto ERROR;
 	}
@@ -160,6 +195,52 @@ sub valid_fqdn
 	return 1;
 ERROR:
 	$self->_set_error ("'$hostname' is not a valid FQDN");
+	return 0;
+}
+
+
+=head2 valid_zonename
+
+	$is_valid = $hostdb->valid_zonename ($zonename);
+
+	Checks with some regexps if $zonename is a valid domain name.
+	This is nearly the same thing as valid_fqdn but a bit more relaxed.
+
+=cut
+sub valid_zonename
+{
+	my $self = shift;
+	my $zonename = shift;
+
+	# do NOT clean_zonename() because that function actually uses this one
+
+	my @zonename_parts = split (/\./, $zonename);
+	my $illegal_chars;
+
+	if ($#zonename_parts < 1) {
+		$self->_debug_print ("zonename '$zonename' is incomplete");
+		goto ERROR;
+	}
+
+	# check TLD, only letters and between 2 and 6 chars long
+	# 2 is for 'se', 6 is 'museum'
+	if ($zonename_parts[$#zonename_parts] !~ /^[a-zA-Z]{2,6}$/o) {
+		$self->_debug_print ("TLD part '$zonename_parts[$#zonename_parts]' of FQDN '$zonename' is invalid (should be 2-6 characters and only alphabetic)");
+		goto ERROR;
+	}
+
+	# check it all, a bit more relaxed than above (underscores allowed
+	# for example).	
+	$illegal_chars = $zonename;
+	$illegal_chars =~ s/[a-zA-Z0-9\._-]//og;
+	if ($illegal_chars) {
+		$self->_debug_print ("'$zonename' has illegal characters in it ($illegal_chars)");
+		goto ERROR;
+	}
+
+	return 1;
+ERROR:
+	$self->_set_error ("'$zonename' is not a valid domain name");
 	return 0;
 }
 
@@ -333,9 +414,9 @@ sub init
 	$self->{_hostbyname} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.config WHERE hostname = ? ORDER BY hostname") or die "$DBI::errstr";
 	$self->{_hostbyip} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.config WHERE ip = ? ORDER BY ip") or die "$DBI::errstr";
 
-	#$self->{_hostbyip} =	$self->{_dbh}->prepare ("SELECT * FROM $self->{hostdb}->{db}.config WHERE ip = ? ORDER BY ip") 
-	#	or die "$DBI::errstr";
-	
+	$self->{_zonebyname} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.zone WHERE zonename = ? ORDER BY zonename") or die "$DBI::errstr";
+	$self->{_allzones} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.zone ORDER BY zonename") or die "$DBI::errstr";
+
 	$self->set_user (getpwuid("$<"));
 }
 
@@ -377,6 +458,25 @@ sub create_host
 	my $self = shift;
 	
 	my $o = bless {},"HOSTDB::Object::Host";
+	$o->{hostdb} = $self;
+	$o->init($self);
+	
+	return $o;
+}
+
+
+=head2 create_zone
+
+	$zone = $hostdb->create_zone();
+
+	Gets you a brand new HOSTDB::Object::Zone object.
+	
+=cut
+sub create_zone
+{
+	my $self = shift;
+	
+	my $o = bless {},"HOSTDB::Object::Zone";
 	$o->{hostdb} = $self;
 	$o->init($self);
 	
@@ -478,6 +578,34 @@ sub findhostbypartof
 }
 
 
+=head2 findzonebyname
+
+	$zone = $hostdb->findzonebyname ($zonename);
+	
+=cut
+sub findzonebyname
+{
+	my $self = shift;
+
+	$self->_debug_print ("Find zone with name '$_[0]'");
+	
+	$self->_find(_zonebyname => 'HOSTDB::Object::Zone', $_[0]);
+}
+
+=head2 findallzones
+
+	@zones = $hostdb->findallzones ();
+	
+=cut
+sub findallzones
+{
+	my $self = shift;
+
+	$self->_debug_print ("Find all zones");
+	
+	$self->_find(_allzones => 'HOSTDB::Object::Zone');
+}
+
 
 ########################################
 # package HOSTDB::DB private functions #
@@ -568,9 +696,19 @@ sub check_valid_ip
 	my $self = shift;
 	my $ip = shift;
 	
-	$self->_debug_print ("foo");
+	$self->_debug_print ("ip '$ip'");
 
-	return 1;
+	if ($ip =~ /^(\d)\.(\d)\.(\d)\.(\d)$/) {
+		my @ip = ($1, $2, $3, $4);
+
+		return 0 if (int($ip[0]) < 1 or int($ip[0]) > 254);
+		return 0 if (int($ip[1]) < 0 or int($ip[1]) > 255);
+		return 0 if (int($ip[2]) < 1 or int($ip[2]) > 255);
+		return 0 if (int($ip[3]) < 1 or int($ip[3]) > 255);
+		#return 0 if ("$1.$2" eq "192.168");
+	}
+
+	return 0;
 }
 
 sub set_mac_address
@@ -613,7 +751,7 @@ sub set_ip
 	#
 	# and ideally the assigned test networks too
 	#
-	# (10.0.0.0/8 is IP telephones and 192.168.0.0/16 is used)
+	# (10.0.0.0/8 are IP telephones and 192.168.0.0/16 is used)
 	#
 		
 	$self->{ip} = $ip;
@@ -685,8 +823,10 @@ sub commit
 	# this is a primary host object (not partof another)
 	$self->set_reverse ("Y") if (! defined ($self->{partof}) and ! defined ($self->{reverse}));
 
-	# if TTL is 0, set it to NULL to use default TTL
-	$self->{ttl} = "NULL" if (defined ($self->{ttl}) and $self->{ttl} <= 0);
+	# if TTL is 0, set it to NULL (undef) to use default TTL
+	$self->{ttl} = undef if (defined ($self->{ttl}) and $self->{ttl} <= 0);
+
+	$self->{partof} = undef if (defined ($self->{partof}) and $self->{partof} <= 0);
 
 	my $sth;
 	if (defined ($self->{id}) and $self->{id} >= 0) {
@@ -696,6 +836,8 @@ sub commit
 			       $self->{reverse}, $self->{id})
 			or die "$DBI::errstr";
 		
+		# XXX check number of rows affected?
+
 		$sth->finish();
 	} else {
 		# this is a new entry
@@ -718,6 +860,182 @@ sub commit
 
 	return 1;
 }
+
+
+##################################################################
+
+package HOSTDB::Object::Zone;
+@HOSTDB::Object::Zone::ISA = qw(HOSTDB::Object);
+
+sub init
+{
+	my $self = shift;
+	my $hostdb = shift;
+
+	$hostdb->_debug_print ("creating object");
+
+	if ($hostdb->{_dbh}) {
+		$self->{_new_zone} = $hostdb->{_dbh}->prepare ("INSERT INTO $hostdb->{db}.zone (zonename, serial, refresh, retry, expiry, minimum, owner) VALUES (?, ?, ?, ?, ?, ?, ?)")
+			or die "$DBI::errstr";
+		$self->{_update_zone} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.zone SET zonename = ?, serial = ?, refresh = ?, retry = ?, expiry = ?, minimum = ?, owner = ? WHERE zonename = ?")
+			or die "$DBI::errstr";
+
+		#$self->{_get_last_id} = $hostdb->{_dbh}->prepare ("SELECT LAST_INSERT_ID()")
+		#	or die "$DBI::errstr";
+	}
+
+	# XXX ugly hack to differentiate on zones already in DB
+	# (find* sets this to 1) and new zones
+	$self->{in_db} = 0;
+}
+
+sub check_valid_zonename
+{
+	my $self = shift;
+	my $zone = shift;
+	
+	$self->_debug_print ("zone '$zone'");
+
+	return valid_zonename ($zone);
+}
+
+sub set_zonename
+{
+	my $self = shift;
+	my $zonename = shift;
+	
+	return 0 if (! $self->clean_zonename ($zonename));
+
+	$self->{zonename} = $zonename;
+	
+	return 1;
+}
+
+sub set_serial
+{
+	my $self = shift;
+	my $serial = shift;
+
+	$self->_debug_print ("Setting SOA serial '$serial'");
+
+	if ($serial eq "NULL") {
+		$self->{serial} = "NULL";
+	} else {
+		if ($serial !~ /^\d{10,10}$/) {
+			$self->_set_error("Invalid serial number (should be 10 digits, todays date and two incrementing)");
+			return 0;
+		}
+		$self->{serial} = int ($serial);
+	}
+
+	return 1;
+}
+
+sub set_refresh
+{
+	my $self = shift;
+	my $refresh = shift;
+
+	if ($refresh eq "NULL") {
+		$self->{refresh} = "NULL";
+	} else {
+		$self->{refresh} = int ($refresh);
+	}
+
+	return 1;
+}
+
+sub set_retry
+{
+	my $self = shift;
+	my $retry = shift;
+
+	if ($retry eq "NULL") {
+		$self->{retry} = "NULL";
+	} else {
+		$self->{retry} = int ($retry);
+	}
+
+	return 1;
+}
+
+sub set_expiry
+{
+	my $self = shift;
+	my $expiry = shift;
+
+	if ($expiry eq "NULL") {
+		$self->{expiry} = "NULL";
+	} else {
+		$self->{expiry} = int ($expiry);
+	}
+
+	return 1;
+}
+
+sub set_minimum
+{
+	my $self = shift;
+	my $minimum = shift;
+
+	if ($minimum eq "NULL") {
+		$self->{minimum} = "NULL";
+	} else {
+		$self->{minimum} = int ($minimum);
+	}
+
+	return 1;
+}
+
+sub set_owner
+{
+	my $self = shift;
+	my $owner = shift;
+
+	$self->{owner} = $owner;
+	
+	return 1;
+}
+
+sub commit
+{
+	my $self = shift;
+	my $hostdb = shift;
+
+	# if any of these values are 0, set it to NULL (undef) to use default values
+	$self->{refresh} = undef if (defined ($self->{refresh}) and $self->{refresh} <= 0);
+	$self->{retry} = undef if (defined ($self->{retry}) and $self->{retry} <= 0);
+	$self->{expiry} = undef if (defined ($self->{expiry}) and $self->{expiry} <= 0);
+	$self->{minimum} = undef if (defined ($self->{minimum}) and $self->{minimum} <= 0);
+
+	my $sth;
+	if (defined ($self->{in_db}) and $self->{in_db} >= 1) {
+		$sth = $self->{_update_zone};
+		$sth->execute ($self->{zonename}, $self->{serial}, $self->{refresh},
+			       $self->{retry}, $self->{expiry}, $self->{minimum},
+			       $self->{owner}, $self->{zonename})
+			or die "$DBI::errstr";
+		
+		# XXX check number of rows affected?
+
+		$sth->finish();
+	} else {
+		# this is a new entry
+
+		$sth = $self->{_new_zone};
+		$sth->execute ($self->{zonename}, $self->{serial}, $self->{refresh},
+			       $self->{retry}, $self->{expiry}, $self->{minimum},
+			       $self->{owner})
+			or die "$DBI::errstr";
+
+		$sth->finish ();
+	}	
+
+	return 1;
+}
+
+
+##################################################################
 
 
 package HOSTDB;
