@@ -11,8 +11,8 @@ use Config::IniFiles;
 use HOSTDB;
 use SUCGI;
 
-my $table_blank_line = "<tr><td COLSPAN='3'>&nbsp;</td></tr>\n";
-my $table_hr_line = "<tr><td COLSPAN='3'><hr></td></tr>\n";
+my $table_blank_line = "<tr><td COLSPAN='4'>&nbsp;</td></tr>\n";
+my $table_hr_line = "<tr><td COLSPAN='4'><hr></td></tr>\n";
 
 my $debug = 0;
 if ($ARGV[0] eq "-d") {
@@ -45,9 +45,9 @@ my $whois_path = create_url ($q, $hostdbini->val ('subnet', 'http_base'),
 $q->begin (title => "Subnet(s) matching $subnet");
 
 $q->print (<<EOH);
-	<table BORDER='0' CELLPADDING='0' CELLSPACING='0' WIDTH='600'>
+	<table BORDER='0' CELLPADDING='0' CELLSPACING='3' WIDTH='600'>
 	   $table_blank_line
-	   <td COLSPAN='3' ALIGN='center'><h3>Subnet(s) matching $subnet</h3></td></tr>
+	   <td COLSPAN='4' ALIGN='center'><h3>Subnet(s) matching $subnet</h3></td></tr>
 	   $table_blank_line
 EOH
 
@@ -81,10 +81,10 @@ sub list_subnet
 				my $h_desc = $subnet->description ()?$subnet->description ():'no description';
 				$q->print (<<EOH);
 					<tr>
-					   <td>
+					   <td NOWRAP>
 						<strong>$h_subnet</strong>
 					   </td>
-					   <td COLSPAN='2' ALIGN='center'>
+					   <td COLSPAN='3' ALIGN='center'>
 						<strong>$h_desc</strong>
 					   </td>
 					</tr>
@@ -104,32 +104,22 @@ EOH
 					$q->print ($table_blank_line);
 				}
 
-				# HTML
-				my $netmask = $subnet->netmask ();
-				my $num_hosts = ($#subnet_hosts + 1);
-				my $num_addrs = ($subnet->addresses () - 2);
-				my $usage_percent = int (safe_div ($num_hosts, $num_addrs) * 100);
-
-				$q->print (<<EOH);
-					<tr>
-					   <td>Netmask</td>
-					   <td>$netmask</td>
-					</tr>
-					<tr>
-					   <td>Address usage</td>
-					   <td>$num_hosts/$num_addrs ($usage_percent%)</td>
-					</tr>
-					$table_blank_line
-EOH
-
 				# loop from first to last host address in subnet
-				my $i;
+				my ($i, @o, $in_use_count);
+				push (@o, <<EOH);
+					<tr>
+						<th ALIGN='left'>IP</th>
+						<th ALIGN='left'>Hostname</th>
+						<th ALIGN='left'>MAC address</th>
+						<th ALIGN='left'>Last used</th>
+					</tr>
+EOH
 				for $i (1 .. $subnet->addresses () - 2) {
 					my $ip = $hostdb->ntoa ($subnet->n_netaddr () + $i);
 					my $host = get_host_with_ip ($ip, @subnet_hosts);
 					if (! defined ($host)) {
 						# there is a gap here, output IP in green
-						$q->print ("<tr><td><FONT COLOR='green'>$ip</FONT></td><td COLSPAN='2'>&nbsp;</td></tr>\n");
+						push (@o, "<tr><td><font COLOR='green'>$ip</font></td><td COLSPAN='3'>&nbsp;</td></tr>");
 					} else {
 						# HTML
 						my $ip = $host->ip ();
@@ -139,17 +129,57 @@ EOH
 						}
 						my $hostname = $host->hostname ();
 						my $mac = $host->mac_address ();
+						my $mac_ts = $host->mac_address_ts ();
 						
-						$q->print (<<EOH);
+						my $ts_font = "";
+						my $ts_font_end = "";
+						
+						# XXX make these two parameters configurable from hostdb.ini
+						my $ts_flag_days = 30;
+						my $ts_flag_color = '#dd0000';
+						
+						if (time () - $host->unix_mac_address_ts () >= ($ts_flag_days * 86400)) {
+							$ts_font = "<font COLOR='$ts_flag_color'>";
+							$ts_font_end = "</font>";
+						} else {
+							$in_use_count++;
+						}
+						
+						push (@o, <<EOH);
 							<tr>
-							   <td>$ip</td>
-							   <td>$hostname</td>
-							   <td>$mac</td>
+							   <td ALIGN='left'>$ip</td>
+							   <td ALIGN='left'>$hostname</td>
+							   <td ALIGN='center'><font SIZE='2'><pre>$mac  </pre></font></td>
+							   <td ALIGN='right' NOWRAP>$ts_font$mac_ts$ts_font_end</td>
 							</tr>
 EOH
 					}
 				}
-				$q->print ($table_blank_line);
+
+				# HTML
+				my $netmask = $subnet->netmask ();
+				my $num_hosts = ($#subnet_hosts + 1);
+				my $num_addrs = ($subnet->addresses () - 2);
+				my $dns_usage_percent = int (safe_div ($num_hosts, $num_addrs) * 100);
+				my $active_usage_percent = int (safe_div ($in_use_count, $num_addrs) * 100);
+
+				$q->print (<<EOH);
+					<tr>
+					   <td COLSPAN='2'>Netmask</td>
+					   <td COLSPAN='2'>$netmask</td>
+					</tr>
+					<tr>
+					   <td COLSPAN='2'>Host object usage</td>
+					   <td COLSPAN='2'>$num_hosts/$num_addrs ($dns_usage_percent%)</td>
+					</tr>
+					<tr>
+					   <td COLSPAN='2'>Hosts in active use</td>
+					   <td COLSPAN='2'>$in_use_count/$num_addrs ($active_usage_percent%)</td>
+					</tr>
+					$table_blank_line
+EOH
+
+				$q->print (join ("\n", @o), $table_blank_line);
 			}
 			
 			$q->print ("\n\n");
@@ -208,7 +238,7 @@ sub error_line
 	my $error = shift;
 	$q->print (<<EOH);
 	   <tr>
-		<td COLSPAN='3'>
+		<td COLSPAN='4'>
 		   <font COLOR='red'>
 			<strong>$error</strong>
 		   </font>
