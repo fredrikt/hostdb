@@ -122,8 +122,9 @@ sub init
 		##
 		## HOST ALIAS
 		##
-		my $SELECT_hostalias = "SELECT *, UNIX_TIMESTAMP(lastmodified) AS unix_lastmodified, UNIX_TIMESTAMP(lastupdated) AS unix_lastupdated FROM $self->{db}.hostalias";
+		my $SELECT_hostalias = "SELECT * FROM $self->{db}.hostalias";
 		$self->{_hostaliasbyid}		= $self->{_dbh}->prepare ("$SELECT_hostalias WHERE id = ? ORDER BY id") or die "$DBI::errstr";
+		$self->{_hostaliasbyname}	= $self->{_dbh}->prepare ("$SELECT_hostalias WHERE aliasname = ? ORDER BY id") or die "$DBI::errstr";
 		$self->{_hostaliasesbyhostid}	= $self->{_dbh}->prepare ("$SELECT_hostalias WHERE hostid = ? ORDER BY aliasname") or die "$DBI::errstr";
 		$self->{_hostaliasesbydnszone}	= $self->{_dbh}->prepare ("$SELECT_hostalias WHERE dnszone = ? ORDER BY aliasname") or die "$DBI::errstr";
 		$self->{_allaliases}		= $self->{_dbh}->prepare ("SELECT * ") or die "$DBI::errstr";
@@ -979,6 +980,23 @@ sub findhostaliasbyid
 	$self->_debug_print ("Find host alias with id '$_[0]'");
 	
 	$self->_find(_hostaliasbyid => 'HOSTDB::Object::HostAttribute', $_[0]);
+}
+
+
+
+=head2 findhostaliasbyname
+
+	$alias = $hostdb->findhostaliasbyname ($alias_name);
+
+
+=cut
+sub findhostaliasbyname
+{
+	my $self = shift;
+
+	$self->_debug_print ("Find host alias with name '$_[0]'");
+	
+	$self->_find(_hostaliasbyname => 'HOSTDB::Object::HostAttribute', $_[0]);
 }
 
 

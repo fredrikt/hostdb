@@ -55,9 +55,9 @@ sub init
 	}
 
 	if ($hostdb->{_dbh}) {
-		$self->{_new_hostalias} = $hostdb->{_dbh}->prepare ("INSERT INTO $hostdb->{db}.hostalias (hostid, aliasname, ttl, dnszone, dnsstatus, lastmodified, lastupdated, comment) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+		$self->{_new_hostalias} = $hostdb->{_dbh}->prepare ("INSERT INTO $hostdb->{db}.hostalias (hostid, aliasname, ttl, dnszone, dnsstatus, comment) VALUES (?, ?, ?, ?, ?, ?)")
 			or die ("$DBI::errstr");
-		$self->{_update_hostattribute} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.hostalias SET hostid = ?, aliasname = ?, ttl = ?, dnszone = ?, dnsstatus = ?, lastmodified = ?, lastupdated = ?, comment = ? WHERE id = ?")
+		$self->{_update_hostattribute} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.hostalias SET hostid = ?, aliasname = ?, ttl = ?, dnszone = ?, dnsstatus = ?, comment = ? WHERE id = ?")
 			or die ("$DBI::errstr");
 		$self->{_delete_hostattribute} = $hostdb->{_dbh}->prepare ("DELETE FROM $hostdb->{db}.hostalias WHERE id = ?")
 			or die ("$DBI::errstr");
@@ -92,8 +92,6 @@ sub commit
 			 $self->ttl (),
 			 $self->dnszone (),
 			 $self->dnsstatus (),
-			 $self->lastmodified (),
-			 $self->lastupdated (),
 			 $self->comment (),
 			);
 	my $sth;
@@ -294,76 +292,6 @@ sub comment
 
 	These functions should NEVER be called by a program using this class,
 	but are documented here as well just for the sake of documentation.
-
-
-=head2 lastmodified
-
-	Blah
-
-
-=cut
-sub lastmodified
-{
-	my $self = shift;
-
-	$self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_datetime, @_);
-}
-
-
-=head2 unix_lastmodified
-
-	unix_lastmodified is lastmodified but expressed as a UNIX
-	timestamp. It is not stored in the database, but calculated at
-	the time a host attribute object is fetched from the database. The only
-	purpose of this is to make it easier for applications using
-	host attribute objects to perform date calculations.
-
-	printf "The attribute was last modified %i seconds ago.\n",
-	       time () - $attr->unix_lastmodified ();
-
-
-=cut
-sub unix_lastmodified
-{
-	my $self = shift;
-
-	$self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_read_only, @_);
-}
-
-
-=head2 lastupdated
-
-	Blah
-
-
-=cut
-sub lastupdated
-{
-	my $self = shift;
-
-	$self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_datetime, @_);
-}
-
-
-=head2 unix_lastupdated
-
-	unix_lastupdated is lastupdated but expressed as a UNIX
-	timestamp. It is not stored in the database, but calculated at
-	the time a host attribute object is fetched from the database. The only
-	purpose of this is to make it easier for applications using
-	host attribute objects to perform date calculations.
-
-	printf "The attribute was last updated %i seconds ago.\n",
-	       time () - $attr->unix_lastupdated ();
-
-
-=cut
-sub unix_lastupdated
-{
-	my $self = shift;
-
-	$self->_set_or_get_attribute ('unix_lastupdated', \&HOSTDB::Object::_validate_read_only, @_);
-}
 
 
 1;
