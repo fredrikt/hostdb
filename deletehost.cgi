@@ -9,7 +9,7 @@ use strict;
 use Config::IniFiles;
 #use lib 'blib/lib';
 use HOSTDB;
-use SUCGI2;
+use SUCGI;
 
 my $table_blank_line = "<tr><td COLSPAN='2'>&nbsp;</td></tr>\n";
 my $table_hr_line = "<tr><td COLSPAN='2'><hr></td></tr>\n";
