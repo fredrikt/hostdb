@@ -82,6 +82,7 @@ if (! $subnet) {
 my $whois_path = $q->state_url ($hostdbini->val ('subnet', 'whois_uri')) if ($hostdbini->val ('subnet', 'whois_uri'));
 my $modifyhost_path = $q->state_url ($hostdbini->val ('subnet', 'modifyhost_uri')) if ($hostdbini->val ('subnet', 'modifyhost_uri'));
 my $modifysubnet_path = $q->state_url ($hostdbini->val ('subnet', 'modifysubnet_uri')) if ($hostdbini->val ('subnet', 'modifysubnet_uri'));
+my $netplan_uri = $q->state_url ($hostdbini->val('subnet', 'netplan_uri')) if ($hostdbini->val('subnet', 'netplan_uri'));
 
 my $subnetname = $subnet->subnet ();
 
@@ -89,7 +90,7 @@ $q->print (<<EOH);
 	<table BORDER='0' CELLPADDING='0' CELLSPACING='3' WIDTH='600'>
 		$table_blank_line
 		<tr>
-			<td COLSPAN='4' ALIGN='center'><h3>Subnet(s) matching $subnetname</h3></td>
+			<td COLSPAN='4' ALIGN='center'><h3>HOSTDB: Subnet $subnetname</h3></td>
 		</tr>
 		$table_blank_line
 EOH
@@ -134,23 +135,38 @@ sub list_subnet
 	my $me = $q->state_url ();
 	my $id = $subnet->id ();
 
-	my $edit_subnet_link = '';
+	my @links;
 	if ($is_admin and $modifysubnet_path) {
-		$edit_subnet_link = "[<a HREF='$modifysubnet_path;id=$id'>edit</a>]";
+		push (@links, "[<a HREF='$modifysubnet_path;id=$id'>edit</a>]");
+	}
+
+	if ($is_admin and $netplan_uri) {
+		push (@links, "[<a HREF='$netplan_uri'>netplan</a>]");
 	}
 
 	my $h_desc = $q->escapeHTML ($subnet->description ()?$subnet->description ():'no description');
 	$q->print (<<EOH);
 		<tr>
 		   <td NOWRAP>
-			<strong>$subnet_name</strong> $edit_subnet_link
+			<strong>$subnet_name</strong>
 		   </td>
 		   <td COLSPAN='3' ALIGN='center'>
 			<strong>$h_desc</strong>
 		   </td>
 		</tr>
-		$table_blank_line
 EOH
+	if (@links) {
+		my $l = join (' ', @links);
+		$q->print (<<EOH);
+		<tr>
+		  <td COLSPAN='4'>
+		    $l
+		  </td>
+		</tr>
+EOH
+	}
+
+	$q->print ($table_blank_line);
 
 	if (get_host_with_ip ($subnet->netaddr (), @hosts) or
 	    get_host_with_ip ($subnet->broadcast (), @hosts)) {
