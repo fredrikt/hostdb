@@ -45,6 +45,9 @@ ${msg}Syntax: $0 [options] <IP/FQDN/MAC/ID>
 		--debug		debug
 		--force		well, force
 	object modifiers :
+		--ip		IP address
+		--hostname	FQDN
+		--partof	parent Host ID
 		--dhcpmode	STATIC or DYNAMIC
 		--dhcpstatus	ENABLED or DISABLED
 		--dnsmode	A_AND_PTR or A
@@ -52,7 +55,7 @@ ${msg}Syntax: $0 [options] <IP/FQDN/MAC/ID>
 		--mac_address	MAC address
 		--ttl		DNS TTL
 		--user		Comment about user
-		--partof	parent Host ID
+		--owner		Comment about owner
 
 EOT
 }
