@@ -439,7 +439,8 @@ sub request_reload
 	foreach $t (@$zones_ref) {
 	        # don't request reload of delegated zones - that will just generate an error
 		# about the zonefile not existing
-    		next if ($zone->delegated () eq 'Y');
+	        my $z = $hostdb->findzonebyname ($t);
+    		next if ($z->delegated () eq 'Y');
 
 		$zonenames{$t} = 1;	
 	}
