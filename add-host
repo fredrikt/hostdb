@@ -96,6 +96,8 @@ $host->dhcpmode ('STATIC')	or die ("$0: Could not set default 'dhcpmode': $host-
 $host->dhcpstatus ('ENABLED')	or die ("$0: Could not set default 'dhcpstatus': $host->{error}\n");
 $host->dnsmode ('A_AND_PTR')	or die ("$0: Could not set default 'dhcpmode': $host->{error}\n");
 $host->dnsstatus ('ENABLED')	or die ("$0: Could not set default 'dnsstatus': $host->{error}\n");
+$host->manual_dnszone('N')      or die ("$0: Could not set default 'manual_dnszone': $host->{error}\n");
+$host->profile('default')      or die ("$0: Could not set default 'profile': $host->{error}\n");
 
 # optional ones
 $host->dhcpmode ($opt_dhcpmode)			or die ("$0: Invalid dhcpmode - $host->{error}\n") if (defined ($opt_dhcpmode));
