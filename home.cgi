@@ -51,6 +51,7 @@ unless ($remote_user) {
 	die ("$0: Invalid REMOTE_USER environment variable '$ENV{REMOTE_USER}'");
 }
 my $is_admin = $hostdb->auth->is_admin ($remote_user);
+my $is_helpdesk = $hostdb->auth->is_helpdesk ($remote_user);
 
 
 my (@links, @admin_links);
@@ -72,12 +73,13 @@ $q->print (<<EOH);
 		$table_blank_line
 EOH
 
-my ($subnets_ref, $zones_ref) = home_form ($q, $hostdb, $remote_user, $is_admin);
+my ($subnets_ref, $zones_ref) = home_form ($q, $hostdb, $remote_user, $is_admin, $is_helpdesk);
 
 if (defined ($q->param ('action') and $q->param ('action') eq 'Activate changes')) {
-	request_reload ($dhcp_signal_directory, $dns_signal_directory,
-			$subnets_ref, $zones_ref, $q, $remote_user);
+	activate_changes ($hostdb, $q, $dhcp_signal_directory, $dns_signal_directory,
+			  $subnets_ref, $zones_ref, $is_admin, $is_helpdesk, $remote_user);
 }
+
 
 $q->print (<<EOH);
 	</table>
@@ -92,15 +94,17 @@ sub home_form
 	my $hostdb = shift;
 	my $remote_user = shift;
 	my $is_admin = shift;
-	
+	my $is_helpdesk = shift;	
+
 	# HTML 
         my $state_field = $q->state_field ();
 	my $me = $q->state_url ();
 	my $reload = $q->submit ('action', 'Activate changes');
-	my $user = $q->submit ('foo', 'Pretend to be') . "&nbsp;" . $q->textfield ('user');
-
-	$user = '&nbsp;' if (! $is_admin);
+	my $user = '&nbsp';
 	
+	$user = $q->submit ('foo', 'Pretend to be') . "&nbsp;" . $q->textfield ('user') if ($is_admin);
+	$reload .= "&nbsp;" . $q->textfield ('activateother') if ($is_admin or $is_helpdesk);
+
 	$q->print ($table_hr_line);
 	
 	if ($is_admin and defined ($q->param ('user')) and $q->param ('user')) {
@@ -123,14 +127,14 @@ sub home_form
 
 	$q->print (<<EOH);
 		<tr>
-		  <td>
+		  <td NOWRAP>
 		    <form ACTION='$me' METHOD='post'>
 		      $user_if_any
 		      $reload
 		    </form>
 		  </td>
 		  $empty_td
-		  <td>
+		  <td NOWRAP>
 		    <form ACTION='$me' METHOD='post'>
 		      $user
 		    </form>
@@ -303,6 +307,86 @@ EOH
 	return (@res);
 }
 
+sub activate_changes
+{
+	my $hostdb = shift;
+	my $q = shift;
+	my $dhcp_signal_directory = shift;
+	my $dns_signal_directory = shift;
+	my $subnets_ref = shift;
+	my $zones_ref = shift;
+	my $is_admin = shift;
+	my $is_helpdesk = shift;
+	my $remote_user = shift;
+	
+	my $msg = 'All subnets and zones above';
+	my $abort = 0;
+	
+	if ($is_admin or $is_helpdesk) {
+		my $activateother = $q->param ('activateother') || '';
+
+		if ($activateother) {
+			if ($hostdb->is_valid_ip ($activateother)) {
+				if ($activateother =~ /\.0+$/) {
+					# prolly intended subnet /24
+					$activateother .= '/24';
+				} else {
+					error_line ($q, "Cannot activate changes: argument '$activateother' is an IP address, not a subnet");
+					return undef;
+				}
+			}
+	
+			if ($hostdb->is_valid_subnet ($activateother)) {
+				my $s = $hostdb->findsubnet ($activateother);
+				if (defined ($s)) {
+					my $n = $s->subnet ();	# make sure we get correctly formatted name
+					@$subnets_ref = ($n);
+					@$zones_ref = ();
+					$msg = "Subnet $n";
+				} else {
+					error_line ($q, "Cannot activate changes: Subnet '$activateother' not found");
+					return undef;
+				}	
+			} elsif ($hostdb->clean_domainname ($activateother)) {
+				my $z = $hostdb->findzonebyname ($activateother);
+				if (defined ($z)) {
+					my $n = $z->zonename ();	# make sure we get correctly formatted name
+					@$zones_ref = ($n);
+					@$subnets_ref = ();
+					$msg = "Zone '$n'";
+				} else {
+					error_line ($q, "Cannot activate changes: Zone '$activateother' not found");
+					return undef;
+				}		
+			} else {
+				error_line ($q, "Cannot activate changes: Argument '$activateother' neither subnet nor domain");
+				return undef;
+			}
+		}
+	}
+
+	my $res = request_reload ($dhcp_signal_directory, $dns_signal_directory,
+			$subnets_ref, $zones_ref, $q, $remote_user);
+			
+	if ($res) {
+		my $time = localtime ();
+
+		$q->print (<<EOH);
+			<tr>
+			  <td COLSPAN='3'>
+			    <font COLOR='green' SIZE='2'><strong>
+			      $time: $msg scheduled for reconfiguration
+			    </strong></font>
+			  </td>
+			</tr>	
+EOH
+	} else {
+		error_line ($q, "Something failed when activating changes, check logs!");
+	}
+
+	return $res;
+}
+
 sub request_reload
 {
 	my $dhcp_signal_directory = shift;
@@ -333,23 +417,21 @@ sub request_reload
 		return undef;
 	}
 		
-	$sam = SAM2->new (directory => $dhcp_signal_directory, name => 'home.cgi');
-	if (! defined ($sam)) {
-		error_line ($q, "Could not create SAM object (directory $dhcp_signal_directory)");
-		return 0;
-	}
+	my $num_subnets = scalar @$subnets_ref;
 
-	warn ("$i: user '$remote_user' requests reload of the following subnets : " . join (', ', @$subnets_ref) . "\n");
+	if ($num_subnets) {
+		$sam = SAM2->new (directory => $dhcp_signal_directory, name => 'home.cgi');
+		if (! defined ($sam)) {
+			error_line ($q, "Could not create SAM object (directory $dhcp_signal_directory)");
+			return 0;
+		}
+
+		warn ("$i: user '$remote_user' requests reload of the following $num_subnets subnets : " . join (', ', @$subnets_ref) . "\n");
 	
-	$sam->send ({msg => join (',', @$subnets_ref)}, 'configure');
-	# or error_line ($q, "WARNING: Message might not have been sent (directory $dhcp_signal_directory)");
-	$sam = undef;
-	
-	$sam = SAM2->new (directory => $dns_signal_directory, name => 'home.cgi');
-	if (! defined ($sam)) {
-		error_line ($q, "Could not create SAM object (directory $dns_signal_directory)");
-		return 0;
-	}
+		$sam->send ({msg => join (',', @$subnets_ref)}, 'configure');
+		# or error_line ($q, "WARNING: Message might not have been sent (directory $dhcp_signal_directory)");
+		$sam = undef;
+	}	
 
 	# build list of all requested zonenames plus the
 	# ones for IPv4 reverse of the subnets from above
@@ -366,24 +448,23 @@ sub request_reload
 		}
 	}
 	
-	warn ("$i: user '$remote_user' requests reload of the following zones : " . join (', ', sort keys %zonenames) . "\n");
-	
-	$sam->send ({msg => join (',', sort keys %zonenames)}, 'configure');
-	# or error_line ($q, "WARNING: Message might not have been sent (directory $dns_signal_directory)");
-	$sam = undef;
-	
-	my $time = localtime ();
+	my @zonelist = sort keys %zonenames;
+	my $num_zones = scalar @zonelist;
 
-	$q->print (<<EOH);
-		<tr>
-		  <td COLSPAN='3'>
-		    <font COLOR='green' SIZE='2'><strong>
-		      $time: All subnets and zones above scheduled for reconfiguration
-		    </strong></font>
-		  </td>
-		</tr>	
-EOH
+	if ($num_zones) {
+		$sam = SAM2->new (directory => $dns_signal_directory, name => 'home.cgi');
+		if (! defined ($sam)) {
+			error_line ($q, "Could not create SAM object (directory $dns_signal_directory)");
+			return 0;
+		}
 
+		warn ("$i: user '$remote_user' requests reload of the following $num_zones zones : " . join (', ', @zonelist) . "\n");
+	
+		$sam->send ({msg => join (',', @zonelist)}, 'configure');
+		# or error_line ($q, "WARNING: Message might not have been sent (directory $dns_signal_directory)");
+		$sam = undef;
+	}
+	
 	return 1;
 }
 
