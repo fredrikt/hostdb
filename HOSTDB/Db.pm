@@ -611,8 +611,6 @@ sub findzonebyhostname
 
 		# strip up to and including the first dot (min.it.su.se -> it.su.se)
 		$checkzone =~ s/^.+?\.(.*)/$1/;
-		warn ("CHECKZONE NOW '$checkzone'\n");
-
 	}
 
 	$self->_debug_print ("No zone found for hostname '$hostname'");
