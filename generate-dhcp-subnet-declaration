@@ -84,13 +84,13 @@ sub print_dhcp_subnet
 		return undef;
 	}
 
-	my $subnetfn = $subnet_name . "_id" . $subnet->id () . ".conf";
+	my $subnetfn = $subnet_name . "_id" . $subnet->id ();
 	$subnetfn =~ s#/#-#go;
-	my $subnetfile = "$output_dir/$subnetfn";
+	my $subnetfile = "$output_dir/${subnetfn}.conf";
 	
 	if (-f $subnetfile) {
 		print ("$0: Not overwriting existing '$subnetfn'\n") unless ($quiet);
-		$generated_files_ref->{$subnetfn} = 1;
+		$generated_files_ref->{"${subnetfn}.conf"} = 1;
 		return 1;
 	}
 
@@ -148,7 +148,7 @@ EOD
 	
 	close ($SUBNET);
 		
-	$generated_files_ref->{$subnetfile} = 1;
+	$generated_files_ref->{"${subnetfn}.conf"} = 1;
 	return 1;
 }
 
@@ -166,7 +166,7 @@ sub remove_old_files
 	
 	# Do NOT add the subnet id here, the whole point is to find old subnets with the same
 	# name and remove them since there is now a new subnet in the database
-	my $file_regexp = $subnet->subnet () . "_";
+	my $file_regexp = $subnet->subnet () . "_id" . $subnet->id ();
 	$file_regexp =~ s#/#-#go;
 	
 	my @files = grep { /^$file_regexp/ } readdir DIR;
