@@ -35,7 +35,7 @@ foreach my $file (@files) {
 	$zonename = $file;
 	$zonename =~ s/\.\.ZONE$//o;
 
-	open (DIFF, "cvs diff $file |") or die ("$0: popen(cvs diff $file) failed: $!\n");
+	open (DIFF, "cvs diff -u $file |") or die ("$0: popen(cvs diff $file) failed: $!\n");
 
 	my @diff;
 	my $line;
