@@ -581,6 +581,77 @@ sub findallzones
 }
 
 
+=head2 findzonebyhostname
+
+	Finds the zone for the specified hostname.
+
+	$zone = $hostdb->findzonebyhostname ('min.it.su.se');
+
+
+=cut
+sub findzonebyhostname
+{
+	my $self = shift;
+	my $hostname = shift;
+
+	my $checkzone = $hostname;
+	while ($checkzone) {
+		my $zone = $self->findzonebyname ($checkzone);
+		if (defined ($zone)) {
+			# we have a match
+			$self->_debug_print ("Hostname $hostname belongs to zone $checkzone");
+			return $zone;
+		}
+
+		# strip up to and including the first dot (min.it.su.se -> it.su.se)
+		$checkzone =~ s/^.+?\.(.*)/$1/;
+	}
+
+	$self->_debug_print ("No zone found for hostname '$hostname'");
+	return undef;
+
+}
+
+
+=head2 findzonenamebyhostname
+
+	This is another variant of findzonebyhostname (). The
+	difference is that this function does not fetch data from
+	the database, but just provides the logic. You provide
+	the hostname and zonenames.
+
+
+	foreach my $zone ($hostdb->findallzones ()) {
+		push (@all_zonenames, $zone->zonename ());
+	} 
+	printf "Host %s belongs to zone %s\n", $hostname,
+		$hostdb->findzonenamebyhostname ($hostname, @all_zonenames);
+
+
+=cut
+sub findzonenamebyhostname
+{
+	my $self = shift;
+	my $hostname = shift;
+	my @all_zones = @_;
+
+	my $checkzone = $hostname;
+	while ($checkzone) {
+		if (grep (/^$checkzone$/, @all_zones)) {
+			# we have a match
+			$self->_debug_print ("Hostname $hostname belongs to zone $checkzone");
+			return $checkzone;
+		}
+
+		# strip up to and including the first dot (min.it.su.se -> it.su.se)
+		$checkzone =~ s/^.+?\.(.*)/$1/;
+	}
+
+	$self->_debug_print ("No zonename found for hostname '$hostname' in list supplied to findzonenamebyhostname ()");
+	return undef;
+}
+
+
 =head2 findsubnet
 
 	$subnet = $hostdb->findsubnet("192.168.1.1/24");
