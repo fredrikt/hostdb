@@ -169,12 +169,12 @@ sub modify_alias
 
 	if (! $is_admin and ! $is_helpdesk) {
 	    if (! defined ($subnet) or ! $hostdb->auth->is_allowed_write ($subnet, $remote_user)) {
-		die ("You do not have sufficient access to subnet '" . $subnet->subnet () . "'");
+		die ("You do not have sufficient access to subnet '" . $subnet->subnet () . "'\n");
 	    }
 
 	    # if there is no zone, only base decision on subnet rights
 	    if (defined ($zone) and ! $hostdb->auth->is_allowed_write ($zone, $remote_user)) {
-		die ("You do not have sufficient access to zone '" . $zone->zone () . "'");
+		die ("You do not have sufficient access to zone '" . $zone->zone () . "'\n");
 	    }
 	}
 
