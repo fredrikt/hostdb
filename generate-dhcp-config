@@ -60,7 +60,10 @@ foreach my $subnet (@subnets) {
 	my %generated_files;
 	
 	$failed = 1 if (! print_dhcp_config ($hostdb, $subnet, $output_dir, \%generated_files, $debug, $quiet));
-	$failed = 1 if (! remove_old_files ($subnet, $output_dir, \%generated_files, $remove_old, $debug, $quiet));
+	if (! $failed) {
+		$failed = 1 if (! remove_old_files ($subnet, $output_dir, \%generated_files,
+						    $remove_old, $debug, $quiet));
+	}
 
 	last if ($failed);
 }
