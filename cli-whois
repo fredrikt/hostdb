@@ -48,7 +48,7 @@ while ($ARGV[0]) {
 			my $mac = $host->mac_address () || "n/a";
 			my $mac_ts = $host->mac_address_ts () || "no timestamp";
 			my $hostname = $host->hostname () || 'NULL';
-			my $user = $host->user () || 'NULL';
+			my $comment = $host->comment () || 'NULL';
 			my $owner = $host->owner ();
 			my $dhcpstatus = $host->dhcpstatus ();
 			my $dhcpmode = $host->dhcpmode ();
@@ -78,7 +78,7 @@ while ($ARGV[0]) {
 
 	General :
 	  Profile	$profile
-	  User		$user
+	  Comment	$comment
 	  Owner		$owner
 
 EOH

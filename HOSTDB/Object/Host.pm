@@ -43,7 +43,7 @@ Host object routines. A host object has the following attributes :
   n_ip			- ip in network order numerical format
   owner			- HOSTDB::Auth identifier that may modify this host
   ttl			- DNS TTL to use for this host
-  user			- a comment style field documenting the user
+  comment		- a comment field
   partof		- a reference to another host object's id
   mac_address_ts	- a timestamp showing when this host was last seen on the network
   unix_mac_address_ts	- mac_address_ts expressed as a UNIX timestamp
@@ -61,10 +61,10 @@ Q: Why n_ip?
 A: Yes, it is redundantly stored information, but it makes finding all hosts in a given
 subnet etcetera incredibly much easier (in MySQL).
 
-Q: Why owner and user?
-A: We have had loose ideas of granting 'owner' rights to modify the host object, and it
-is nice for the owner to be able to document the user. Might turn into a more generic
-'comment' attribute instead.
+Q: Why owner?
+A: We have had loose ideas of granting 'owner' rights to modify the host object, but
+now it seems more like a good way to indicate who is responsible for a host and who
+to talk to before modifying/deleting a host.
 
 Q: Why partof?
 A: Database modelling were very much simplified with this 'one host object per network
@@ -93,9 +93,9 @@ sub init
 	$self->_debug_print ("creating object");
 
 	if ($hostdb->{_dbh}) {
-		$self->{_new_host} = $hostdb->{_dbh}->prepare ("INSERT INTO $hostdb->{db}.host (dhcpmode, dhcpstatus, mac, dnsmode, dnsstatus, hostname, dnszone, manual_dnszone, ip, n_ip, owner, ttl, user, partof, mac_address_ts, profile) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+		$self->{_new_host} = $hostdb->{_dbh}->prepare ("INSERT INTO $hostdb->{db}.host (dhcpmode, dhcpstatus, mac, dnsmode, dnsstatus, hostname, dnszone, manual_dnszone, ip, n_ip, owner, ttl, comment, partof, mac_address_ts, profile) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
 			or die "$DBI::errstr";
-		$self->{_update_host} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.host SET dhcpmode = ?, dhcpstatus = ?, mac = ?, dnsmode = ?, dnsstatus = ?, hostname = ?, dnszone = ?, manual_dnszone = ?, ip = ?, n_ip = ?, owner = ?, ttl = ?, user = ?, partof = ?, mac_address_ts = ?, profile = ? WHERE id = ?")
+		$self->{_update_host} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.host SET dhcpmode = ?, dhcpstatus = ?, mac = ?, dnsmode = ?, dnsstatus = ?, hostname = ?, dnszone = ?, manual_dnszone = ?, ip = ?, n_ip = ?, owner = ?, ttl = ?, comment = ?, partof = ?, mac_address_ts = ?, profile = ? WHERE id = ?")
 			or die "$DBI::errstr";
 		$self->{_delete_host} = $hostdb->{_dbh}->prepare ("DELETE FROM $hostdb->{db}.host WHERE id = ?")
 			or die "$DBI::errstr";
@@ -138,7 +138,7 @@ sub commit
 			 $self->n_ip (),
 			 $self->owner (),
 			 $self->ttl (),
-			 $self->user (),
+			 $self->comment (),
 			 $self->partof (),
 			 $self->mac_address_ts (),
 			 $self->profile ()
@@ -597,29 +597,28 @@ sub profile
 }
 
 
-=head2 user
+=head2 comment
 
-	Get or set this hosts user. Just an informative field.
-	XXX this might be changed to a more generic comment field. XXX
+	Get or set this hosts comment. Just an informative field.
 
-	print ("Old user: " . $host->user ());
-	$host->user ($new_user) or warn ("Failed setting value\n");
+	print ("Old comment: " . $host->comment ());
+	$host->comment ($new_comment) or warn ("Failed setting value\n");
 
 
 =cut
-sub user
+sub comment
 {
 	my $self = shift;
 
 	if (@_) {
 		my $newvalue = shift;
 
-		$self->{user} = $newvalue;
+		$self->{comment} = $newvalue;
 	
 		return 1;
 	}
 
-	return ($self->{user});
+	return ($self->{comment});
 }
 
 

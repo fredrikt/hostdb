@@ -8,7 +8,7 @@
 use strict;
 use HOSTDB;
 use Getopt::Long;
-use vars qw ($opt_ip $opt_hostname $opt_manual_dnszone $opt_dnszone $opt_owner $opt_dhcpmode $opt_dhcpstatus $opt_dnsmode $opt_dnsstatus $opt_mac_address $opt_ttl $opt_user $opt_partof $opt_profile $opt_debug $opt_force);
+use vars qw ($opt_ip $opt_hostname $opt_manual_dnszone $opt_dnszone $opt_owner $opt_dhcpmode $opt_dhcpstatus $opt_dnsmode $opt_dnsstatus $opt_mac_address $opt_ttl $opt_comment $opt_partof $opt_profile $opt_debug $opt_force);
 
 my %o = ();
 my $res = GetOptions (
@@ -23,7 +23,7 @@ my $res = GetOptions (
 	    "dnsstatus=s",
 	    "mac_address=s",
 	    "ttl=i",
-	    "user=s",
+	    "comment=s",
 	    "partof=i",
 	    "profile=s",
 	    "debug",
@@ -57,8 +57,8 @@ ${msg}Syntax: $0 [options] <IP/FQDN/MAC/ID>
 		--dnsstatus		ENABLED or DISABLED
 		--mac_address		MAC address
 		--ttl			DNS TTL
-		--user			Comment about user
-		--owner			Comment about owner
+		--comment		Comment abou host
+		--owner			Username of owner
 
 EOT
 }
@@ -107,7 +107,7 @@ $host->dnsmode ($opt_dnsmode)		or die ("$0: Invalid dnsmode - $host->{error}\n")
 $host->dnsstatus ($opt_dnsstatus)	or die ("$0: Invalid dnsstatus - $host->{error}\n") if (defined ($opt_dnsstatus));
 $host->mac_address ($opt_mac_address)	or die ("$0: Invalid mac_address - $host->{error}\n") if (defined ($opt_mac_address));
 $host->ttl ($opt_ttl)			or die ("$0: Invalid ttl - $host->{error}\n") if (defined ($opt_ttl));
-$host->user ($opt_user)			or die ("$0: Invalid user - $host->{error}\n") if (defined ($opt_user));
+$host->comment ($opt_comment)		or die ("$0: Invalid comment - $host->{error}\n") if (defined ($opt_comment));
 $host->partof ($opt_partof)		or die ("$0: Invalid partof - $host->{error}\n") if (defined ($opt_partof));
 $host->manual_dnszone ($opt_manual_dnszone) or die ("$0: Invalid manual_dnszone - $host->{error}\n") if (defined ($opt_manual_dnszone));
 
