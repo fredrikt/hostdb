@@ -29,6 +29,19 @@ CREATE TABLE zone (
         PRIMARY KEY (zonename)
 );
 
+CREATE TABLE subnet (
+	netaddr	CHAR(20) NOT NULL,
+	slashnotation TINYINT UNSIGNED NOT NULL,
+	subnet CHAR(20) NOT NULL,
+	description VARCHAR(255),
+	short_description VARCHAR(255),
+	n_netaddr INT NOT NULL,
+	n_netmask INT NOT NULL,
+	htmlcolor CHAR(20),
+	dhcpconfig MEDIUMBLOB,
+	PRIMARY KEY (netaddr)
+);
+
 # this is an EXAMPLE grant command, you need to replace $database, $user, example.org and $password
 GRANT select, insert, update, delete ON $database.* TO "$user"@"%.example.org" IDENTIFIED BY '$password';
 
