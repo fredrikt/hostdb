@@ -12,19 +12,19 @@ use vars qw ($opt_dhcpmode $opt_dhcpstatus $opt_dnsmode $opt_dnsstatus $opt_mac_
 
 my %o = ();
 my $res = GetOptions (
-	    "dhcpmode=s",
-	    "dhcpstatus=s",
-	    "dnsmode=s",
-	    "dnsstatus=s",
-	    "mac_address=s",
-	    "ttl=i",
-	    "comment=s",
-	    "partof=i",
-	    "dnszone=s",
-	    "manual_dnszone=s",
-	    "debug",
-	    "force"
-	   );
+		      "dhcpmode=s",
+		      "dhcpstatus=s",
+		      "dnsmode=s",
+		      "dnsstatus=s",
+		      "mac_address=s",
+		      "ttl=i",
+		      "comment=s",
+		      "partof=i",
+		      "dnszone=s",
+		      "manual_dnszone=s",
+		      "debug",
+		      "force"
+		      );
 
 #die ("$0: Parsing options failed\n") if ($res);
 
@@ -35,14 +35,14 @@ my $owner = shift;
 
 sub usage
 {
-	my $msg = shift;
-	# interpolation
+    my $msg = shift;
+    # interpolation
 
-	die(<<EOT);
+    die(<<EOT);
 ${msg}Syntax: $0 [options] ip hostname owner
 	options:
 		--debug		debug
-		--force		don't perform certain sanity checks (DUP checking)
+		--force		don\'t perform certain sanity checks (DUP checking)
 	object modifiers :
 		--dhcpmode	STATIC or DYNAMIC
 		--dhcpstatus	ENABLED or DISABLED
@@ -64,26 +64,26 @@ my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
 usage ("") if (! defined ($ip) or ! defined ($hostname) or ! defined ($owner));
 usage ("Invalid IP address '$ip'\n\n") unless ($hostdb->is_valid_ip ($ip));
 if (! ($opt_dnsstatus?$opt_dnsstatus:'' eq 'DISABLED' and $hostname eq 'NULL')) {
-	# if dnsstatus is DISABLED, an empty hostname is valid
-	usage ("Invalid hostname '$hostname'\n\n") unless ($hostdb->is_valid_fqdn ($hostname));
+    # if dnsstatus is DISABLED, an empty hostname is valid
+    usage ("Invalid hostname '$hostname'\n\n") unless ($hostdb->is_valid_fqdn ($hostname));
 }
 
 if (! $opt_force) {
-	# do some extra sanity checks if not forced
-	my $h = $hostdb->findhostbyip ($ip);
-	die ("$0: A host with IP $ip already exists, use --force to add anyways.\n") if (defined ($h));
-	$h = $hostdb->findhostbyname ($hostname);
-	die ("$0: A host with hostname $hostname already exists, use --force to add anyways.\n") if (defined ($h));
+    # do some extra sanity checks if not forced
+    my $h = $hostdb->findhostbyip ($ip);
+    die ("$0: A host with IP $ip already exists, use --force to add anyways.\n") if (defined ($h));
+    $h = $hostdb->findhostbyname ($hostname);
+    die ("$0: A host with hostname $hostname already exists, use --force to add anyways.\n") if (defined ($h));
 
-	if ($opt_mac_address) {
-		$h = $hostdb->findhostbymac ($opt_mac_address);
-		die ("$0: A host with MAC address $opt_mac_address already exists, use --force to add anyways.\n") if (defined ($h));
-	}
+    if ($opt_mac_address) {
+	$h = $hostdb->findhostbymac ($opt_mac_address);
+	die ("$0: A host with MAC address $opt_mac_address already exists, use --force to add anyways.\n") if (defined ($h));
+    }
 
-	if ($opt_partof) {
-		$h = $hostdb->findhostbyid ($opt_partof);
-		die ("$0: A parent host with ID $opt_mac_address could not be found, use --force to set partof anyways.\n") if (defined ($h));
-	}
+    if ($opt_partof) {
+	$h = $hostdb->findhostbyid ($opt_partof);
+	die ("$0: A parent host with ID $opt_mac_address could not be found, use --force to set partof anyways.\n") if (defined ($h));
+    }
 }
 
 my $host = $hostdb->create_host ();
@@ -96,8 +96,8 @@ $host->dhcpmode ('STATIC')	or die ("$0: Could not set default 'dhcpmode': $host-
 $host->dhcpstatus ('ENABLED')	or die ("$0: Could not set default 'dhcpstatus': $host->{error}\n");
 $host->dnsmode ('A_AND_PTR')	or die ("$0: Could not set default 'dhcpmode': $host->{error}\n");
 $host->dnsstatus ('ENABLED')	or die ("$0: Could not set default 'dnsstatus': $host->{error}\n");
-$host->manual_dnszone('N')      or die ("$0: Could not set default 'manual_dnszone': $host->{error}\n");
-$host->profile('default')      or die ("$0: Could not set default 'profile': $host->{error}\n");
+$host->manual_dnszone('N')	or die ("$0: Could not set default 'manual_dnszone': $host->{error}\n");
+$host->profile('default')	or die ("$0: Could not set default 'profile': $host->{error}\n");
 
 # optional ones
 $host->dhcpmode ($opt_dhcpmode)			or die ("$0: Invalid dhcpmode - $host->{error}\n") if (defined ($opt_dhcpmode));
@@ -111,13 +111,13 @@ $host->partof ($opt_partof)			or die ("$0: Invalid partof - $host->{error}\n") i
 $host->manual_dnszone ($opt_manual_dnszone)	or die ("$0: Invalid manual_dnszone - $host->{error}\n") if (defined ($opt_manual_dnszone));
 
 if (! defined ($opt_dnszone)) {
-	my $z = $hostdb->findzonebyhostname ($host->hostname ());
-	
-	die ("$0: Could not find a suitable DNS zone for hostname '" . $host->hostname () . "'\n") unless defined ($z);
+    my $z = $hostdb->findzonebyhostname ($host->hostname ());
 
-	$host->dnszone ($z->zonename ()) or die ("$0: Invalid dnszone - $host->{error}\n");
+    die ("$0: Could not find a suitable DNS zone for hostname '" . $host->hostname () . "'\n") unless defined ($z);
+
+    $host->dnszone ($z->zonename ()) or die ("$0: Invalid dnszone - $host->{error}\n");
 } else {
-	$host->dnszone ($opt_dnszone) or die ("$0: Invalid dnszone - $host->{error}\n");
+    $host->dnszone ($opt_dnszone) or die ("$0: Invalid dnszone - $host->{error}\n");
 }
 
 $host->commit () or die ("$0: Could not commit host object - $host->{error}\n");
