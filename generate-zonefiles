@@ -1,0 +1,288 @@
+#!/usr/local/bin/perl
+#
+# $Id$
+#
+# script to generate zone files for zones from our database
+#
+
+use strict;
+use Config::IniFiles;
+#use lib 'blib/lib';
+use HOSTDB;
+use Getopt::Std;
+use vars qw ($opt_h $opt_d $opt_o);
+use FileHandle;
+
+my $debug = 0;
+
+getopts ('hdo:');
+
+if ($opt_h) {
+	die("Syntax: $0 [options]\n" . 
+	    "	options:\n" .
+	    "		-d	debug\n" .
+	    "		-o	output dir\n" .
+	    "\n");
+}
+
+$debug = 1 if (defined ($opt_d));
+my $output_dir = $opt_o;
+$output_dir =~ s/\/$//o;	# remove trailing slash
+
+die ("$0: Output dir '$output_dir' is not a directory\n") if (! -d $output_dir);
+
+my $hostdbini = Config::IniFiles->new (-file => HOSTDB::get_inifile ());
+
+my %zone_defaults;
+$zone_defaults{default_ttl} = $hostdbini->val ('zone', 'default_zone_ttl');
+$zone_defaults{soa_ttl} = $hostdbini->val ('zone', 'default_soa_ttl');
+$zone_defaults{soa_mname} = $hostdbini->val ('zone', 'default_soa_mname');
+$zone_defaults{soa_rname} = $hostdbini->val ('zone', 'default_soa_rname');
+$zone_defaults{soa_refresh} = $hostdbini->val ('zone', 'default_soa_refresh');
+$zone_defaults{soa_retry} = $hostdbini->val ('zone', 'default_soa_retry');
+$zone_defaults{soa_expiry} = $hostdbini->val ('zone', 'default_soa_expiry');
+$zone_defaults{soa_minimum} = $hostdbini->val ('zone', 'default_soa_minimum');
+
+my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
+			  db => $hostdbini->val ('db', 'database'),
+			  user => $hostdbini->val ('db', 'user'),
+			  password => $hostdbini->val ('db', 'password'),
+			  debug => $debug
+			 );
+
+my @generate = @ARGV;
+
+push (@generate, "*") if ($#generate == -1);	# default is to generate ALL
+
+foreach my $buildzone (sort @generate) {
+	my $zone;
+	
+	if ($buildzone eq "*") {
+		print ("build: ALL ZONES\n") if ($debug);
+	} else {
+		if (! $hostdb->clean_zonename ($buildzone)) {
+			warn ("$0: Invalid zonename '$buildzone'\n");
+			next;
+		}
+		print ("build: '$buildzone'\n") if ($debug);
+	}
+
+	# we always need all zone names to correctly determine if a host
+	# is in a given zone or a subzone
+	my (@zones, @zonenames);
+	foreach $zone ($hostdb->findallzones ()) {
+		push (@zones, $zone);
+		push (@zonenames, $zone->zonename ());
+	}
+	
+	foreach $zone (@zones) {
+		if ($buildzone ne "*") {
+			next if ($zone->zonename () ne $buildzone);
+		}
+
+		next if ($zone->delegated () eq "Y");
+
+		my %zone_parameters = %zone_defaults;
+
+		$zone_parameters{default_ttl} = $zone->default_ttl () if ($zone->default_ttl ());
+		$zone_parameters{soa_ttl} = $zone->ttl () if ($zone->ttl ());
+		$zone_parameters{soa_serial} = $zone->serial () if ($zone->serial ());
+		$zone_parameters{soa_mname} = $zone->mname () if ($zone->mname ());
+		$zone_parameters{soa_rname} = $zone->rname () if ($zone->rname ());
+		$zone_parameters{soa_refresh} = $zone->refresh () if ($zone->refresh ());
+		$zone_parameters{soa_retry} = $zone->retry () if ($zone->retry ());
+		$zone_parameters{soa_expiry} = $zone->expiry () if ($zone->expiry ());
+		$zone_parameters{soa_minimum} = $zone->minimum () if ($zone->minimum ());
+
+		$zone_parameters{soa_mname} =~ s/\.+$//o;	# strip trailing dots
+		$zone_parameters{soa_mname} .= ".";
+		$zone_parameters{soa_rname} =~ s/\.+$//o;	# strip trailing dots
+		$zone_parameters{soa_rname} .= ".";
+
+		gen_zonefile ($hostdb, $zone->zonename (), \%zone_parameters, @zonenames) or die ("$0: Failed to generate zonefile for zone '" . $zone->zonename () . "'\n");
+	}
+
+	print ("\n") if ($debug);
+}
+
+sub zonefilename
+{
+	my $zonename = shift;
+
+	return ("$output_dir/$zonename..DB");
+}
+
+sub gen_zonefile
+{
+	my $hostdb = shift;
+	my $zonename = shift;
+	my $zone_param_ref = shift;
+	my %zone_parameters = %$zone_param_ref;
+	my @all_zones = @_;
+	my $ZONEFILE = new FileHandle;
+
+	my $fn = zonefilename ($zonename);
+
+	print ("building $fn\n") if ($debug);
+
+	foreach my $req_soa_val ("default_ttl", "soa_serial", "soa_mname", "soa_rname", "soa_refresh",
+				 "soa_retry", "soa_expiry", "soa_minimum") {
+		if ((! defined ($zone_parameters{$req_soa_val})) or
+		    (! $zone_parameters{$req_soa_val})) {
+			warn ("Required zone parameter $req_soa_val not present for zone '$zonename'\n");
+			return 0;    
+		}
+	}
+
+	open ($ZONEFILE, "> $fn") or warn ("$0: Couldn't open '$fn' for writing: $!\n"), return 0;
+	
+	close ($ZONEFILE, return 0) if (!soa_rr ($hostdb, $zonename, $zone_param_ref, $ZONEFILE, $fn));
+
+	if ($zonename =~ /\.in-addr\.arpa$/) {
+		if ($zonename =~ /.+\.\d+\.\d+\.\d+\.in-addr\.arpa$/) {
+			warn ("$0: Classless in-addr.arpa not implemented ($zonename)\n");
+			return undef;
+		}
+		
+		close ($ZONEFILE), return 0 if (! ipv4_ptr_rr ($hostdb, $zonename, $ZONEFILE, $fn));
+	} elsif ($zonename =~ /\.e164\.arpa$/) {
+		warn ("$0: zone '$zonename' - e164.arpa not implemented\n");
+		return undef;
+	} elsif ($zonename =~ /\.ip6\.arpa$/) {
+		warn ("$0: zone '$zonename' - ip6.arpa not implemented\n");
+		return undef;	
+	} elsif ($zonename =~ /\.arpa$/) {
+		warn ("$0: zone '$zonename' - unknown .arpa, I'd better not try\n");
+		return undef;
+	} elsif ($zonename =~ /\.ip6\.int$/) {
+		warn ("$0: ip6.int not implemented\n");
+		return undef;
+	} else {
+		close ($ZONEFILE), return 0 if (! a_rr ($hostdb, $zonename, $ZONEFILE, $fn, @all_zones));
+	}
+
+	# XXX sync file to disk and make sure it went well (disk may be full)
+			
+	close ($ZONEFILE);
+	
+	return 1;
+}
+
+sub soa_rr
+{
+	my $hostdb = shift;
+	my $zonename = shift;
+	my $zone_param_ref = shift;
+	my %zp = %$zone_param_ref;
+	my $FH = shift;
+	my $fn = shift;
+
+	print ($FH <<EOS);
+\$TTL $zp{default_ttl}
+\$ORIGIN $zonename.
+@	$zp{soa_ttl}	IN SOA	$zp{soa_mname} $zp{soa_rname} ($zp{soa_serial} $zp{soa_refresh} $zp{soa_retry} $zp{soa_expiry} $zp{soa_minimum});
+
+EOS
+	return 1;
+}
+
+sub ipv4_ptr_rr
+{
+	my $hostdb = shift;
+	my $zonename = shift;
+	my $FH = shift;
+	my $fn = shift;
+
+	my $included_hosts_count = 0;
+
+	my @i = split ('\.', $zonename);
+	my $ipbase = "$i[2].$i[1].$i[0]";
+	my $n_netbase = $hostdb->aton ("$ipbase.0");
+	foreach my $host ($hostdb->findhostbyiprange ("$ipbase.0", "$ipbase.255")) {
+		my $hostname = $host->hostname ();
+		my $hostip = $host->ip ();
+			
+		$hostname =~ s/\.+$//o;	# strip trailing dots
+		$hostname .= ".";
+			
+		my @t = split ('\.', $hostip);
+		my $str = tab_format (2, "$t[3].$t[2].$t[1].$t[0].in-addr.arpa.	PTR	$hostname\n");
+		
+		print ($FH $str) or warn ("$0: Couldn't write data to '$fn': $!\n"), return 0;
+			
+		$included_hosts_count++;
+	}
+	print ("found $included_hosts_count hosts in $zonename\n");
+
+	return 1;
+}
+
+sub a_rr
+{
+	my $hostdb = shift;
+	my $zonename = shift;
+	my $FH = shift;
+	my $fn = shift;
+	my @all_zones = @_;
+	
+	my $included_hosts_count = 0;
+	my $skipped_hosts_count = 0;
+
+	foreach my $host ($hostdb->findhostbywildcardname ("%.$zonename")) {
+		my $hostname = $host->hostname ();
+		my $hostip = $host->ip ();
+			
+		$hostname =~ s/\.+$//o;	# strip trailing dots
+			
+		if (host_in_zone ($hostname, $zonename, @all_zones)) {
+			$hostname .= ".";
+			my $str = tab_format (3, $hostname) . "	A	$hostip\n";
+			print ($FH $str) or
+				warn ("$0: Couldn't write data to '$fn': $!\n"), return 0;
+			$included_hosts_count++;
+		} else {
+			# this is a host in a subzone, example :
+			# we have the zones su.se, it.su.se and lab.it.su.se.
+			# host lab08.lab.it.su.se is not part of zone su.se or it.su.se
+			#warn ("HOST $hostname NOT IN ZONE $zonename\n");
+			$skipped_hosts_count++;
+		}
+	}
+	if ($skipped_hosts_count) {
+		print ("found $included_hosts_count hosts in $zonename, " .
+		       "$skipped_hosts_count found to be in subzones\n");
+	} else {
+		print ("found $included_hosts_count hosts in $zonename\n");
+	}
+	return 1;
+}
+
+sub host_in_zone
+{
+	my $hostname = shift;
+	my $zonename = shift;
+	my @all_zones = @_;
+
+	my $checkzone = $hostname;
+	while ($checkzone) {
+		# strip up to and including the first dot (min.it.su.se -> it.su.se)
+		$checkzone =~ s/^.+?\.(.*)/$1/;
+		if (grep (/^$checkzone$/, @all_zones)) {
+			# we have a match
+			return 0 if ($checkzone ne $zonename);
+			return 1;
+		}
+	}
+	
+	return undef;
+}
+
+sub tab_format
+{
+	my $tab_count = shift;
+	my $string = shift;
+
+	my $minus_tabs = int (length ($string) / 8);
+
+	return $string . "	" x ($tab_count - $minus_tabs);
+}
