@@ -18,17 +18,25 @@ if (defined($ARGV[0]) and $ARGV[0] eq "-d") {
 	$debug = 1;
 }
 
-my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
-			      debug => $debug
-			     );
-
-my $hostdbini = $hostdb->inifile ();
-
+my $hostdbini = Config::IniFiles->new (-file => HOSTDB::get_inifile ());
 my $sucgi_ini;
 if (-f $hostdbini->val ('sucgi', 'cfgfile')) {
 	$sucgi_ini = Config::IniFiles->new (-file => $hostdbini->val ('sucgi', 'cfgfile'));
 } else {
 	warn ("No SUCGI config-file ('" . $hostdbini->val ('sucgi', 'cfgfile') . "')");
+}
+my $q = SUCGI2->new ($sucgi_ini, 'hostdb');
+$q->begin (title => 'Modify Subnet');
+
+my $hostdb = eval {
+	HOSTDB::DB->new (ini => $hostdbini, debug => $debug);
+};
+
+if ($@) {
+	my $e = $@;
+	$q->print ("&nbsp;<p><ul><font COLOR='red' SIZE='3'><strong>Could not create HOSTDB object: $e</strong></font></ul>\n\n");
+	$q->end ();
+	die ("$0: Could not create HOSTDB object: '$e'");
 }
 
 my %zone_defaults;
@@ -41,11 +49,9 @@ $zone_defaults{soa_retry} = $hostdbini->val ('zone', 'default_soa_retry');
 $zone_defaults{soa_expiry} = $hostdbini->val ('zone', 'default_soa_expiry');
 $zone_defaults{soa_minimum} = $hostdbini->val ('zone', 'default_soa_minimum');
 
-my $q = SUCGI2->new ($sucgi_ini,'hostdb');
 my $me = $q->state_url ();
 my %links = $hostdb->html_links ($q);
 
-$q->begin (title => 'Modify Zone');
 my $remote_user = $q->user();
 unless ($remote_user) {
         $q->print ("&nbsp;<p><ul><font COLOR='red' SIZE='3'><strong>You are not logged in.</strong></font></ul>\n\n");
