@@ -1,0 +1,128 @@
+#!/usr/local/bin/perl
+#
+# $Id$
+#
+# script to delete zones from the database
+#
+
+use strict;
+use Config::IniFiles;
+#use lib 'blib/lib';
+use HOSTDB;
+use Getopt::Long;
+use vars qw ($opt_id $opt_zonename $opt_debug $opt_force $opt_quiet);
+
+my %o = ();
+my $res = GetOptions (
+	    "id=i",
+	    "zonename=s",
+	    "debug",
+	    "force",
+	    "quiet"
+	   );
+
+#die ("$0: Parsing options failed\n") if ($res);
+
+my ($search_for, $datatype);
+
+my $debug = defined ($opt_debug);
+
+if (defined ($opt_id)) {
+	$datatype = "ID";
+	$search_for = $opt_id;
+}
+if (defined ($opt_zonename)) {
+	die ("$0: Can't specify more than one search criteria at once (zonename)\n") if ($search_for);
+	$datatype = "ZONENAME";
+	$search_for = $opt_zonename;
+}
+
+usage("") if (! $search_for);
+
+my $hostdbini = Config::IniFiles->new (-file => HOSTDB::get_inifile ());
+die ("$0: Config file access problem.\n") unless ($hostdbini);
+
+my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
+			  db => $hostdbini->val ('db', 'database'),
+			  user => $hostdbini->val ('db', 'user'),
+			  password => $hostdbini->val ('db', 'password'),
+			  debug => $debug
+			 );
+
+my $zone = get_zone ($search_for, $datatype);
+
+die ("$0: Could not find zone object\n") unless ($zone);
+
+if (! $opt_quiet) {
+	printf ("%-25s %-10s %-15s %s\n", "zonename", "serial", "owner", "delegated");
+	printf ("%-25s %-10s %-15s %s\n", $zone->zonename (),
+		$zone->serial (), $zone->owner (), $zone->delegated ());
+}
+
+if (! $opt_force) {
+	die ("$0: Dying, you have to delete with --force\n");
+}
+
+$zone->delete ($opt_force?"YES":"WELL, UHH") or die ("$0: Could not delete zone object - $zone->{error}\n");
+
+print ("Zone object deleted\n") if (! $opt_quiet);
+
+exit (0);
+
+
+sub usage
+{
+	my $msg = shift;
+	# interpolation
+	
+	die(<<EOT);
+${msg}Syntax: $0 datatype search_for
+	options:
+		--debug		debug
+		--force		well, force
+		--quiet		quiet
+	datatypes:
+		--id		host id
+		--zonename	name of the zone
+
+EOT
+}
+
+sub get_zone
+{
+	my $search_for = shift;
+	my $datatype = shift;
+	my @zone_refs;
+
+	if ($datatype eq "ID") {
+		if ($search_for =~ /^\d+$/) { 
+			@zone_refs = $hostdb->findzonebyid ($search_for);
+		} else {
+			warn ("Search failed: '$search_for' is not a valid ID");
+			return undef;
+		}
+	} elsif ($datatype eq "ZONENAME") {
+		if ($hostdb->is_valid_domainname ($search_for)) {
+			@zone_refs = $hostdb->findzonebyname ($search_for);
+		} else {
+			warn ("Search failed: '$search_for' is not a valid domain name");
+			return undef;
+		}
+	} else {
+		warn ("Search failed: don't recognize datatype '$datatype'");
+		return undef;
+	}
+
+	if ($#zone_refs == -1) {
+		warn ("$0: Search for '$search_for' (type '$datatype') failed - no match\n");
+		return undef;
+	}
+	if ($#zone_refs == -1) {
+		my $count = $#zone_refs + 1;
+		warn ("$0: Search for '$search_for' (type '$datatype') failed - more than one ($count) match\n");
+		return undef;
+	}
+	
+	return $zone_refs[0];
+}
+
