@@ -135,6 +135,7 @@ sub add_host
     $alias->dnsstatus ('ENABLED')	or die ("$0: Could not set 'dnsstatus': $alias->{error}\n");
     $alias->ttl ($host_ttl)		or die ("$0: Could not set 'ttl' (from host, '$host_ttl'): $alias->{error}\n");
     $alias->comment ('dns-import')	or die ("$0: Could not set 'comment': $alias->{error}\n");
+    $alias->dnszone ($dnszone)		or die ("$0: Could not set 'dnszone': $alias->{error}\n");
 
     print ("add alias '$aliasname $ttl $hostname' (dns zone '$dnszone')\n") if ($debug);
 
