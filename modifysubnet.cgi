@@ -115,7 +115,7 @@ if ($action eq 'commit') {
 } elsif ($action eq 'search') {
 	# call modify_subnet but don't commit () afterwards to get
 	# stuff supplied to us as CGI parameters
-	# set on the subnet before we call host_form () below.
+	# set on the subnet before we call subnet_form () below.
 	modify_subnet ($hostdb, $subnet, $q, $remote_user);
 } else {
 	error_line ($q, 'Unknown action');
@@ -146,7 +146,7 @@ sub modify_subnet
 	my (@changelog, @warning);
 	
 	eval {
-		die ("No host object") unless ($subnet);
+		die ("No subnet object") unless ($subnet);
 		
 		$subnet->_set_error ('');		
 
