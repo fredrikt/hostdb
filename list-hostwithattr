@@ -68,7 +68,7 @@ if (@host_refs) {
 EOH
 		}
 
-	my @attrs = $host->init_attributes();
+	my @attrs = $host->init_attributes ();
 	my $numattrs = scalar @attrs;
 
 		if (! $raw) {
