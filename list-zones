@@ -48,8 +48,8 @@ foreach my $searchzone (sort @searchfor) {
 			if ($raw) {
 				print ($zone->zonename () . "\n");
 			} else {
-				printf ("%-25s %-10s %-15s %s\n", $zone->zonename (),
-					$zone->serial (), $zone->owner (), $zone->delegated ());
+				printf "%-25s %-10s %-15s %s\n", $zone->zonename (),
+					$zone->serial (), $zone->owner (), $zone->delegated ();
 			}
 		}
 	} else {
@@ -57,8 +57,8 @@ foreach my $searchzone (sort @searchfor) {
 			if ($raw) {
 				print ($zone->zonename () . "\n");
 			} else {
-				printf ("%-25s %-10s %-15s %s\n", $zone->zonename (), $zone->serial (),
-					$zone->owner (), $zone->delegated ());
+				printf "%-25s %-10s %-15s %s\n", $zone->zonename (), $zone->serial (),
+					$zone->owner (), $zone->delegated ();
 			}
 		}
 	}
