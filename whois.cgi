@@ -9,8 +9,8 @@ use strict;
 use HOSTDB;
 use SUCGI;
 
-my $table_blank_line = "<tr><td COLSPAN='2'>&nbsp;</td></tr>\n";
-my $table_hr_line = "<tr><td COLSPAN='2'><hr></td></tr>\n";
+my $table_blank_line = "<tr><td COLSPAN='3'>&nbsp;</td></tr>\n";
+my $table_hr_line = "<tr><td COLSPAN='3'><hr></td></tr>\n";
 
 my $debug = 0;
 if (defined ($ARGV[0]) and ($ARGV[0] eq "-d")) {
@@ -51,6 +51,7 @@ $q->print (<<EOH);
 		$table_blank_line
 		<tr>
 			<td COLSPAN='2' ALIGN='center'><h3>HOSTDB: Search</h3></td>
+			<td>&nbsp;</td>
 		</tr>
 		$table_blank_line
 EOH
@@ -81,22 +82,18 @@ sub whois_form
 
 	$q->print (<<EOH);
 		<tr>
-		   <td COLSPAN='2'>
-			<table BORDER='0' CELLSPACING='0' CELLPADDING='0' WIDTH='600'>
-			   <tr>
-				<td>
-				   <form ACTION='$me' METHOD='post'>
-					$state_field
-					Search for &nbsp;
-					$popup &nbsp;
-					$datafield &nbsp;
-					$submit
-				   </form>
-				</td>
-			   </tr>
-			   $table_blank_line
-			</table>
+		   <td COLSPAN='2' ALIGN='center'>
+			<form ACTION='$me' METHOD='post'>
+				$state_field
+				Search for &nbsp;
+				$popup &nbsp;
+				$datafield &nbsp;
+				$submit
+			</form>
+		   </td>
+		   <td>&nbsp;</td>
 		</tr>
+		$table_blank_line
 EOH
 }
 
@@ -120,8 +117,8 @@ sub perform_search
 			if (1 == @host_refs) {
 				# only one host, show detailed information
 				foreach my $host (@host_refs) {
-					$q->print ("<tr><th COLSPAN='2' ALIGN='left'>Host :</th></tr>");
-					$q->print ("<tr><td COLSPAN='2'>&nbsp;</td></tr>\n");
+					$q->print ("<tr><th COLSPAN='3' ALIGN='left'>Host :</th></tr>");
+					$q->print ("<tr><td COLSPAN='3'>&nbsp;</td></tr>\n");
 		
 					print_host_info ($q, $hostdb, $remote_user, $host);
 				}
@@ -307,7 +304,7 @@ sub error_line
 	my $error = shift;
 	$q->print (<<EOH);
 	   <tr>
-		<td COLSPAN='2'>
+		<td COLSPAN='3'>
 		   <font COLOR='red'>
 			<strong>$error</strong>
 		   </font>
