@@ -37,6 +37,8 @@ Host object routines. A host object has the following attributes :
   dnsmode		- A and PTR record, or just A record and no PTR
   dnsstatus		- generate DNS config for this host or not
   hostname		- hostname
+  dnszone		- DNS zone name
+  manual_dnszone	- whether or not to automatically update dnszone
   ip			- ip
   n_ip			- ip in network order numerical format
   owner			- HOSTDB::Auth identifier that may modify this host
@@ -45,6 +47,8 @@ Host object routines. A host object has the following attributes :
   partof		- a reference to another host object's id
   mac_address_ts	- a timestamp showing when this host was last seen on the network
   unix_mac_address_ts	- mac_address_ts expressed as a UNIX timestamp
+  profile		- what profile this host has - currently only what DHCP
+			  config file it should be written to
 
 Supposed FAQ:
 
@@ -89,9 +93,9 @@ sub init
 	$self->_debug_print ("creating object");
 
 	if ($hostdb->{_dbh}) {
-		$self->{_new_host} = $hostdb->{_dbh}->prepare ("INSERT INTO $hostdb->{db}.host (dhcpmode, dhcpstatus, mac, dnsmode, dnsstatus, hostname, ip, n_ip, owner, ttl, user, partof, mac_address_ts) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+		$self->{_new_host} = $hostdb->{_dbh}->prepare ("INSERT INTO $hostdb->{db}.host (dhcpmode, dhcpstatus, mac, dnsmode, dnsstatus, hostname, dnszone, manual_dnszone, ip, n_ip, owner, ttl, user, partof, mac_address_ts, profile) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
 			or die "$DBI::errstr";
-		$self->{_update_host} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.host SET dhcpmode = ?, dhcpstatus = ?, mac = ?, dnsmode = ?, dnsstatus = ?, hostname = ?, ip = ?, n_ip = ?, owner = ?, ttl = ?, user = ?, partof = ?, mac_address_ts = ? WHERE id = ?")
+		$self->{_update_host} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.host SET dhcpmode = ?, dhcpstatus = ?, mac = ?, dnsmode = ?, dnsstatus = ?, hostname = ?, dnszone = ?, manual_dnszone = ?, ip = ?, n_ip = ?, owner = ?, ttl = ?, user = ?, partof = ?, mac_address_ts = ?, profile = ? WHERE id = ?")
 			or die "$DBI::errstr";
 		$self->{_delete_host} = $hostdb->{_dbh}->prepare ("DELETE FROM $hostdb->{db}.host WHERE id = ?")
 			or die "$DBI::errstr";
@@ -128,13 +132,16 @@ sub commit
 			 $self->dnsmode (),
 			 $self->dnsstatus (),
 			 $self->hostname (),
+			 $self->dnszone (),
+			 $self->manual_dnszone (),
 			 $self->ip (),
 			 $self->n_ip (),
 			 $self->owner (),
 			 $self->ttl (),
 			 $self->user (),
 			 $self->partof (),
-			 $self->mac_address_ts ()
+			 $self->mac_address_ts (),
+			 $self->profile ()
 			);
 	my $sth;
 	if (defined ($self->id ()) and $self->id () >= 0) {
@@ -397,6 +404,72 @@ sub hostname
 }
 
 
+=head2 dnszone
+
+	Get or set this hosts DNS zonename.
+	Uses clean_domainname () on supplied value.
+
+	print ("Old zonename: " . $host->dnszone ());
+	$host->dnszone ($new_zonename) or warn ("Failed setting value\n");
+
+
+=cut
+sub dnszone
+{
+	my $self = shift;
+
+	if (@_) {
+		my $newvalue = shift;
+
+		if ($newvalue eq "NULL") {
+			$self->{dnszone} = undef;
+			return 1;
+		}
+	
+		return 0 if (! $self->clean_domainname ($newvalue));
+		$self->{dnszone} = $newvalue;
+
+		return 1;
+	}
+
+	return ($self->{dnszone});
+}
+
+
+=head2 manual_dnszone
+
+	If this is 'Y' (the default), operations that change the hostname
+	or change zones will automatically update this objects dnszone.
+	Glue records could be obtained through setting this to 'N' and setting
+	dnszone to the parent zone.
+
+	XXX example
+
+
+=cut
+sub manual_dnszone
+{
+	my $self = shift;
+
+	if (@_) {
+		my $newvalue = shift;
+	
+		if ($newvalue =~ /^y/oi) {
+			$self->{manual_dnszone} = 'Y';
+		} elsif ($newvalue =~ /^n/oi) {
+			$self->{manual_dnszone} = 'N';
+		} else {
+			$self->_set_error ('Invalid manual_dnszone format');
+			return 0;
+		}
+		
+		return 1;
+	}
+
+	return ($self->{manual_dnszone});
+}
+
+
 =head2 ip
 
 	Get or set this hosts IP address. This function also updates the
@@ -462,7 +535,7 @@ sub n_ip
 }
 
 
-=head2 ip
+=head2 ttl
 
 	Get or set this hosts DNS records TTL value.
 	XXX it is not defined if this should be a number of seconds or
@@ -492,6 +565,35 @@ sub ttl
 	}
 
 	return ($self->{ttl});
+}
+
+
+=head2 profile
+
+	XXX
+
+=cut
+sub profile
+{
+	my $self = shift;
+
+	if (@_) {
+		my $newvalue = shift;
+
+		if ($newvalue eq "NULL") {
+			$self->{profile} = 'default';
+		} else {
+			if (! $self->is_valid_profilename ($newvalue)) {
+				$self->_set_error ("Invalid profile name '$newvalue'");
+				return undef;
+			}
+			$self->{profile} = $newvalue;
+		}
+
+		return 1;
+	}
+
+	return ($self->{profile});
 }
 
 
