@@ -1,0 +1,52 @@
+#!/usr/bin/perl
+#
+# $Id$
+#
+# script to read zone entrys from database
+#
+
+use strict;
+use Config::IniFiles;
+#use lib 'blib/lib';
+use HOSTDB;
+
+my $debug = 0;
+if ($ARGV[0] eq "-d") {
+	shift (@ARGV);
+	$debug = 1;
+}
+
+my $hostdbini = Config::IniFiles->new (-file => '/usr/local/etc/hostdb.ini');
+
+my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
+			  db => $hostdbini->val ('db', 'database'),
+			  user => $hostdbini->val ('db', 'user'),
+			  password => $hostdbini->val ('db', 'password'),
+			  debug => $debug
+			 );
+
+my @searchfor = @ARGV;
+
+push (@searchfor, "*") if ($#searchfor == -1);	# search for ALL
+
+foreach my $searchzone (sort @searchfor) {
+	if ($searchzone eq "*") {
+		print ("search for: ALL ZONES\n");
+	} else {
+		print ("search for: '$searchzone'\n");
+	}
+
+	printf ("%-25s %-10s %s\n", "zonename", "serial", "owner");
+
+	if ($searchzone eq "*") {
+		foreach my $zone ($hostdb->findallzones ()) {
+			printf ("%-25s %-10s %s\n", $zone->{zonename}, $zone->{serial}, $zone->{owner});
+		}
+	} else {
+		foreach my $zone ($hostdb->findzonebyname ($searchzone)) {
+			printf ("%-25s %-10s %s\n", $zone->{zonename}, $zone->{serial}, $zone->{owner});
+		}
+	}
+
+	print ("\n");
+}

@@ -1,0 +1,80 @@
+#!/usr/bin/perl
+#
+# $Id$
+#
+# script to read a named.conf without fancy commenting ( /* */ style) and
+# with one zone per row in our host database.
+#
+
+use strict;
+use Config::IniFiles;
+#use lib 'blib/lib';
+use HOSTDB;
+
+my $debug = 0;
+my $file = shift @ARGV;
+my $default_ttl;
+
+if (! $file or $#ARGV != -1) {
+	die ("Syntax: $0 path/to/named.conf\n");
+}
+
+my $hostdbini = Config::IniFiles->new (-file => '/usr/local/etc/hostdb.ini');
+
+my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
+			  db => $hostdbini->val ('db', 'database'),
+			  user => $hostdbini->val ('db', 'user'),
+			  password => $hostdbini->val ('db', 'password'),
+			  debug => $debug
+			 );
+
+open (FIL, "< $file") or die ("Could not open $file for reading: $!\n");
+
+my $imported = 0;
+my @delayed;
+while (my $rad = <FIL>) {
+	chomp ($rad);
+
+	if ($rad =~ /^zone\s+\"(.+?)\"\s+{\s*type master/) {
+		my $name = $1;
+
+		warn("zone $name\n");
+
+		next if ($name eq "0.0.127.in-addr.arpa." or $name eq "0.0.127.in-addr.arpa");
+		next if ($name eq "255.in-addr.arpa." or $name eq "255.in-addr.arpa");
+		next if ($name eq "0.in-addr.arpa." or $name eq "0.in-addr.arpa");
+		next if ($name eq "localhost." or $name eq "localhost");
+
+		$imported++ if (add_zone ($name));
+	}
+}
+close (FIL);
+
+print ("Imported $imported zones from file $file\n");
+
+print ("done\n");
+
+warn ("\nWARNING: all SOA serials set to '2002081901'\nTHIS NEED TO BE FIXED BEFORE PRODUCTION USE!\n");
+
+sub add_zone
+{
+	my $zonename = shift;
+	
+	if ($hostdb->valid_zonename ($zonename)) {
+		my $zone = $hostdb->create_zone ();
+
+		my $valid = 1;
+		$zone->set_zonename ("$zonename") or warn ($zone->{error}), $valid = 0;
+		$zone->set_serial (2002081901) or warn ($zone->{error}), $valid = 0; # XXX FIX ME
+		$zone->set_owner ("import") or warn ($zone->{error}), $valid = 0;
+
+		$zone->commit() if ($valid);
+	
+		undef ($zone);
+	
+		return $valid;
+	}
+
+	return 0;
+}
+
