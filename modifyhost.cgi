@@ -108,13 +108,15 @@ my $action = lc ($q->param('action'));
 $action = 'search' unless $action;
 
 if ($action eq 'commit') {
-	if (modify_host ($hostdb, $host, $q, $remote_user, $is_admin, $is_helpdesk, \@readwrite_attributes)) {
+	if (modify_host ($hostdb, $host, $q, $remote_user, $is_admin, $is_helpdesk, \@readwrite_attributes, $action)) {
 		my $i = localtime () . " modifyhost.cgi[$$]";
 		eval
 		{
 			$host->commit ();
 		};
-		$id = $host->id () if (! defined ($id) and defined ($host));
+		if (! defined ($id) and defined ($host)) {
+			$id = $host->id () || '';
+		}
 		if ($@) {
 			error_line ($q, "Could not commit changes: $@");
 			warn ("$i Changes to host with id '$id' could not be committed ($@)\n");
@@ -123,12 +125,12 @@ if ($action eq 'commit') {
 		}
 	}
 	$id = $host->id () if (! defined ($id) and defined ($host));
-	$host = get_host ($hostdb, 'ID', $id) if ($id);	# read-back
+	$host = get_host ($hostdb, 'ID', $id) if (defined ($id));	# read-back
 } elsif	($action eq 'search') {
 	# call modify_host but don't commit () afterwards to get
 	# ip and other stuff supplied to us as CGI parameters
 	# set on the host before we call host_form () below.
-	modify_host ($hostdb, $host, $q, $remote_user, $is_admin, $is_helpdesk, \@readwrite_attributes);
+	modify_host ($hostdb, $host, $q, $remote_user, $is_admin, $is_helpdesk, \@readwrite_attributes, $action);
 } else {
 	error_line ($q, 'Unknown action');
 	$host = undef;
@@ -156,7 +158,8 @@ sub modify_host
 	my $is_admin = shift;
 	my $is_helpdesk = shift;
 	my $readwrite_attributes = shift;
-	
+	my $action = shift;	
+
 	my (@changelog, @warning);
 	
 	eval {
@@ -367,15 +370,25 @@ sub modify_host
 			}
 		}
 
-		if (! $host->hostname () and $host->dnsstatus () eq 'ENABLED') {
-			die ("Hostname cannot be NULL when dnsstatus is ENABLED\n");
-		}
+		if ($action eq 'commit') {
+			if (! $host->hostname () and $host->dnsstatus () eq 'ENABLED') {
+				die ("Hostname cannot be NULL when dnsstatus is ENABLED, changes NOT saved\n");
+			}
 
-		if (@changelog) {
-			my $i = localtime () . " modifyhost.cgi[$$]";
-			warn ("$i User '$remote_user' (from $ENV{REMOTE_ADDR}) made the following changes to host -- $identify_str :\n$i ",
-			      join ("\n$i ", @changelog), "\n");
-		}	      
+			if (! $host->owner ()) {
+				die ("Required data field 'Owner' not set, changes NOT saved\n");
+			}
+
+			if (! $host->ip ()) {
+				die ("Required data field 'IP address' not set, changes NOT saved\n");
+			}
+
+			if (@changelog) {
+				my $i = localtime () . " modifyhost.cgi[$$]";
+				warn ("$i User '$remote_user' (from $ENV{REMOTE_ADDR}) made the following changes to host -- $identify_str :\n$i ",
+				      join ("\n$i ", @changelog), "\n");
+			}
+		}
 	};
 	
 	if ($@) {
@@ -455,6 +468,7 @@ sub host_form
 	    $profile, $dnszone, $ttl);
 	
 	my $h_subnet = $hostdb->findsubnetbyip ($host->ip ());
+	my @profiles = ('default');
 
 	if (defined ($h_subnet)) {
 		$subnet = $h_subnet->subnet ();
@@ -462,6 +476,8 @@ sub host_form
 		if ($links{showsubnet}) {
 			$subnet = "<a HREF='$links{showsubnet};subnet=$subnet'>$subnet</a>";
 		}
+
+		@profiles = split (',', $h_subnet->profilelist ());
 	} else {
 		$subnet = "not in database";
 	}
@@ -477,9 +493,8 @@ sub host_form
 			      'DISABLED'  => 'Disabled');
 	my %dhcpmode_labels = ('STATIC'	  => 'Static',
 			       'DYNAMIC'  => 'Dynamic');
-			      
+
 	my $me = $q->state_url ();
-	my @profiles = split (',', $h_subnet->profilelist ());
 		
 	$id = $host->id ();
 	$dnszone = $host->dnszone () || '';
