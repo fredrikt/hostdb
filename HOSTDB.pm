@@ -1130,6 +1130,10 @@ sub ip
 		#
 		
 		$self->{ip} = $ip;
+
+		# redundantly stored, but this enables us to do much simpler
+		# database querys (for hosts in ranges of IPs etc.)
+		$self->{n_ip} = $self->aton ($ip);
 	
 		return 1;
 	}
@@ -1545,7 +1549,7 @@ sub init
 			"ipver = ?, netaddr = ?, slashnotation = ?, netmask = ?, broadcast = ?, " .
 			"addresses = ?, " .
 			"description = ?, short_description = ?, n_netaddr = ?, n_netmask = ?, " .
-			"n_broadcast = ?, htmlcolor = ?, dhcpconfig = ? WHERE netaddr = ? AND slashnotation = ?")
+			"n_broadcast = ?, htmlcolor = ?, dhcpconfig = ? WHERE id = ?")
 			or die "$DBI::errstr";
 	} else {
 		$hostdb->_debug_print ("NOT preparing database stuff");
@@ -1585,6 +1589,18 @@ sub subnet
 	}
 	
 	return $self->netaddr () . "/" . $self->slashnotation ();
+}
+
+sub id
+{
+	my $self = shift;
+
+	if (@_) {
+		$self->_set_error ("this is a read-only function, it is a database auto increment");
+		return undef;
+	}
+
+	return ($self->{id});
 }
 
 sub ipver
@@ -1769,7 +1785,7 @@ sub commit
 	my $self = shift;
 
 	my $sth;
-	if (defined ($self->{in_db}) and $self->{in_db} >= 1) {
+	if (defined ($self->{id})) {
 		$sth = $self->{_update_subnet};
 		$sth->execute ($self->ipver (), $self->netaddr (), $self->slashnotation (),
 			       $self->netmask (), $self->broadcast (), $self->addresses (),
@@ -1777,9 +1793,7 @@ sub commit
 			       $self->n_netaddr (), $self->n_netmask (), $self->n_broadcast (),
 			       $self->htmlcolor (), $self->dhcpconfig (),
 			       # specifiers
-			       # XXX we have a catch-22 here. we cannot change netaddr/slashnotation
-			       # with this update query
-			       $self->netaddr (), $self->slashnotation ()
+			       $self->id ()
 			      )
 			or die "$DBI::errstr";
 		
