@@ -230,8 +230,10 @@ sub ipv4_ptr_rr
 	foreach my $host ($hostdb->findhostbyiprange ($first_ip, $last_ip)) {
 		warn ("$0: Invalid search results: $hostdb->{error}\n"), next unless ($host);
 
-		next if ($host->dnsstatus () eq "DISABLED");
-		next if ($host->dnsmode () eq "A");
+		my $prefix = "";
+
+		$prefix = "; " if ($host->dnsstatus () eq "DISABLED" or
+				   $host->dnsmode () eq "A");
 
 		my $hostname = $host->hostname ();
 		my $hostip = $host->ip ();
@@ -243,7 +245,7 @@ sub ipv4_ptr_rr
 		$hostname .= ".";			
 
 		my @t = split ('\.', $hostip);
-		my $str = tab_format (2, "$t[3].$t[2].$t[1].$t[0].in-addr.arpa.	$rr_ttl	PTR	$hostname\n");
+		my $str = tab_format (2, "${prefix}$t[3].$t[2].$t[1].$t[0].in-addr.arpa.	$rr_ttl	PTR	$hostname\n");
 		
 		print ($FH $str) or warn ("$0: Couldn't write data to '$fn': $!\n"), return 0;
 			
@@ -281,7 +283,9 @@ sub a_rr
 	foreach my $host (@hostlist) {
 		warn ("$0: Invalid search results: $hostdb->{error}\n"), next unless ($host);
 
-		next if ($host->dnsstatus () eq "DISABLED");
+		my $prefix = "";
+
+		$prefix = "; " if ($host->dnsstatus () eq "DISABLED");
 
 		my $hostname = $host->hostname ();
 		my $hostip = $host->ip ();
@@ -295,7 +299,7 @@ sub a_rr
 		
 			$rr_ttl = "" if ($rr_ttl eq $default_ttl);
 			
-			my $str = tab_format (3, $hostname) . "	$rr_ttl	A	$hostip\n";
+			my $str = tab_format (3, "${prefix}$hostname") . "	$rr_ttl	A	$hostip\n";
 			print ($FH $str) or
 				warn ("$0: Couldn't write data to '$fn': $!\n"), return 0;
 			$included_hosts_count++;
