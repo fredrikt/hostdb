@@ -1,4 +1,4 @@
-#!/usr/local/bin/perl
+#!/usr/local/bin/perl -w
 #
 # $Id$
 #
@@ -11,14 +11,17 @@ use Config::IniFiles;
 use HOSTDB;
 use Net::DNS;
 use Getopt::Std;
-use vars qw ($opt_h $opt_d $opt_D $opt_q);
+use vars qw ($opt_h $opt_d $opt_D $opt_q $opt_f);
 
-getopts ('Dhd');
+getopts ('Dhdf');
 
 my $debug = defined ($opt_d);
 my $dns_sync = defined ($opt_D);
 my $quiet = defined ($opt_q);
+my $force = defined ($opt_f);
 my @zones = @ARGV;
+
+my $soa_seq_limit = 80;
 
 if (! $zones[0] or $opt_h) {
 	die (<<EOM);
@@ -29,6 +32,7 @@ Syntax: $0 [options] zone ...
 		-h	this help text
 		-D	sync SOA serials in database with DNS
 		-q	quiet mode
+		-f	force update
 
 EOM
 }
@@ -72,7 +76,21 @@ foreach $zonename (@zones) {
 		my $today = sprintf ("%.4d%.2d%.2d", $year, $mon, $mday);
 
 		if ($old_serial =~ /^$today(\d\d)/) {
-			$new_serial = sprintf("%s%.2d", $today, int ($1) + 1);
+			my $n = int ($1);
+			if ($n >= 99) {
+				# should never be more of course, but anyways...
+				warn ("$0: Can't increase SOA for zone $zonename any more today. Sorry.");
+				next;
+			}
+			if ($n > $soa_seq_limit) {
+				if (! $force) {
+					warn ("$0: SOA serial for zone $zonename has todays date but " .
+					      "sequence number is > $soa_seq_limit ($n) - won't update unless " .
+					      "you force me to.");
+					next;
+				}
+			}
+			$new_serial = sprintf("%s%.2d", $today, $n + 1);
 		} else {
 			$new_serial = "${today}01";
 		}
