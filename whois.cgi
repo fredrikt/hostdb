@@ -410,7 +410,7 @@ EOH
 	   <tr>
 		$empty_td
 		<td>Profile</td>
-		<td>$profile</td>
+		<td><strong>$profile</strong></td>
 	   </tr>	
 	   <tr>
 		$empty_td
