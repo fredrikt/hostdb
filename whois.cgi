@@ -481,7 +481,7 @@ sub print_host_info
 
 	my $authorized = 1;
 
-	if (! $is_admin) {
+	if (! $is_admin and ! $is_helpdesk) {
 		$authorized = 0 if (! defined ($subnet) or ! $hostdb->auth->is_allowed_write ($subnet, $remote_user));
 
 		# if there is no zone, only base desicion on subnet rights
