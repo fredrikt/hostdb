@@ -148,12 +148,12 @@ EOH
 
 					} else {
 						my $id = $host->id();
-						my $hostname = $host->hostname ();
-						my $mac = $host->mac_address () || "";
-						my $mac_ts = $host->mac_address_ts () || "";
+						my $hostname = $host->hostname () || 'NULL';
+						my $mac = $host->mac_address () || '';
+						my $mac_ts = $host->mac_address_ts () || '';
 						
 						if ($whois_path) {
-							$ip = "<a href='$whois_path;whoisdatatype=ID;whoisdata=$id'>$ip</a>";
+							$ip = "<a HREF='$whois_path;whoisdatatype=ID;whoisdata=$id'>$ip</a>";
 						}
 						
 						my $ts_font = "";
