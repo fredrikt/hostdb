@@ -1,0 +1,93 @@
+#!/usr/bin/perl
+#
+# $Id$
+#
+# script to read a "sh ip route ospf" and import suitable routes
+# into our database
+#
+
+use strict;
+use Config::IniFiles;
+#use lib 'blib/lib';
+use HOSTDB;
+
+my $debug = 0;
+my $file = shift @ARGV;
+
+if (! $file or $#ARGV != -1) {
+	die ("Syntax: $0 path/to/ospf.dump\n");
+}
+
+my $hostdbini = Config::IniFiles->new (-file => '/usr/local/etc/hostdb.ini');
+
+my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
+			  db => $hostdbini->val ('db', 'database'),
+			  user => $hostdbini->val ('db', 'user'),
+			  password => $hostdbini->val ('db', 'password'),
+			  debug => $debug
+			 );
+
+open (FIL, "< $file") or die ("Could not open $file for reading: $!\n");
+
+my $imported = 0;
+my @delayed;
+while (my $rad = <FIL>) {
+	chomp ($rad);
+
+	if ($rad =~ /^O\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\/(\d{1,2})\s/) {
+		my $subnet = $1;
+		my $slash = $2;
+
+		# yes, when you want to use this you will have to contribute
+		# a more generic solution. remember you did not pay anything
+		# for these scripts.
+		my @ournets = ("130.237.", "194.237.117.",
+			       "193.10.6.", "193.10.72.",
+			       "193.10.144.", "193.10.147."
+			      );
+		my $s;
+		my $valid = 0;
+		foreach $s (@ournets) {
+			if ($subnet =~ /^$s/) {
+				$valid = 1;
+				last;
+			}
+		}	       
+
+		next if (! $valid);
+		
+		next if ($slash == 32);
+
+		warn("subnet $subnet\n");
+
+		$imported++ if (add_subnet ("$subnet/$slash"));
+	}
+}
+close (FIL);
+
+print ("Imported $imported subnets from file $file\n");
+
+print ("done\n");
+
+sub add_subnet
+{
+	my $subnet_name = shift;
+	
+	my $subnet = $hostdb->create_subnet (4, $subnet_name);
+	
+	if (! $subnet) {
+		# XXX hmm, the error might be in $subnet->{error} but subnet
+		# is undef. investigate.
+		warn ($hostdb->{error});
+		return undef;
+	}
+
+	$subnet->dump() if ($debug);
+	
+	$subnet->commit();
+	
+	undef($subnet);
+		
+	return 1;
+}
+
