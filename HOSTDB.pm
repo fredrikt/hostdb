@@ -406,16 +406,18 @@ sub init
 {
 	my $self = shift;
 
-	$self->{_dbh} = DBI->connect ($self->{dsn}, $self->{user}, $self->{password}) or die "$DBI::errstr";
+	if (defined ($self->{dsn})) {
+		$self->{_dbh} = DBI->connect ($self->{dsn}, $self->{user}, $self->{password}) or die "$DBI::errstr";
 
-	$self->{_hostbyid} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.config WHERE id = ? ORDER BY id") or die "$DBI::errstr";
-	$self->{_hostbypartof} =	$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.config WHERE partof = ? ORDER BY id") or die "$DBI::errstr";
-	$self->{_hostbymac} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.config WHERE mac = ? ORDER BY mac") or die "$DBI::errstr";
-	$self->{_hostbyname} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.config WHERE hostname = ? ORDER BY hostname") or die "$DBI::errstr";
-	$self->{_hostbyip} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.config WHERE ip = ? ORDER BY ip") or die "$DBI::errstr";
+		$self->{_hostbyid} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.config WHERE id = ? ORDER BY id") or die "$DBI::errstr";
+		$self->{_hostbypartof} =	$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.config WHERE partof = ? ORDER BY id") or die "$DBI::errstr";
+		$self->{_hostbymac} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.config WHERE mac = ? ORDER BY mac") or die "$DBI::errstr";
+		$self->{_hostbyname} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.config WHERE hostname = ? ORDER BY hostname") or die "$DBI::errstr";
+		$self->{_hostbyip} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.config WHERE ip = ? ORDER BY ip") or die "$DBI::errstr";
 
-	$self->{_zonebyname} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.zone WHERE zonename = ? ORDER BY zonename") or die "$DBI::errstr";
-	$self->{_allzones} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.zone ORDER BY zonename") or die "$DBI::errstr";
+		$self->{_zonebyname} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.zone WHERE zonename = ? ORDER BY zonename") or die "$DBI::errstr";
+		$self->{_allzones} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.zone ORDER BY zonename") or die "$DBI::errstr";
+	}
 
 	$self->user (getpwuid("$<"));
 }
