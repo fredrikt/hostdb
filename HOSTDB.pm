@@ -361,6 +361,16 @@ sub check_valid_subnet
 		return 0;
 	}
 	
+	if ($self->get_netaddr ($subnet) ne $netaddr) {
+		$self->_set_error ("$subnet is invalid (there are bits in $netaddr outside of mask " .
+			$self->slashtonetmask ($slash) . ")");
+
+		$self->_debug_print ("invalid subnet $subnet - netaddr different from calculated (" .
+			$self->get_netaddr ($subnet) . ")");
+
+		return 0;
+	}
+
 	return 1;
 }
 
@@ -711,7 +721,7 @@ sub create_host
 	my $o = bless {},"HOSTDB::Object::Host";
 	$o->{hostdb} = $self;
 	$o->{debug} = $self->{debug};
-	$o->init();
+	$self->_set_error ($o->{error}), return undef if (! $o->init());
 	
 	return $o;
 }
@@ -732,7 +742,7 @@ sub create_zone
 	my $o = bless {},"HOSTDB::Object::Zone";
 	$o->{hostdb} = $self;
 	$o->{debug} = $self->{debug};
-	$o->init();
+	$self->_set_error ($o->{error}), return undef if (! $o->init());
 	
 	return $o;
 }
@@ -760,7 +770,8 @@ sub create_subnet
 	$o->{ipver} = $ipver;
 	$o->{subnet} = $subnet;
 	$o->{debug} = $self->{debug};
-	$o->init();
+
+	$self->_set_error ($o->{error}), return undef if (! $o->init());
 	
 	return $o;
 }
