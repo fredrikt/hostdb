@@ -30,6 +30,7 @@ if ($files[0] eq "-readfile") {
 
 	my $line;
 	while ($line = <FIL>) {
+		chomp($line);
 		push (@files, $line);
 	}
 	close (FIL);
