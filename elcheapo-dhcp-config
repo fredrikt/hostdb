@@ -11,10 +11,10 @@ use Config::IniFiles;
 #use lib 'blib/lib';
 use HOSTDB;
 use Getopt::Std;
-use vars qw ($opt_h $opt_d $opt_o);
+use vars qw ($opt_h $opt_d $opt_o $opt_H $opt_v);
 use FileHandle;
 
-getopts ('hdo:');
+getopts ('hdo:Hv');
 
 my $debug = 0;
 my $subnet_name = shift (@ARGV);
@@ -28,11 +28,17 @@ Syntax: $0 [options] subnet/slash infile
 	options :
 		-d		debug
 		-o file		output to file
+		-H		only print host declarations
+		-v 		verbose
 EOD
 }
 
 my $debug = 0;
 $debug = 1 if (defined ($opt_d));
+my $only_hosts = 0;
+$only_hosts = 1 if (defined ($opt_H));
+my $verbose = 0;
+$verbose = 1 if (defined ($opt_v));
 
 my $hostdbini = Config::IniFiles->new (-file => HOSTDB::get_inifile ());
 
@@ -54,7 +60,7 @@ foreach $infile (@infiles) {
 	parse_cfgfile ($infile, $hostdb, $subnet, \%dhcpconfig, \%subnetconfig, $debug);
 }
 
-print_dhcp_config ($opt_o, $hostdb, $subnet, \%dhcpconfig, \%subnetconfig, $debug);
+print_dhcp_config ($opt_o, $hostdb, $subnet, \%dhcpconfig, \%subnetconfig, $debug, $only_hosts, $verbose);
 
 exit (0);
 
@@ -66,13 +72,15 @@ sub print_dhcp_config
 	my $dhcpcfg_ref = shift;
 	my $subnetcfg_ref = shift;
 	my $debug = shift;
-	
+	my $only_hosts = shift;
+	my $verbose = shift;
+
 	$outfile = "-" if (! defined ($outfile) or ! $outfile);
 
 	my $OUT = new FileHandle;
 	open ($OUT, "> $outfile") or die ("$0: Could not open outfile '$outfile' for writing: $!\n");
 
-	print_subnet_declaration ($OUT, $subnet, $subnetcfg_ref);
+	print_subnet_declaration ($OUT, $subnet, $subnetcfg_ref) if (! $only_hosts);
 
 	my $i;
 	for $i (1 .. $subnet->addresses () - 2) {
@@ -80,20 +88,20 @@ sub print_dhcp_config
 
 		if (defined ($dhcpcfg_ref->{$ip}{seen})) {
 			if ($dhcpcfg_ref->{$ip}{is_range}) {
-				print_range ($OUT, $dhcpcfg_ref->{$ip}{start}, $dhcpcfg_ref->{$ip}{stop});
+				print_range ($OUT, $dhcpcfg_ref->{$ip}{start}, $dhcpcfg_ref->{$ip}{stop}) if (! $only_hosts);
 			} else {
 				if ($dhcpcfg_ref->{$ip}{reserved}) {
-					print ($OUT "	# IP $ip reserved\n\n");
+					print ($OUT "	# IP $ip reserved\n\n") if ($verbose);
 					next;
 				}
 				print_host ($OUT, $dhcpcfg_ref->{$ip}{fixedaddress}, $dhcpcfg_ref->{$ip}{mac});
 			}
 		} else {
-			print ($OUT "	# no host with IP $ip\n\n");
+			print ($OUT "	# no host with IP $ip\n\n") if ($verbose);
 		}
 	}
 
-	print ($OUT "}\n");
+	print ($OUT "}\n") if (! $only_hosts);
 
 	close ($OUT);
 }
