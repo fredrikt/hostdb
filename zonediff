@@ -99,7 +99,7 @@ foreach my $file (@files) {
 
 	print ("\n") if ($header_printed and $first);	# nothing except header has been printed
 
-	print ("\n") if ($#files != -1);
+	print ("\n") if ($#files != 0);
 }
 
 exit (0);
