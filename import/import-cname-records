@@ -1,0 +1,147 @@
+#!/usr/local/bin/perl -w
+#
+# $Id$
+#
+# script to read strictly formatted BIND9 zone files and put all A records
+# in our host database.
+#
+
+use strict;
+use HOSTDB;
+use Getopt::Std;
+use vars qw ($opt_h $opt_o $opt_n $opt_d);
+
+getopts ('ho:nd');
+
+if (defined ($opt_h)) {
+    die (<<EOT);
+Syntax : $0 [options] zonefile ...
+
+    Options :
+
+	-d	debug
+	-n	hostdb dry run
+	-o fn	output zonefile name, works only with a single zone
+
+EOT
+}
+
+my $debug = defined ($opt_d);
+my $db_dry_run = defined ($opt_n);
+my $output_filename = $opt_o || '';
+
+my @files = @ARGV;
+my $default_ttl;
+
+if ($#files == -1) {
+    die ("Syntax: $0 zonefiles\n");
+}
+
+if ($output_filename and $#files != 0) {
+    die ("$0: You can't specify output filename when you have more than one input zone\n");
+}
+
+if ($output_filename) {
+    open (OUTFILE, "> $output_filename") or die ("Could not open '$output_filename' for writing: $!\n");
+}
+
+my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
+			      debug => $debug
+			      );
+
+my $exitstatus = 0;
+
+foreach my $file (@files) {
+    open (FIL, "< $file") or die ("Could not open $file for reading: $!\n");
+
+    my $imported = 0;
+    $default_ttl = 0;
+    my @delayed;
+    while (my $rad = <FIL>) {
+	my $skip_copy = 0;
+	next if ($rad =~ /^\s*;/); # skip comments
+
+	chomp ($rad);
+
+	$default_ttl = $1 if ($rad =~ /^\$TTL\s+(\d+)/);
+
+	if ($rad =~ /^(\S+?)\s+(\d+)\s+CNAME\s+(\S+?)\s*$/) {
+	    my ($aliasname, $ttl, $hostname) = ($1, $2, $3);
+
+	    if (add_host ($hostdb, $aliasname, $ttl, $hostname, $debug, $db_dry_run)) {
+		$imported++;
+		$skip_copy = 1;
+	    } else {
+		$exitstatus = 1;
+	    }
+	}
+
+	if (! $skip_copy and $output_filename) {
+	    print (OUTFILE "$rad\n");
+	}
+    }
+
+    print ("Imported $imported CNAME RR's from file $file\n");
+
+    close (FIL);
+}
+
+close (OUTFILE) if ($output_filename);
+print ("done\n");
+
+exit ($exitstatus);
+
+sub add_host
+{
+    my ($hostdb, $aliasname, $ttl, $hostname, $debug, $dry_run) = @_;
+
+    if (! $hostdb->clean_hostname ($aliasname)) {
+	warn ("$0: Aliasname '$aliasname' is not a clean hostname! Skipped.\n");
+	return 0;
+    }
+
+    if (! $hostdb->clean_hostname ($hostname)) {
+	warn ("$0: Hostname '$hostname' is not a clean hostname! Skipped.\n");
+	return 0;
+    }
+
+    my @hosts = $hostdb->findhost ('guess', $hostname);
+    if (! @hosts) {
+	warn ("$0: Alias '$aliasname' skipped. No host named '$hostname' found in HOSTDB.\n");
+	return 0;
+    }
+
+    if (0 + @hosts != 1) {
+	warn ("$0: Alias '$aliasname' skipped. More than one host matches '$hostname'.\n");
+	return 0;
+    }
+
+    my $host = $hosts[0];
+
+    my $z = $hostdb->findzonebyhostname ($aliasname);
+    warn ("$0: Could not find a suitable DNS zone for aliasname '$aliasname'\n"), return undef unless defined ($z);
+    my $dnszone = $z->zonename ();
+
+    if ($dry_run) {
+	print ("dry-run skipping host '$aliasname $ttl $hostname' (dns zone '$dnszone')\n");
+	return 1;
+    }
+
+    my $alias = $host->create_hostalias ();
+    die ("$0: Could not create hostalias object: $host->{error}\n") unless ($alias);
+
+    my $host_ttl = $host->ttl () || 'NULL';
+    $alias->aliasname ($aliasname)	or die ("$0: Could not set 'aliasname': $alias->{error}\n");
+    $alias->dnsstatus ('ENABLED')	or die ("$0: Could not set 'dnsstatus': $alias->{error}\n");
+    $alias->ttl ($host_ttl)		or die ("$0: Could not set 'ttl' (from host, '$host_ttl'): $alias->{error}\n");
+    $alias->comment ('dns-import')	or die ("$0: Could not set 'comment': $alias->{error}\n");
+
+    print ("add alias '$aliasname $ttl $hostname' (dns zone '$dnszone')\n") if ($debug);
+
+    if (! $alias->commit()) {
+	warn ("Failed committing alias object : $alias->{error}\n");
+	return 0;
+    }
+
+    return 1;
+}
