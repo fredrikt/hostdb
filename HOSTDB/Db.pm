@@ -38,21 +38,24 @@ sub init
 	if (defined ($self->{dsn})) {
 		$self->{_dbh} = DBI->connect ($self->{dsn}, $self->{user}, $self->{password}) or die "$DBI::errstr";
 
-		$self->{_hostbyid} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.host WHERE id = ? ORDER BY id") or die "$DBI::errstr";
-		$self->{_hostbypartof} =	$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.host WHERE partof = ? ORDER BY id") or die "$DBI::errstr";
-		$self->{_hostbymac} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.host WHERE mac = ? ORDER BY mac") or die "$DBI::errstr";
-		$self->{_hostbyname} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.host WHERE hostname = ? ORDER BY hostname") or die "$DBI::errstr";
-		$self->{_hostbywildcardname} =	$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.host WHERE hostname LIKE ? ORDER BY hostname") or die "$DBI::errstr";
-		$self->{_hostbyip} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.host WHERE ip = ? ORDER BY n_ip") or die "$DBI::errstr";
-		$self->{_hostbyiprange} =	$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.host WHERE n_ip >= ? AND n_ip <= ? ORDER BY n_ip") or die "$DBI::errstr";
-		$self->{_allhosts} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.host ORDER BY id") or die "$DBI::errstr";
+		my $SELECT_host = "SELECT *, UNIX_TIMESTAMP(mac_address_ts) AS unix_mac_address_ts FROM $self->{db}.host";
+		$self->{_hostbyid} =		$self->{_dbh}->prepare ("$SELECT_host WHERE id = ? ORDER BY id")			or die "$DBI::errstr";
+		$self->{_hostbypartof} =	$self->{_dbh}->prepare ("$SELECT_host WHERE partof = ? ORDER BY id")			or die "$DBI::errstr";
+		$self->{_hostbymac} =		$self->{_dbh}->prepare ("$SELECT_host WHERE mac = ? ORDER BY mac")			or die "$DBI::errstr";
+		$self->{_hostbyname} =		$self->{_dbh}->prepare ("$SELECT_host WHERE hostname = ? ORDER BY hostname")		or die "$DBI::errstr";
+		$self->{_hostbywildcardname} =	$self->{_dbh}->prepare ("$SELECT_host WHERE hostname LIKE ? ORDER BY hostname")		or die "$DBI::errstr";
+		$self->{_hostbyip} =		$self->{_dbh}->prepare ("$SELECT_host WHERE ip = ? ORDER BY n_ip")			or die "$DBI::errstr";
+		$self->{_hostbyiprange} =	$self->{_dbh}->prepare ("$SELECT_host WHERE n_ip >= ? AND n_ip <= ? ORDER BY n_ip")	or die "$DBI::errstr";
+		$self->{_allhosts} =		$self->{_dbh}->prepare ("$SELECT_host ORDER BY id")					or die "$DBI::errstr";
 
-		$self->{_zonebyname} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.zone WHERE zonename = ? ORDER BY zonename") or die "$DBI::errstr";
-		$self->{_allzones} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.zone ORDER BY zonename") or die "$DBI::errstr";
+		my $SELECT_zone = "SELECT * FROM $self->{db}.zone";
+		$self->{_zonebyname} =		$self->{_dbh}->prepare ("$SELECT_zone WHERE zonename = ? ORDER BY zonename")		or die "$DBI::errstr";
+		$self->{_allzones} =		$self->{_dbh}->prepare ("$SELECT_zone ORDER BY zonename")				or die "$DBI::errstr";
 
-		$self->{_subnet} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.subnet WHERE netaddr = ? AND slashnotation = ? ORDER BY n_netaddr");
-		$self->{_subnet_longer_prefix} =	$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.subnet WHERE n_netaddr >= ? AND n_netaddr <= ? ORDER BY n_netaddr");
-		$self->{_subnet_closest_match} =	$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.subnet WHERE n_netaddr <= ? ORDER BY n_netaddr DESC LIMIT 1");
+		my $SELECT_subnet = "SELECT * FROM $self->{db}.subnet";
+		$self->{_subnet} =			$self->{_dbh}->prepare ("$SELECT_subnet WHERE netaddr = ? AND slashnotation = ? ORDER BY n_netaddr")	or die "$DBI::errstr";
+		$self->{_subnet_longer_prefix} =	$self->{_dbh}->prepare ("$SELECT_subnet WHERE n_netaddr >= ? AND n_netaddr <= ? ORDER BY n_netaddr")	or die "$DBI::errstr";
+		$self->{_subnet_closest_match} =	$self->{_dbh}->prepare ("$SELECT_subnet WHERE n_netaddr <= ? ORDER BY n_netaddr DESC LIMIT 1")		or die "$DBI::errstr";
 	} else {
 		$self->_debug_print ("DSN not provided, not connecting to database.");
 	}
