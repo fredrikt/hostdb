@@ -690,8 +690,7 @@ sub profilelist
 		}
 		$newlist{default} = 1;
 
-		my $newvalue = join (',', 'default', sort
-					_profilelist_sort keys %newlist);
+		my $newvalue = join (',', sort _profilelist_sort keys %newlist);
 
 		if (length ($newvalue) > 255) {
 			$self->_set_error ('profilelist too long (max 255 chars)');
