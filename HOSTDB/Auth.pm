@@ -321,8 +321,8 @@ sub _is_in_list
 
 =head2 _ldap_explode
 
-	Takes an array of <mumble> and looks them up in LDAP. First as uid's and
-	then as cn's. Returns all uid's the LDAP search yielded.
+	Takes an array of <mumble> and looks them up in LDAP. First as uid\'s and
+	then as cn\'s. Returns all uid\'s the LDAP search yielded.
 
 	$self->_ldap_search ('ft', 'it-sysadm');
 	
