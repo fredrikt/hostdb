@@ -55,9 +55,9 @@ sub init
 	}
 
 	if ($hostdb->{_dbh}) {
-		$self->{_new_hostalias} = $hostdb->{_dbh}->prepare ("INSERT INTO $hostdb->{db}.hostalias (hostid, aliasname, ttl, dnszone, lastmodified, lastupdated, comment) VALUES (?, ?, ?, ?, ?, ?, ?)")
+		$self->{_new_hostalias} = $hostdb->{_dbh}->prepare ("INSERT INTO $hostdb->{db}.hostalias (hostid, aliasname, ttl, dnszone, dnsstatus, lastmodified, lastupdated, comment) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
 			or die ("$DBI::errstr");
-		$self->{_update_hostattribute} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.hostalias SET hostid = ?, aliasname = ?, ttl = ?, dnszone = ?, lastmodified = ?, lastupdated = ?, comment = ? WHERE id = ?")
+		$self->{_update_hostattribute} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.hostalias SET hostid = ?, aliasname = ?, ttl = ?, dnszone = ?, dnsstatus = ?, lastmodified = ?, lastupdated = ?, comment = ? WHERE id = ?")
 			or die ("$DBI::errstr");
 		$self->{_delete_hostattribute} = $hostdb->{_dbh}->prepare ("DELETE FROM $hostdb->{db}.hostalias WHERE id = ?")
 			or die ("$DBI::errstr");
@@ -91,6 +91,7 @@ sub commit
 			 $self->aliasname (),
 			 $self->ttl (),
 			 $self->dnszone (),
+			 $self->dnsstatus (),
 			 $self->lastmodified (),
 			 $self->lastupdated (),
 			 $self->comment (),
@@ -307,6 +308,41 @@ sub dnszone
 	return ($self->{dnszone});
 }
 
+
+=head2 dnsstatus
+
+	Set DNS status for this alias. This can be either ENABLED or DISABLED.
+	This effectively controls wheter to generate any DNS config for this
+	alias or not.
+
+	# set property
+	$alias->dnsstatus ('DISABLED');
+
+	if ($alias->dnsstatus () eq 'DISABLED') {
+		print ("Will not generate any DNS config for this alias\n");
+	}
+
+
+=cut
+sub dnsstatus
+{
+	my $self = shift;
+
+	if (@_) {
+		my $newvalue = shift;
+	
+		if ($newvalue eq 'ENABLED' or $newvalue eq 'DISABLED') {
+			$self->{dnsstatus} = $newvalue;
+		} else {
+			$self->_set_error ("Invalid dnsstatus '$newvalue'");
+			return 0;
+		}
+
+		return 1;
+	}
+
+	return ($self->{dnsstatus});
+}
 
 
 =head2 comment
