@@ -165,12 +165,13 @@ sub ldap_server
 
 	A list of users with rights to do whatever they please.
 
+
 =cut
 sub admin_list
 {
 	my $self = shift;
 
-	if (@_) {
+	if (defined ($_[0])) {
 		my @newvalue = @_;
 
 		$self->{admins} = \@newvalue;
