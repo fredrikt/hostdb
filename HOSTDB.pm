@@ -473,7 +473,8 @@ sub create_host
 	
 	my $o = bless {},"HOSTDB::Object::Host";
 	$o->{hostdb} = $self;
-	$o->init($self);
+	$o->{debug} = $self->{debug};
+	$o->init();
 	
 	return $o;
 }
@@ -492,7 +493,8 @@ sub create_zone
 	
 	my $o = bless {},"HOSTDB::Object::Zone";
 	$o->{hostdb} = $self;
-	$o->init($self);
+	$o->{debug} = $self->{debug};
+	$o->init();
 	
 	return $o;
 }
@@ -690,9 +692,9 @@ package HOSTDB::Object::Host;
 sub init
 {
 	my $self = shift;
-	my $hostdb = shift;
+	my $hostdb = $self->{hostdb};
 
-	$hostdb->_debug_print ("creating object");
+	$self->_debug_print ("creating object");
 
 	if ($hostdb->{_dbh}) {
 		$self->{_new_host} = $hostdb->{_dbh}->prepare ("INSERT INTO $hostdb->{db}.config (mac, hostname, ip, ttl, user, partof, reverse) VALUES (?, ?, ?, ?, ?, ?, ?)")
@@ -931,9 +933,9 @@ package HOSTDB::Object::Zone;
 sub init
 {
 	my $self = shift;
-	my $hostdb = shift;
+	my $hostdb = $self->{hostdb};
 
-	$hostdb->_debug_print ("creating object");
+	$self->_debug_print ("creating object");
 
 	if ($hostdb->{_dbh}) {
 		$self->{_new_zone} = $hostdb->{_dbh}->prepare ("INSERT INTO $hostdb->{db}.zone (zonename, serial, refresh, retry, expiry, minimum, owner) VALUES (?, ?, ?, ?, ?, ?, ?)")
