@@ -33,25 +33,37 @@ if (-f $hostdbini->val ('sucgi', 'cfgfile')) {
 
 my $q = SUCGI->new ($sucgi_ini);
 
+my $remote_user = '';
+if (defined ($ENV{REMOTE_USER}) and $ENV{REMOTE_USER} =~ /^[a-z0-9]{,50}/) {
+	$remote_user = $ENV{REMOTE_USER};
+}
+# XXX JUST FOR DEBUGGING UNTIL PUBCOOKIE IS FINISHED
+$remote_user = 'andreaso';
+
 
 my $showsubnet_path = $q->state_url($hostdbini->val('subnet','showsubnet_uri'));
 my $modifyhost_path = $q->state_url($hostdbini->val('subnet','modifyhost_uri'));
 
 $q->begin (title => "Whois");
 
-$q->print ("<table BORDER='0' CELLPADDING='0' CELLSPACING='0' WIDTH='600'>\n" .
-	   "$table_blank_line");
-
-$q->print ("<tr><td COLSPAN='2' ALIGN='center'><h3>HOSTDB: Search</h3></td></tr>\n" .
-	   "$table_blank_line");
+$q->print (<<EOH);
+	<table BORDER='0' CELLPADDING='0' CELLSPACING='0' WIDTH='600'>
+		$table_blank_line
+		<tr>
+			<td COLSPAN='2' ALIGN='center'><h3>HOSTDB: Search</h3></td>
+		</tr>
+		$table_blank_line
+EOH
 
 whois_form ($q);
 
 $q->print ($table_hr_line);
 
-perform_search ($hostdb, $q);
+perform_search ($hostdb, $q, $remote_user);
 
-$q->print ("</table>\n");
+$q->print (<<EOH);
+	</table>
+EOH
 
 $q->end ();
 
@@ -63,9 +75,9 @@ sub whois_form
 	# HTML 
         my $state_field = $q->state_field ();
 	my $me = $q->state_url ();
-        my $popup = $q->popup_menu (-name => "whoisdatatype", -values => ['Guess', 'IP', 'FQDN', 'MAC', 'ID'], -default => 'Guess');
-	my $datafield = $q->textfield ("whoisdata");
-	my $submit = $q->submit ("Search");
+        my $popup = $q->popup_menu (-name => 'whoisdatatype', -values => ['Guess', 'IP', 'FQDN', 'MAC', 'ID'], -default => 'Guess');
+	my $datafield = $q->textfield ('whoisdata');
+	my $submit = $q->submit ('Search');
 
 	$q->print (<<EOH);
 		<tr>
@@ -92,10 +104,9 @@ sub perform_search
 {
 	my $hostdb = shift;
 	my $q = shift;
+	my $remote_user = shift;
 
 	if ($q->param ('whoisdata')) {
-		# get type of data
-
 		my $search_for = $q->param ('whoisdata');
 		my $whoisdatatype = $q->param ('whoisdatatype');
 
@@ -112,22 +123,8 @@ sub perform_search
 					$q->print ("<tr><th COLSPAN='2' ALIGN='left'>Host :</th></tr>");
 					$q->print ("<tr><td COLSPAN='2'>&nbsp;</td></tr>\n");
 		
-					print_host_info ($q, $hostdb, $host);
-
-					$q->print ($table_blank_line);
-		
-					my $subnet = $hostdb->findsubnetclosestmatch ($host->ip ());
-		
-					if ($subnet) {
-						print_subnet_info ($q, $subnet);
-					} else {
-						error_line ($q, "Search failed: could not find subnet in database");
-						return undef;
-					}
-					$q->print ($table_blank_line);	
+					print_host_info ($q, $hostdb, $remote_user, $host);
 				}
-
-				#$q->print ($table_hr_line);
 			} else {
 				# more than one host record, show brief information
 				foreach my $host (@host_refs) {
@@ -168,6 +165,7 @@ sub print_host_info
 {
 	my $q = shift;
 	my $hostdb = shift;
+	my $remote_user = shift;
 	my $host = shift;
 	
 	return undef if (! defined ($host));
@@ -192,10 +190,34 @@ sub print_host_info
 			$parent = "$parent <font COLOR='red'><strong>Not found</strong></font>";
 		}
 	}
+
+	my $modify_link = "[<a HREF='$modifyhost_path;id=$id'>modify</a>]";
+
+	# now check if user actually may modify the host, if not - don't show
+	# a '[modify]' link
+
+	# get subnet
+	my $subnet = $hostdb->findsubnetclosestmatch ($host->ip () || $q->param ('ip'));
+
+	# get zone
+	my $zone = $hostdb->findzonebyhostname ($host->hostname ());
+
+	# check that user is allowed to edit both current zone and subnet
+	#
+	# the reason to not demand subnet and host to be defined is to not
+	# make it impossible to move hosts to a new subnet if the old subnet
+	# is renamed or such... but maybe that is a bad idea. XXX
+
+	if (defined ($subnet) and ! $hostdb->auth->is_allowed_write ($subnet, $remote_user)) {
+		$modify_link = "<!-- '$remote_user' subnet ACL -->";
+	} elsif (defined ($zone) and ! $hostdb->auth->is_allowed_write ($zone, $remote_user)) {
+		$modify_link = "<!-- '$remote_user' zone ACL -->";
+	}
+
 	$q->print (<<EOH);
 	   <tr>
 		<td>ID</td>
-		<td>$id&nbsp;[<a HREF="$modifyhost_path;id=$id">modify</a>]</td>
+		<td>$id&nbsp;$modify_link</td>
 	   </tr>	
 	   <tr>
 		<td>Parent</td>
@@ -242,41 +264,39 @@ EOH
 		<td>Owner</td>
 		<td>$owner</td>
 	   </tr>	
+	   
+	   $table_blank_line
+EOH
+	if ($subnet) {
+		# HTML
+		my $s = $subnet->subnet ();
+		my $netmask = $subnet->netmask ();
+		my $desc = $subnet->description ();
+	
+		if ($showsubnet_path) {
+			$s = "<a HREF='$showsubnet_path;subnet=$s'>$s</a>";
+		}
+	
+		$q->print (<<EOH);
+			<tr>
+			   <td><strong>Subnet</strong></td>
+			   <td>$s</td>
+			</tr>
+			<tr>
+			   <td>Netmask</td>
+			   <td>$netmask</td>
+			</tr>
+			<tr>
+			   <td>Description</td>
+			   <td>$desc</td>
+			</tr>
 EOH
 
-	return 1;
-}
-
-sub print_subnet_info
-{
-	my $q = shift;
-	my $subnet = shift;
-	
-	return undef if (! defined ($subnet));
-	
-	# HTML
-	my $s = $subnet->subnet ();
-	my $netmask = $subnet->netmask ();
-	my $desc = $subnet->description ();
-	
-	if ($showsubnet_path) {
-		$s = "<a HREF='$showsubnet_path;subnet=$s'>$s</a>";
+	} else {
+		error_line ($q, "Search failed: could not find subnet in database");
 	}
 	
-	$q->print (<<EOH);
-		<tr>
-		   <td><strong>Subnet</strong></td>
-		   <td>$s</td>
-		</tr>
-		<tr>
-		   <td>Netmask</td>
-		   <td>$netmask</td>
-		</tr>
-		<tr>
-		   <td>Description</td>
-		   <td>$desc</td>
-		</tr>
-EOH
+	$q->print ($table_blank_line);	
 
 	return 1;
 }
