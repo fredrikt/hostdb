@@ -317,7 +317,7 @@ sub modify_host
 							}
 						} else {
 							$new_val = 'NULL';
-						}	
+						}
 					} elsif ($name eq 'ttl') {
 						if (! $hostdb->is_valid_nameserver_time ($new_val)) {
 							die ("Invalid DNS TTL '$new_val'\n");
@@ -335,6 +335,10 @@ sub modify_host
 					$host->$func ($new_val) or die ("Failed to set host attribute: '$name' - error was '$host->{error}'\n");
 				}
 			}
+		}
+
+		if (! $host->hostname () and $host->dnsstatus () eq 'ENABLED') {
+			die ("Hostname cannot be NULL when dnsstatus is ENABLED\n");
 		}
 
 		if (@changelog) {
