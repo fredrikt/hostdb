@@ -323,6 +323,47 @@ sub valid_mac_address
 }
 
 
+=head2 check_valid_subnet
+
+	if (! $hostdb->check_valid_subnet ("130.237.0.0/16")) {
+		die ("The world is going under, 130.237.0.0/16 " .
+		     "is no longer a valid subnet!\n");
+	}
+
+	Check if a subnet is valid.
+
+
+=cut
+sub check_valid_subnet
+{
+	my $self = shift;
+	my $subnet = shift;
+	
+	$self->_debug_print ("subnet '$subnet'");
+
+	#if ($subnet !~ /^$IP_REGEXP\/$SLASH_REGEXP^/) {
+	if ($subnet !~ /^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\/(\d{1,2})$/) {
+		$self->_debug_print ("invalid subnet '$subnet'");
+		return 0;
+	}
+	
+	my $netaddr = $1;
+	my $slash = $2;
+
+	if (! $self->aton ($netaddr)) {
+		$self->_debug_print ("invalid netaddr '$netaddr'");
+		return 0;
+	}
+
+	# XXX is /32 really a valid subnet? isn't that a host?	
+	if ($slash < 0 or $slash > 32) {
+		$self->_debug_print ("invalid slash '$slash'");
+		return 0;
+	}
+	
+	return 1;
+}
+
 =head2 aton
 
 	$n_ip = $hostdb->ntoa($ip);
@@ -573,7 +614,7 @@ sub init
 		$self->{_allzones} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.zone ORDER BY zonename") or die "$DBI::errstr";
 
 		$self->{_subnet} =		$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.subnet WHERE netaddr = ? AND slashnotation = ? ORDER BY n_netaddr");
-		$self->{_subnet_longer_prefix} =	$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.subnet WHERE n_netaddr >= ? AND n_netaddr =< ? ORDER BY n_netaddr");
+		$self->{_subnet_longer_prefix} =	$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.subnet WHERE n_netaddr >= ? AND n_netaddr <= ? ORDER BY n_netaddr");
 		$self->{_subnet_closest_match} =	$self->{_dbh}->prepare ("SELECT * FROM $self->{db}.subnet WHERE n_netaddr <= ? ORDER BY n_netaddr LIMIT 1");
 	} else {
 		$self->_debug_print ("DSN not provided, not connecting to database.");
@@ -836,6 +877,8 @@ sub findallzones
 
 	$subnet = $hostdb->findsubnet("192.168.1.1/24");
 
+	Finds a subnet exactly matching what you asked for.
+
 
 =cut
 sub findsubnet
@@ -844,10 +887,52 @@ sub findsubnet
 
 	$self->_debug_print ("Find subnet '$_[0]'");
 
-	my ($subnet, $slash) = split('/', $_[0]);
+	my ($netaddr, $slash) = split('/', $_[0]);
 
-	$self->_find(_subnet => 'HOSTDB::Object::Subnet', $subnet, $slash);
+	$self->_find(_subnet => 'HOSTDB::Object::Subnet', $netaddr, $slash);
 }
+
+
+=head2 findsubnetclosestmatch
+
+	$subnet = $hostdb->findsubnetclosestmatch("192.168.1.1");
+
+	Finds the most specific subnet for the IP you supplied
+
+
+=cut
+sub findsubnetclosestmatch
+{
+	my $self = shift;
+
+	$self->_debug_print ("Find subnet for IP '$_[0]'");
+
+	$self->_find(_subnet_closest_match => 'HOSTDB::Object::Subnet', $_[0]);
+}
+
+
+=head2 findsubnetlongerprefix
+
+	$subnet = $hostdb->findsubnetlongerprefix("130.237.0.0/16");
+
+	Finds all subnets inside the supernet you supply
+
+
+=cut
+sub findsubnetlongerprefix
+{
+	my $self = shift;
+	my $supernet = shift;
+
+	$self->_debug_print ("Find all subnets inside '$supernet'");
+
+	my ($netaddr, $slash) = split('/', $supernet);
+	my $broadcast = $self->get_broadcast ($supernet);
+
+	$self->_find(_subnet_longer_prefix => 'HOSTDB::Object::Subnet',
+		$self->aton ($netaddr), $self->aton ($broadcast));
+}
+
 
 ########################################
 # package HOSTDB::DB private functions #
@@ -879,7 +964,18 @@ sub _find
 
 	$sth->execute(@_) or die "$DBI::errstr";
 
-	$self->_debug_print ("Got " . $sth->rows . " entry(s) when querying for '$_[0]' ($class)\n");
+	if (defined ($self->{debug}) and $self->{debug} > 0) {
+		my @t;
+		
+		# make list of query arguments suitable for debugging
+		my $t2;
+		foreach $t2 (@_) {
+			push (@t, "'$t2'");
+		}
+		
+		$self->_debug_print ("Got " . $sth->rows . " entry(s) when querying for " .
+			join(", ", @t) . " ($class)\n");
+	}
 
 	my (@retval,$hr);
 	while ($hr = $sth->fetchrow_hashref()) {
@@ -1109,7 +1205,6 @@ sub id
 sub commit
 {
 	my $self = shift;
-	my $hostdb = shift;
 
 	# if not explicitly told anything else, set reverse to Yes if
 	# this is a primary host object (not partof another)
@@ -1325,7 +1420,6 @@ sub owner
 sub commit
 {
 	my $self = shift;
-	my $hostdb = shift;
 
 	# if any of these values are 0, set it to NULL (undef) to use default values
 	$self->{refresh} = undef if (defined ($self->{refresh}) and $self->{refresh} <= 0);
@@ -1407,58 +1501,6 @@ sub init
 	}
 
 	return $self;
-}
-
-sub aton
-{
-	my $self = shift;
-	my $val = shift;
-
-	return unpack ('N', Socket::inet_aton ($val));
-}
-
-sub ntoa
-{
-	my $self = shift;
-	my $val = shift;
-	
-	return Socket::inet_ntoa (pack ('N', $val));
-}
-
-sub slashtonetmask
-{
-	my $self = shift;
-	my $slash = shift;
-
-	if ($slash < 0 or $slash > 31) {
-		$self->_set_error ("slash '$slash' invalid for IPv4"); # and IPv6 don't use netmasks
-		return undef;
-	}
-	return $self->ntoa (-(1 << (32 - $slash)));
-}
-
-sub netmasktoslash
-{
-	my $self = shift;
-	my $slash = shift;
-
-	return undef;
-}
-
-sub check_valid_subnet
-{
-	my $self = shift;
-	my $subnet = shift;
-	
-	$self->_debug_print ("subnet '$subnet'");
-
-	#if ($subnet !~ /^$IP_REGEXP\/$SLASH_REGEXP^/) {
-	if ($subnet !~ /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\/\d{1,2}$/) {
-		$self->_debug_print ("invalid subnet '$subnet'");
-		return 0;
-	}
-	
-	return 1;
 }
 
 sub subnet
