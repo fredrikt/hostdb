@@ -828,9 +828,10 @@ sub _set_error
 	my @error = @_;
 
 	if (! defined ($_[0])) {
-		$self->{error} = '';	
+		$self->{error} = '';
 	} else {
 		$self->{error} = join (" ", @error);
+		$self->_debug_print ("ERROR: $self->{error}");
 	}
 
 	return undef;
