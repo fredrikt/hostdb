@@ -93,7 +93,7 @@ $q->print (<<EOH);
 		$table_blank_line
 		<tr>
 			<td COLSPAN='2' ALIGN='center'>
-				<h3>HOSTDB: Modify Subnet</h3>
+				<h3>HOSTDB: Modify Zone</h3>
 			</td>
 			<td>&nbsp;</td>
 			<td>&nbsp;</td>
@@ -317,6 +317,10 @@ sub zone_form
 			<td>($zone_defaults_ref->{default_ttl})</td>
 		</tr>	
 		<tr>
+			<td>Owner</td>
+			<td COLSPAN='3'>$owner</td>
+		</tr>	
+		<tr>
 			<td>SOA TTL</td>
 			<td COLSPAN='2'>$ttl</td>
 			<td>($zone_defaults_ref->{soa_ttl})</td>
@@ -332,22 +336,22 @@ sub zone_form
 			<td>($zone_defaults_ref->{soa_rname})</td>
 		</tr>	
 		<tr>
-			<td>Refresh</td>
+			<td>SOA refresh</td>
 			<td COLSPAN='2'>$refresh</td>
 			<td>($zone_defaults_ref->{soa_refresh})</td>
 		</tr>	
 		<tr>
-			<td>Retry</td>
+			<td>SOA retry</td>
 			<td COLSPAN='2'>$retry</td>
 			<td>($zone_defaults_ref->{soa_retry})</td>
 		</tr>	
 		<tr>
-			<td>Expiry</td>
+			<td>SOA expiry</td>
 			<td COLSPAN='2'>$expiry</td>
 			<td>($zone_defaults_ref->{soa_expiry})</td>
 		</tr>	
 		<tr>
-			<td>Minimum</td>
+			<td>SOA minimum</td>
 			<td COLSPAN='2'>$minimum</td>
 			<td>($zone_defaults_ref->{soa_minimum})</td>
 		</tr>	
