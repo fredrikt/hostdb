@@ -105,7 +105,7 @@ sub do_host
 	
 	if (defined ($attr)) {
 		my $old_type = $attr->type ();
-		if ($old_value eq $value) {
+		if ($old_value eq $value and $old_type eq $type) {
 			if ($update) {
 				print ("$idstr: Updating lastupdated timestamp since value remains the same.\n") if ($verbose);
 				$attr->lastupdated ('NOW') or warn ("$0: $idstr: Could not update lastupdated timestamp - $attr->{error}\n"), return undef;
