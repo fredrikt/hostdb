@@ -224,9 +224,9 @@ sub print_host_info
 	my $parent = $host->partof ()?$host->partof ():'-';
 	$parent = "<a href='$me;whoisdatatype=ID;whoisdata=$parent'>$parent</a>";
 	my $ip = $host->ip ();
-	my $mac = $host->mac_address ();
+	my $mac = $host->mac_address () || '';
 	my $hostname = $host->hostname ();
-	my $comment = $host->comment ();
+	my $comment = $host->comment () || '';
 	my $owner = $host->owner ();
 	
 	$q->print (<<EOH);
