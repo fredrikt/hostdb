@@ -30,9 +30,10 @@ CREATE TABLE zone (
 );
 
 CREATE TABLE subnet (
+	ipver TINYINT UNSIGNED NOT NULL,
 	netaddr	CHAR(20) NOT NULL,
 	slashnotation TINYINT UNSIGNED NOT NULL,
-	subnet CHAR(20) NOT NULL,
+	netmask CHAR(20) NOT NULL,
 	description VARCHAR(255),
 	short_description VARCHAR(255),
 	n_netaddr INT NOT NULL,
