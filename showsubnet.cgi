@@ -72,7 +72,7 @@ sub list_subnet
 				$q->print ("<TR><TD>Netmask</TD><TD>" . $subnet->netmask () . "</TD></TR>\n" .
 					   "<TR><TD>Address usage</TD><TD>" . ($#subnet_hosts + 1) . "/" .
 					   $subnet->addresses () . " (" .
-					   int ((($#subnet_hosts + 1) / ($subnet->addresses () - 1)) * 100) . "%)</TD></TR>\n");
+					   int ((($#subnet_hosts + 1) / $subnet->addresses ()) * 100) . "%)</TD></TR>\n");
 
 				$q->print ("<TR><TD COLSPAN='2'>&nbsp;</TD></TR>\n");
 
