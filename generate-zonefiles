@@ -257,7 +257,11 @@ sub a_rr
 	my $included_hosts_count = 0;
 	my $skipped_hosts_count = 0;
 
-	foreach my $host ($hostdb->findhostbywildcardname ("%.$zonename")) {
+	my @hostlist = $hostdb->findhostbywildcardname ("%.$zonename");
+	warn ("findhostbywildcardname (%.$zonename) failed: $hostdb->{error}\n"), return 0 if (! $hostlist[0]);
+	my $host = $hostdb->findhostbywildcardname ($zonename);
+	push (@hostlist, $host) if (defined ($host));
+	foreach my $host (@hostlist) {
 		my $hostname = $host->hostname ();
 		my $hostip = $host->ip ();
 			
@@ -299,13 +303,14 @@ sub host_in_zone
 
 	my $checkzone = $hostname;
 	while ($checkzone) {
-		# strip up to and including the first dot (min.it.su.se -> it.su.se)
-		$checkzone =~ s/^.+?\.(.*)/$1/;
 		if (grep (/^$checkzone$/, @all_zones)) {
 			# we have a match
 			return 0 if ($checkzone ne $zonename);
 			return 1;
 		}
+
+		# strip up to and including the first dot (min.it.su.se -> it.su.se)
+		$checkzone =~ s/^.+?\.(.*)/$1/;
 	}
 	
 	return undef;
