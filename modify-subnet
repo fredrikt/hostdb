@@ -1,0 +1,51 @@
+#!/usr/bin/perl
+#
+# $Id$
+#
+# script to manually add a subnet to our database
+#
+
+use strict;
+use Config::IniFiles;
+#use lib 'blib/lib';
+use HOSTDB;
+use Getopt::Std;
+use vars qw ($opt_h $opt_d $opt_s $opt_c $opt_D);
+
+getopts ('Dhd:s:c:');
+
+my $debug = 0;
+my $subnet_name = shift;
+
+if (! $subnet_name or $opt_h) {
+	die("Syntax: $0 [options] subnet\n" . 
+	    "	options:\n" .
+	    "		-D	debug\n" .
+	    "		-d	description\n" .
+	    "		-s	short description\n" .
+	    "		-c	color\n" .
+	    "\n");
+}
+
+$debug = 1 if (defined ($opt_D));
+
+my $hostdbini = Config::IniFiles->new (-file => '/usr/local/etc/hostdb.ini');
+
+my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
+			  db => $hostdbini->val ('db', 'database'),
+			  user => $hostdbini->val ('db', 'user'),
+			  password => $hostdbini->val ('db', 'password'),
+			  debug => $debug
+			 );
+
+my $subnet = $hostdb->findsubnet ($subnet_name);
+
+die ("Could not find subnet '$subnet_name': " . $hostdb->{error} . "\n") if (! $subnet);
+
+$subnet->description ($opt_d) if (defined ($opt_d));
+$subnet->short_description ($opt_s) if (defined ($opt_s));
+$subnet->htmlcolor ($opt_c) if (defined ($opt_c));
+
+$subnet->commit() or die ("Could not commit subnet object: " . $hostdb->{error} . "\n");
+
+exit (0);
