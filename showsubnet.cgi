@@ -153,7 +153,7 @@ EOH
 						my $mac_ts = $host->mac_address_ts () || '';
 
 						# split at space to only get date and not time
-						$mac_ts = (split (/\s/, $mac_ts))[0];
+						$mac_ts = (split (/\s/, $mac_ts))[0] || '';
 
 						if ($whois_path) {
 							$ip = "<a HREF='$whois_path;whoisdatatype=ID;whoisdata=$id'>$ip</a>";
