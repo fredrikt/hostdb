@@ -1,0 +1,185 @@
+#!/usr/local/bin/perl
+#
+# $Id$
+#
+# script to modify hosts in the database
+#
+
+use strict;
+use Config::IniFiles;
+#use lib 'blib/lib';
+use HOSTDB;
+use Getopt::Long;
+use vars qw ($opt_ip $opt_hostname $opt_owner $opt_dhcpmode $opt_dhcpstatus $opt_dnsmode $opt_dnsstatus $opt_mac_address $opt_ttl $opt_user $opt_partof $opt_debug $opt_force);
+
+my %o = ();
+my $res = GetOptions (
+	    "ip=s",
+	    "hostname=s",
+	    "owner=s",
+	    "dhcpmode=s",
+	    "dhcpstatus=s",
+	    "dnsmode=s",
+	    "dnsstatus=s",
+	    "mac_address=s",
+	    "ttl=i",
+	    "user=s",
+	    "partof=i",
+	    "debug",
+	    "force"
+	   );
+
+#die ("$0: Parsing options failed\n") if ($res);
+
+my $debug = defined ($opt_debug);
+my $search_for = shift;
+
+sub usage
+{
+	my $msg = shift;
+	# interpolation
+	
+	die(<<EOT);
+${msg}Syntax: $0 [options] <IP/FQDN/MAC/ID>
+	options:
+		--debug		debug
+		--force		well, force
+	object modifiers :
+		--dhcpmode	STATIC or DYNAMIC
+		--dhcpstatus	ENABLED or DISABLED
+		--dnsmode	A_AND_PTR or A
+		--dnsstatus	ENABLED or DISABLED
+		--mac_address	MAC address
+		--ttl		DNS TTL
+		--user		Comment about user
+		--partof	parent Host ID
+
+EOT
+}
+
+usage("") if (! $search_for);
+
+my $hostdbini = Config::IniFiles->new (-file => HOSTDB::get_inifile ());
+
+
+my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
+			  db => $hostdbini->val ('db', 'database'),
+			  user => $hostdbini->val ('db', 'user'),
+			  password => $hostdbini->val ('db', 'password'),
+			  debug => $debug
+			 );
+
+my $host = get_host ($search_for);
+
+die ("$0: Could not find host object\n") unless ($host);
+
+if (! $opt_force) {
+	# do some extra sanity checks if not forced
+
+	my $h;
+	
+	if ($opt_ip) {
+		$h = $hostdb->findhostbyip ($opt_ip);
+		die ("$0: A host with IP $opt_ip already exists, use --force to set anyways.\n") if (defined ($h));
+	}
+	
+	if ($opt_hostname) {
+		$h = $hostdb->findhostbyname ($opt_hostname);
+		die ("$0: A host with hostname $opt_hostname already exists, use --force to set anyways.\n") if (defined ($h));
+	}
+	
+	if ($opt_mac_address) {
+		$h = $hostdb->findhostbymac ($opt_mac_address);
+		die ("$0: A host with MAC address $opt_mac_address already exists, use --force to set anyways.\n") if (defined ($h));
+	}
+	
+	if ($opt_partof) {
+		$h = $hostdb->findhostbyid ($opt_partof);
+		die ("$0: A parent host with ID $opt_mac_address could not be found, use --force to set partof anyways.\n") if (defined ($h));
+	}
+}
+
+$host->ip ($opt_ip)			or die ("$0: Invalid value - $host->{error}\n") if (defined ($opt_ip));
+$host->hostname ($opt_hostname)		or die ("$0: Invalid value - $host->{error}\n") if (defined ($opt_hostname));
+$host->owner ($opt_owner)		or die ("$0: Invalid value - $host->{error}\n") if (defined ($opt_owner));
+$host->dhcpmode ($opt_dhcpmode)		or die ("$0: Invalid value - $host->{error}\n") if (defined ($opt_dhcpmode));
+$host->dhcpstatus ($opt_dhcpstatus)	or die ("$0: Invalid value - $host->{error}\n") if (defined ($opt_dhcpstatus));
+$host->dnsmode ($opt_dnsmode)		or die ("$0: Invalid value - $host->{error}\n") if (defined ($opt_dnsmode));
+$host->dnsstatus ($opt_dnsstatus)	or die ("$0: Invalid value - $host->{error}\n") if (defined ($opt_dnsstatus));
+$host->mac_address ($opt_mac_address)	or die ("$0: Invalid value - $host->{error}\n") if (defined ($opt_mac_address));
+$host->ttl ($opt_ttl)			or die ("$0: Invalid value - $host->{error}\n") if (defined ($opt_ttl));
+$host->user ($opt_user)			or die ("$0: Invalid value - $host->{error}\n") if (defined ($opt_user));
+$host->partof ($opt_partof)		or die ("$0: Invalid value - $host->{error}\n") if (defined ($opt_partof));
+
+$host->commit or die ("$0: Could not commit host object - $host->{error}\n");
+
+exit (0);
+
+sub get_host
+{
+	my $search_for = shift;
+	my @host_refs;
+	my $datatype;
+
+	my $t = $search_for;
+	if ($hostdb->clean_mac_address ($t)) {
+		$search_for = $t;
+		$datatype = "MAC";
+	} elsif ($hostdb->is_valid_ip ($search_for)) {
+		$datatype = "IP";
+	} elsif ($hostdb->is_valid_fqdn ($search_for)) {
+		$datatype = "FQDN";
+	} elsif ($search_for =~ /^\d+$/) { 
+		$datatype = "ID";
+	} else {
+		usage ("Don't know what '$search_for' is\n\n");
+	}
+
+	if ($datatype eq "IP") {
+		if ($hostdb->is_valid_ip ($search_for)) {
+			@host_refs = $hostdb->findhostbyip ($search_for);
+		} else {
+			warn ("Search failed: '$search_for' is not a valid IP address");
+			return undef;
+		}
+	} elsif ($datatype eq "FQDN") {
+		if ($hostdb->is_valid_fqdn ($search_for)) {
+			@host_refs = $hostdb->findhostbyname ($search_for);
+		} else {
+			warn ("Search failed: '$search_for' is not a valid FQDN");
+			return undef;
+		}
+	} elsif ($datatype eq "MAC") {
+		my $t = $search_for;
+		if ($hostdb->clean_mac_address ($t)) {
+			$search_for = $t;
+			@host_refs = $hostdb->findhostbymac ($search_for);
+		} else {
+			warn ("Search failed: '$search_for' is not a valid MAC address");
+			return undef;
+		}
+	} elsif ($datatype eq "ID") {
+		if ($search_for =~ /^\d+$/) { 
+			@host_refs = $hostdb->findhostbyid ($search_for);
+		} else {
+			warn ("Search failed: '$search_for' is not a valid ID");
+			return undef;
+		}
+	} else {
+		warn ("Search failed: don't recognize whois datatype '$datatype'");
+		return undef;
+	}
+
+	if ($#host_refs == -1) {
+		warn ("$0: Search for '$search_for' (type '$datatype') failed - no match\n");
+		return undef;
+	}
+	if ($#host_refs == -1) {
+		my $count = $#host_refs + 1;
+		warn ("$0: Search for '$search_for' (type '$datatype') failed - more than one ($count) match\n");
+		return undef;
+	}
+	
+	return $host_refs[0];
+}
+

@@ -1,0 +1,108 @@
+#!/usr/local/bin/perl
+#
+# $Id$
+#
+# script to add hosts to the database
+#
+
+use strict;
+use Config::IniFiles;
+#use lib 'blib/lib';
+use HOSTDB;
+use Getopt::Long;
+use vars qw ($opt_dhcpmode $opt_dhcpstatus $opt_dnsmode $opt_dnsstatus $opt_mac_address $opt_ttl $opt_user $opt_partof $opt_debug $opt_force);
+
+my %o = ();
+my $res = GetOptions (
+	    "dhcpmode=s",
+	    "dhcpstatus=s",
+	    "dnsmode=s",
+	    "dnsstatus=s",
+	    "mac_address=s",
+	    "ttl=i",
+	    "user=s",
+	    "partof=i",
+	    "debug",
+	    "force"
+	   );
+
+#die ("$0: Parsing options failed\n") if ($res);
+
+my $debug = defined ($opt_debug);
+my $ip = shift;
+my $hostname = shift;
+my $owner = shift;
+
+sub usage
+{
+	my $msg = shift;
+	# interpolation
+	
+	die(<<EOT);
+${msg}Syntax: $0 [options] ip hostname owner
+	options:
+		--debug		debug
+		--force		don't perform certain sanity checks (DUP checking)
+	object modifiers :
+		--dhcpmode	STATIC or DYNAMIC
+		--dhcpstatus	ENABLED or DISABLED
+		--dnsmode	A_AND_PTR or A
+		--dnsstatus	ENABLED or DISABLED
+		--mac_address	MAC address
+		--ttl		DNS TTL
+		--user		Comment about user
+		--partof	parent Host ID
+
+EOT
+}
+
+my $hostdbini = Config::IniFiles->new (-file => HOSTDB::get_inifile ());
+
+
+my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
+			  db => $hostdbini->val ('db', 'database'),
+			  user => $hostdbini->val ('db', 'user'),
+			  password => $hostdbini->val ('db', 'password'),
+			  debug => $debug
+			 );
+
+usage ("") if (! $ip or ! $hostname);
+usage ("Invalid IP address '$ip'\n\n") unless ($hostdb->is_valid_ip ($ip));
+usage ("Invalid hostname '$hostname'\n\n") unless ($hostdb->is_valid_fqdn ($hostname));
+
+if (! $opt_force) {
+	# do some extra sanity checks if not forced
+	my $h = $hostdb->findhostbyip ($ip);
+	die ("$0: A host with IP $ip already exists, use --force to add anyways.\n") if (defined ($h));
+	$h = $hostdb->findhostbyname ($hostname);
+	die ("$0: A host with hostname $hostname already exists, use --force to add anyways.\n") if (defined ($h));
+
+	if ($opt_mac_address) {
+		$h = $hostdb->findhostbymac ($opt_mac_address);
+		die ("$0: A host with MAC address $opt_mac_address already exists, use --force to add anyways.\n") if (defined ($h));
+	}
+
+	if ($opt_partof) {
+		$h = $hostdb->findhostbyid ($opt_partof);
+		die ("$0: A parent host with ID $opt_mac_address could not be found, use --force to set partof anyways.\n") if (defined ($h));
+	}
+}
+
+my $host = $hostdb->create_host ();
+$host->ip ($ip) or die ("$0: Invalid value - $host->{error}\n");
+$host->hostname ($hostname) or die ("$0: Invalid value - $host->{error}\n");
+$host->owner ($owner) or die ("$0: Invalid value - $host->{error}\n");
+
+# optional ones
+$host->dhcpmode ($opt_dhcpmode)		or die ("$0: Invalid value - $host->{error}\n") if (defined ($opt_dhcpmode));
+$host->dhcpstatus ($opt_dhcpstatus)	or die ("$0: Invalid value - $host->{error}\n") if (defined ($opt_dhcpstatus));
+$host->dnsmode ($opt_dnsmode)		or die ("$0: Invalid value - $host->{error}\n") if (defined ($opt_dnsmode));
+$host->dnsstatus ($opt_dnsstatus)	or die ("$0: Invalid value - $host->{error}\n") if (defined ($opt_dnsstatus));
+$host->mac_address ($opt_mac_address)	or die ("$0: Invalid value - $host->{error}\n") if (defined ($opt_mac_address));
+$host->ttl ($opt_ttl)			or die ("$0: Invalid value - $host->{error}\n") if (defined ($opt_ttl));
+$host->user ($opt_user)			or die ("$0: Invalid value - $host->{error}\n") if (defined ($opt_user));
+$host->partof ($opt_partof)		or die ("$0: Invalid value - $host->{error}\n") if (defined ($opt_partof));
+
+$host->commit or die ("$0: Could not commit host object - $host->{error}\n");
+
+exit (0);
