@@ -39,7 +39,7 @@ Host object routines. A host object has the following attributes :
   hostname		- hostname
   ip			- ip
   n_ip			- ip in network order numerical format
-  owner			- a comment style field documenting the owner
+  owner			- HOSTDB::Auth identifier that may modify this host
   ttl			- DNS TTL to use for this host
   user			- a comment style field documenting the user
   partof		- a reference to another host object's id

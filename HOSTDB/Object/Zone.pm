@@ -42,7 +42,7 @@ Zone object routines. A host object has the following attributes :
   retry			- SOA retry value
   expiry		- SOA expiry value
   minimum		- SOA minimum value
-  owner			- comment-style owner
+  owner			- HOSTDB::Auth identifier that may modify hosts in this zone
 
 
 =head1 EXPORT
