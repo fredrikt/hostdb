@@ -587,6 +587,8 @@ sub mac_address_ts
 			$self->{mac_address_ts} = $self->unixtime_to_datetime (time ());
 		} elsif ($newvalue =~ /^unixtime:(\d+)$/oi) {
 			$self->{mac_address_ts} = $self->unixtime_to_datetime ($1);
+		} elsif ($newvalue eq "NULL") {
+			$self->{mac_address_ts} = undef;
 		} else {
 			$self->_set_error ("Invalid mac_address timestamp format");
 			return 0;
@@ -622,6 +624,7 @@ sub unixtime_to_datetime
 	
 	$year += 1900;	# yes, this is Y2K safe (why do you even bother? this was written
 			# in the year of 2002)
+	$mon++;
 	
 	return (sprintf ("%.4d-%.2d-%.2d %.2d:%.2d:%.2d",
 		$year, $mon, $mday, $hour, $min, $sec));
