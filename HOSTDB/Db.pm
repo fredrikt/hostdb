@@ -103,6 +103,14 @@ sub init
 		$self->{_hostattributebyid} =		$self->{_dbh}->prepare ("$SELECT_hostattr WHERE id = ? ORDER BY id")		or die "$DBI::errstr";
 		$self->{_hostattributesbyhostid} =	$self->{_dbh}->prepare ("$SELECT_hostattr WHERE hostid = ? ORDER BY v_section, v_key")	or die "$DBI::errstr";
 
+		my $SELECT_hostalias = "SELECT *, UNIX_TIMESTAMP(lastmodified) AS unix_lastmodified, UNIX_TIMESTAMP(lastupdated) AS unix_lastupdated FROM $self->{db}.hostalias";
+		$self->{_hostaliasbyid} =	$self->{_dbh}->prepare ("$SELECT_hostalias WHERE id = ? ORDER BY id")		or die "$DBI::errstr";
+		$self->{_hostaliasesbyhostid} =	$self->{_dbh}->prepare ("$SELECT_hostalias WHERE hostid = ? ORDER BY hostname")	or die "$DBI::errstr";
+
+		my $SELECT_hostwithalias = "SELECT host.*, UNIX_TIMESTAMP(host.mac_address_ts) AS unix_mac_address_ts FROM $self->{db}.host, $self->{db}.hostalias WHERE host.id = hostalias.hostid";
+		$self->{_hostswithaliasname} = $self->{_dbh}->prepare ("$SELECT_hostwithalias AND hostalias.hostname = ? ORDER BY host.hostname, hostalias.hostname");
+		$self->{_hostswithaliaswildcardname} = $self->{_dbh}->prepare ("$SELECT_hostwithalias AND hostalias.hostname LIKE ? ORDER BY host.hostname, hostalias.hostname");
+
 		my $SELECT_zone = "SELECT * FROM $self->{db}.zone";
 		$self->{_zonebyname} =		$self->{_dbh}->prepare ("$SELECT_zone WHERE zonename = ? ORDER BY zonename")		or die "$DBI::errstr";
 		$self->{_zonebyid} =		$self->{_dbh}->prepare ("$SELECT_zone WHERE id = ? ORDER BY zonename")				or die "$DBI::errstr";
@@ -347,6 +355,55 @@ sub findhostbyname
 }
 
 
+=head2 findhostbyaliasname
+
+	Find hosts with aliases matching a certain name.
+
+	foreach my $host ($hostdb->findhostbyaliasname ($searchhost)) {
+		printf ("%-5s %-20s %s\n", $host->id (), $host->ip (), $host->hostname ());
+	}
+
+
+=cut
+sub findhostbyaliasname
+{
+	my $self = shift;
+	my @res;
+
+	$self->_debug_print ("Find host with alias name '$_[0]'");
+	
+	if (! $self->is_valid_fqdn ($_[0]) and ! $self->is_valid_domainname ($_[0])) {
+		$self->_set_error ("findhostbyaliasname: '$_[0]' is not a valid FQDN or domain name");
+		return undef;
+	}
+	
+	$self->_find(_hostswithaliasname => 'HOSTDB::Object::Host', $_[0]);
+}
+
+
+=head2 findhostbyaliaswildcardname
+
+	Find hosts with aliases matching a certain name.
+
+	foreach my $host ($hostdb->findhostbyaliaswildcardname ($searchhost)) {
+		printf ("%-5s %-20s %s\n", $host->id (), $host->ip (), $host->hostname ());
+	}
+
+
+=cut
+sub findhostbyaliaswilcdardname
+{
+	my $self = shift;
+	my $searchfor = shift;
+
+	$searchfor =~ s/\*/%/go;
+
+	$self->_debug_print ("Find host with alias hostname LIKE '$searchfor'");
+
+	$self->_find(_hostswithaliaswildcardname => 'HOSTDB::Object::Host', $searchfor);
+}
+
+
 =head2 findhostbyzone
 
 	foreach my $host ($hostdb->findhostbyzone ($zone)) {
@@ -544,7 +601,7 @@ sub findallhosts
 		MAC
 		ZONE
 
-	Note that 'Guess' can't recognize a zone (it looks for FQDN).
+	Note that 'Guess' can\'t recognize a zone (it looks for FQDN).
 
 =cut
 sub findhost
@@ -590,6 +647,10 @@ sub findhost
 		if ($self->clean_hostname ($t)) {
 			$search_for = $t;
 			@host_refs = $self->findhostbyname ($search_for);
+
+			if (! @host_refs) {
+			    @host_refs = $self->findhostbyaliasname ($search_for);
+			}
 		} else {
 			$self->_set_error ("findhost () search failed: '$search_for' is not a valid FQDN");
 			return undef;
@@ -847,6 +908,23 @@ sub findhostswithattr_blobnotlike
 }
 
 
+=head2 findhostattributebyid
+
+        $attr = $hostdb->findhostattributebyid ($attribute_id);
+
+
+=cut
+sub findhostattributebyid
+{
+	my $self = shift;
+
+	$self->_debug_print ("Find host attribute with id '$_[0]'");
+	
+	$self->_find(_hostattributebyid => 'HOSTDB::Object::HostAttribute', $_[0]);
+}
+
+
+
 =head2 findhostattributesbyhostid
 
 	@attrs = $hostdb->findhostattributesbyhostid ($host->id ());
@@ -860,6 +938,39 @@ sub findhostattributesbyhostid
 	$self->_debug_print ("Find host attributes for host with id '$_[0]'");
 	
 	$self->_find(_hostattributesbyhostid => 'HOSTDB::Object::HostAttribute', $_[0]);
+}
+
+
+=head2 findhostaliasbyid
+
+	$alias = $hostdb->findhostaliasbyid ($alias_id);
+
+
+=cut
+sub findhostaliasbyid
+{
+	my $self = shift;
+
+	$self->_debug_print ("Find host alias with id '$_[0]'");
+	
+	$self->_find(_hostaliasbyid => 'HOSTDB::Object::HostAttribute', $_[0]);
+}
+
+
+
+=head2 findhostaliasesbyhostid
+
+	@aliases = $hostdb->findhostaliasesbyhostid ($host->id ());
+
+
+=cut
+sub findhostaliasesbyhostid
+{
+	my $self = shift;
+
+	$self->_debug_print ("Find host aliases for host with id '$_[0]'");
+	
+	$self->_find(_hostaliasesbyhostid => 'HOSTDB::Object::HostAlias', $_[0]);
 }
 
 

@@ -188,7 +188,7 @@ sub delete
 		return 0;
 	}
 
-	# XXX delete both host attributes and host object in a database transaction
+	# XXX delete both host attributes, aliases and host object in a database transaction
 
 	my @attributes = $self->init_attributes ();
 	foreach my $attr (@attributes) {
@@ -198,6 +198,18 @@ sub delete
 			my $attrid = $attr->id ();
 			my $attrerror = $attr->{error};
 			$self->_set_error ("Failed deleting a host attribute (id $attrid) - $attrerror");
+			return 0;
+		}
+	}
+
+	my @aliases = $self->init_aliases ();
+	foreach my $alias (@aliases) {
+		my $fail = 0;
+		$alias->delete ($check) or $fail = 1;
+		if ($fail) {
+			my $aliasid = $alias->id ();
+			my $aliaserror = $alias->{error};
+			$self->_set_error ("Failed deleting a host alias (id $aliasid) - $aliaserror");
 			return 0;
 		}
 	}
@@ -250,6 +262,34 @@ sub init_attributes
 }
 
 
+=head2 init_aliases
+
+	Loads the hosts aliases from the database.
+
+	# set property
+	$n = $host->init_aliases ();
+
+	print ("The host has $n aliases\n");
+
+
+=cut
+sub init_aliases
+{
+	my $self = shift;
+
+	if (defined ($self->{id})) {
+		$self->_debug_print ("Find all host aliases with hostid '$self->{id}'");
+
+		@{$self->{aliases}} = $self->{hostdb}->findhostaliasesbyhostid ($self->{id});
+	} else {
+		$self->_set_error ('Host not in database');
+		return 0;
+	}
+
+	wantarray ? @{$self->{aliases}} : 1;
+}
+
+
 =head2 get_attribute
 
 	Locate a specific attribute in this hosts attribute-list. Make sure
@@ -294,6 +334,28 @@ sub create_hostattribute
 	$o->{debug} = $self->{debug};
 	$o->{hostid} = $self->{id};
 	$self->_set_error ($o->{error}), return undef if (! $o->init());
+	
+	return ($o);
+}
+
+
+=head2 create_hostalias
+
+	$alias = $hostdb->create_hostalias();
+
+	Gets you a brand new HOSTDB::Object::HostAlias object.
+
+
+=cut
+sub create_hostalias
+{
+	my $self = shift;
+	
+	my $o = bless {},'HOSTDB::Object::HostAlias';
+	$o->{hostdb} = $self->{hostdb};
+	$o->{debug} = $self->{debug};
+	$o->{hostid} = $self->{id};
+	$self->_set_error ($o->{error}), return undef if (! $o->init ());
 	
 	return ($o);
 }
@@ -701,7 +763,7 @@ sub profile
 	Get or set this hosts comment. Just an informative field.
 
 	print ("Old comment: " . $host->comment ());
-	$host->comment ($new_comment) or warn ("Failed setting value\n");
+	$host->comment ($new_comment) or warn ("Failed setting comment\n");
 
 
 =cut

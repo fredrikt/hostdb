@@ -12,6 +12,7 @@ use HOSTDB::Db;
 use HOSTDB::Auth;
 use HOSTDB::Object::Host;
 use HOSTDB::Object::HostAttribute;
+use HOSTDB::Object::HostAlias;
 use HOSTDB::Object::Zone;
 use HOSTDB::Object::Subnet;
 
@@ -85,7 +86,7 @@ sub init
 	my $hostdbini = Config::IniFiles->new (-file => HOSTDB::get_inifile ());
 
 	The reason to use HOSTDB::get_inifile () instead of 
-	$hostdb->get_inifile () is that you probably don't have a HOSTDB
+	$hostdb->get_inifile () is that you probably don\'t have a HOSTDB
 	object yet.
 
 =cut
