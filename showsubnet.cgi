@@ -181,12 +181,12 @@ EOH
 
 	$q->print ($table_blank_line);
 
-	if (get_host_with_ip ($subnet->netaddr (), @hosts) or
-	    get_host_with_ip ($subnet->broadcast (), @hosts)) {
-		if (get_host_with_ip ($subnet->netaddr (), @hosts)) {
+	if (get_hosts_with_ip ($subnet->netaddr (), @hosts) or
+	    get_hosts_with_ip ($subnet->broadcast (), @hosts)) {
+		if (get_hosts_with_ip ($subnet->netaddr (), @hosts)) {
 			error_line ($q, 'WARNING: There is a host entry for the network address ' . $subnet->netaddr ());
 		}
-		if (get_host_with_ip ($subnet->broadcast (), @hosts)) {
+		if (get_hosts_with_ip ($subnet->broadcast (), @hosts)) {
 			error_line ($q, 'WARNING: There is a host entry for the broadcast address ' . $subnet->broadcast ());
 		}
 		$q->print ($table_blank_line);
@@ -204,8 +204,8 @@ EOH
 EOH
 	for $i (1 .. $subnet->addresses () - 2) {
 		my $ip = $hostdb->ntoa ($subnet->n_netaddr () + $i);
-		my $host = get_host_with_ip ($ip, @hosts);
-		if (! defined ($host)) {
+		my @thesehosts = get_hosts_with_ip ($ip, @hosts);
+		if (! defined (@thesehosts)) {
 			# there is a gap here, output IP in green
 						
 			$ip = "<a href='$links{modifyhost};ip=$ip'>$ip</a>" if ($links{modifyhost});
@@ -220,52 +220,19 @@ EOH
 				</tr>
 EOH
 		} else {
-			my $id = $host->id();
-			my $hostname = $host->hostname () || 'NULL';
-			my $mac = $host->mac_address () || '';
-			my $mac_ts = $host->mac_address_ts () || '';
-
-			# split at space to only get date and not time
-			$mac_ts = (split (/\s/, $mac_ts))[0] || '';
-
-			if ($links{whois}) {
-				$ip = "<a HREF='$links{whois};whoisdatatype=ID;whoisdata=$id'>$ip</a>";
+			my $dup = 0;
+			my $parent;
+			foreach my $host (@thesehosts) {
+				if (! $dup) {
+					$parent = $host->id ();	
+				}
+				
+				print_host (\@o, $host, $dup, $parent,
+					    $static_flag_days, $dynamic_flag_days,
+					    \$static_hosts, \$dynamic_hosts,
+					    \$static_in_use, \$dynamic_in_use);
+				$dup = 1;
 			}
-			
-			my $h_u_t = $host->unix_mac_address_ts ();
-
-			my $in_use = 0;
-			if ($host->dhcpmode () eq 'DYNAMIC') {
-				$dynamic_hosts++;
-				$in_use = 1 if (defined ($h_u_t) and
-					(time () - $h_u_t) < ($dynamic_flag_days * 86400));
-				$dynamic_in_use += $in_use;
-				$mac = 'dynamic';
-			} else {
-				$static_hosts++;
-				$in_use = 1 if (defined ($h_u_t) and
-					(time () - $h_u_t) < ($static_flag_days * 86400));
-				$static_in_use += $in_use;
-			}
-			
-			my $ts_font = '';
-			my $ts_font_end = '';
-			
-			my $ts_flag_color = '#dd0000'; # bright red
-			
-			if (! $in_use) {
-				$ts_font = "<font COLOR='$ts_flag_color'>";
-				$ts_font_end = '</font>';
-			}
-			
-			push (@o, <<EOH);
-				<tr>
-				   <td ALIGN='left'>$ip</td>
-				   <td ALIGN='left'>$hostname</td>
-				   <td ALIGN='center'><font SIZE='2'><pre>$mac</pre></font></td>
-				   <td ALIGN='right' NOWRAP>${ts_font}${mac_ts}${ts_font_end}</td>
-				</tr>
-EOH
 		}
 	}
 
@@ -320,17 +287,94 @@ EOH
 	return 1;
 }
 
-sub get_host_with_ip
+sub print_host
+{
+	my $o = shift;
+	my $host = shift;
+	my $dup = shift;
+	my $thisip_parent = shift;
+	my $static_flag_days = shift;
+	my $dynamic_flag_days = shift;
+	my $static_hosts_ref = shift;
+	my $dynamic_hosts_ref = shift;
+	my $static_in_use_ref = shift;
+	my $dynamic_in_use_ref = shift;
+	
+	my $id = $host->id ();
+	my $ip = $host->ip ();
+	my $hostname = $host->hostname () || 'NULL';
+	my $mac = $host->mac_address () || '';
+	my $mac_ts = $host->mac_address_ts () || '';
+
+	# split at space to only get date and not time
+	$mac_ts = (split (/\s/, $mac_ts))[0] || '';
+
+	my $ip_align = 'left';
+	
+	if ($dup) {
+		my $partof = $host->partof () || 'NULL';
+		if ($partof eq $thisip_parent) {
+			$ip = 'child';
+			$ip_align = 'center';
+		} else {
+			$ip = 'DUPLICATE';
+			$ip_align = 'center';
+		}
+	}
+
+	if ($links{whois}) {
+		$ip = "<a HREF='$links{whois};whoisdatatype=ID;whoisdata=$id'>$ip</a>";
+	}
+			
+	my $h_u_t = $host->unix_mac_address_ts ();
+
+	my $in_use = 0;
+	if ($host->dhcpmode () eq 'DYNAMIC') {
+		$$dynamic_hosts_ref++;
+		$in_use = 1 if (defined ($h_u_t) and
+			(time () - $h_u_t) < ($dynamic_flag_days * 86400));
+		$$dynamic_in_use_ref += $in_use;
+		$mac = 'dynamic';
+	} else {
+		$$static_hosts_ref++;
+		$in_use = 1 if (defined ($h_u_t) and
+			(time () - $h_u_t) < ($static_flag_days * 86400));
+		$$static_in_use_ref += $in_use;
+	}
+			
+	my $ts_font = '';
+	my $ts_font_end = '';
+			
+	my $ts_flag_color = '#dd0000'; # bright red
+			
+	if (! $in_use) {
+		$ts_font = "<font COLOR='$ts_flag_color'>";
+		$ts_font_end = '</font>';
+	}
+	
+	push (@$o, <<EOH);
+		<tr>
+		   <td ALIGN='$ip_align'>$ip</td>
+		   <td ALIGN='left'>$hostname</td>
+		   <td ALIGN='center'><font SIZE='2'><pre>$mac</pre></font></td>
+		   <td ALIGN='right' NOWRAP>${ts_font}${mac_ts}${ts_font_end}</td>
+		</tr>
+EOH
+
+	return 1;
+}
+
+sub get_hosts_with_ip
 {
 	my $ip = shift;
 	my @hosts = @_;
-	
-	my $host;
+
+	my (@retval, $host);
 	foreach $host (@hosts) {
-		return $host if ($host->ip () eq $ip);	
+		push (@retval, $host) if ($host->ip () eq $ip);	
 	}
 	
-	return undef;
+	wantarray ? @retval : $retval[0];
 }
 
 sub safe_div
