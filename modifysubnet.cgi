@@ -85,7 +85,7 @@ $q->print (<<EOH);
 		$table_blank_line
 		<tr>
 			<td COLSPAN='2' ALIGN='center'>
-				<h3>HOSTDB: Add/Modify Subnet</h3>
+				<h3>HOSTDB: Modify Subnet</h3>
 			</td>
 			<td>&nbsp;</td>
 			<td>&nbsp;</td>
