@@ -205,15 +205,19 @@ sub is_valid_fqdn
 	}
 
 	# first part (hostname) may NOT begin with a digit and may NOT
-	# contain an underscore
+	# contain an underscore and may NOT be digits-only
 	if ($hostname !~ /^[a-zA-Z0-9]/o) {
-		$self->_debug_print ("hostname '$hostname' does not begin with an alphabetic character (a-zA-Z)");
+		$self->_debug_print ("hostname '$hostname' does not begin with an alphabetic character (a-zA-Z0-9)");
 		return 0;
 	}
 	$illegal_chars = $hostname_parts[0];
 	$illegal_chars =~ s/[a-zA-Z0-9\-]//og;
 	if ($illegal_chars) {
 		$self->_debug_print ("hostname part '$hostname_parts[0]' of FQDN '$hostname' contains illegal characters ($illegal_chars)");
+		return 0;
+	}
+	if ($hostname_parts[0] =~ /^[0-9]+$/o) {
+		$self->_debug_print ("First part of hostname '$hostname_parts[0]' may not be digits-only");
 		return 0;
 	}
 
@@ -263,6 +267,14 @@ sub is_valid_domainname
 
 	if ($domainname =~ /\.\./) {
 		$self->_debug_print ("domainname '$domainname' has empty label(s) (double dots)");
+		return 0;
+	}
+
+	# XXX 4711.com is a valid domainname, this is really to not treat invalid
+	# hostnames (4711.example.org) as valid domain names. should be fixed, but
+	# I can't think of a really good sollution right now. patches welcome.
+	if ($domainname_parts[0] =~ /^[0-9]+$/o) {
+		$self->_debug_print ("First part of domainname '$domainname_parts[0]' may not be digits-only (in HOSTDB)");
 		return 0;
 	}
 
