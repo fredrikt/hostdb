@@ -36,4 +36,6 @@ foreach my $searchhost (sort @searchfor) {
 	foreach my $host ($hostdb->findhostbyip($searchhost)) {
 		printf ("%-7s %-7s %-16s %s\n", $host->{id}, $host->{partof}, $host->{ip}, $host->{hostname});
 	}
+
+	print ("\n");
 }
