@@ -16,56 +16,56 @@ my $debug = defined ($opt_d);
 
 my @searchfor = @ARGV;
 if ($#searchfor == -1 || $opt_h) {
-	die ("Syntax: $0 [-d] <ID/IP/FQDN/MAC> ...\n");
+    die ("Syntax: $0 [-d] <ID/IP/FQDN/MAC> ...\n");
 }
 
 my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
 			      debug => $debug
-			     );
+			      );
 
 my $first = 1;
 while (@searchfor) {
-	my @host_refs;
-	my $search_for = shift @searchfor;
+    my @host_refs;
+    my $search_for = shift @searchfor;
 
-	if (is_wildcard ($search_for)) {
-		@host_refs = $hostdb->findhostbywildcardname ($search_for);
-	} else {
-		@host_refs = $hostdb->findhost ('guess', $search_for);
-	}
+    if (is_wildcard ($search_for)) {
+	@host_refs = $hostdb->findhostbywildcardname ($search_for);
+    } else {
+	@host_refs = $hostdb->findhost ('guess', $search_for);
+    }
 
-	if ($hostdb->{error}) {
-		die ("$0: $hostdb->{error}\n");
-	}
+    if ($hostdb->{error}) {
+	die ("$0: $hostdb->{error}\n");
+    }
 
-	if (@host_refs) {
-		foreach my $host (@host_refs) {
-			print ("Host :\n\n");
+    if (@host_refs) {
+	foreach my $host (@host_refs) {
+	    print ("Host :\n\n");
 
-		
-			# interpolation
-			my $id = $host->id ();
-			my $parent = $host->partof ()?$host->partof ():"-";
-			my $ip = $host->ip ();
-			my $mac = $host->mac_address () || "n/a";
-			my $mac_ts = $host->mac_address_ts () || "no timestamp";
-			my $hostname = $host->hostname () || 'NULL';
-			my $comment = $host->comment () || 'NULL';
-			my $owner = $host->owner ();
-			my $dhcpstatus = $host->dhcpstatus ();
-			my $dhcpmode = $host->dhcpmode ();
-			my $dnsstatus = $host->dnsstatus ();
-			my $dnsmode = $host->dnsmode ();
-			my $ttl = $host->ttl () || 'default';
-			my $profile = $host->profile ();
-			my $zone = $host->dnszone () || 'NULL';
-			my $manual_zone = $host->manual_dnszone () || 'NULL';
 
-			print (<<EOH);
+	    # interpolation
+	    my $id = $host->id ();
+	    my $parent = $host->partof ()?$host->partof ():"-";
+	    my $ip = $host->ip ();
+	    my $mac = $host->mac_address () || "n/a";
+	    my $mac_ts = $host->mac_address_ts () || "no timestamp";
+	    my $hostname = $host->hostname () || 'NULL';
+	    my $comment = $host->comment () || 'NULL';
+	    my $owner = $host->owner ();
+	    my $dhcpstatus = $host->dhcpstatus ();
+	    my $dhcpmode = $host->dhcpmode ();
+	    my $dnsstatus = $host->dnsstatus ();
+	    my $dnsmode = $host->dnsmode ();
+	    my $ttl = $host->ttl () || 'default';
+	    my $profile = $host->profile ();
+	    my $zone = $host->dnszone () || 'NULL';
+	    my $manual_zone = $host->manual_dnszone () || 'NULL';
+
+	    print (<<EOH);
 	ID	$id
 	Parent	$parent
 	---
-	
+
 	DNS :
 	  IP address	$ip
 	  Hostname	$hostname
@@ -74,7 +74,7 @@ while (@searchfor) {
 	  TTL		$ttl
 	  Mode		$dnsmode
 	  Status	$dnsstatus
-	
+
 	DHCP :
 	  MAC address	$mac (last seen $mac_ts)
 	  Mode		$dhcpmode
@@ -86,91 +86,91 @@ while (@searchfor) {
 	  Owner		$owner
 
 EOH
-			my @attrs = $host->init_attributes ();
-			my $numattrs = scalar @attrs;
+	    my @attrs = $host->init_attributes ();
+	    my $numattrs = scalar @attrs;
 
-			if ($numattrs > 0) {
-				print (<<EOH);
+	    if ($numattrs > 0) {
+		print (<<EOH);
 
 	Host has $numattrs attributes :
 EOH
 
-				my $lastsection = '';
-				
-				foreach my $attr (sort attributesort @attrs) {
-					my $key = $attr->key ();
-					my $section = $attr->section ();
-					my $value = $attr->get ();
-					
-					if ($section ne $lastsection) {
-						print ("\n	  [$section]\n");
-						$lastsection = $section;
-					}
-					
-					printf ("	    %-25s = %s\n", $key, $value);
-				}
-				
-				print ("\n");
-			}
-			
-			my $subnet = $hostdb->findsubnetbyip ($host->ip ());
-		
-			if ($subnet) {
-				printf ("	%-23s %-20s %s\n", "subnet", "netmask", "description");
-				
-				printf "	%-23s %-20s %s\n", $subnet->subnet(),
-						$subnet->netmask (), $subnet->description ();
-		
-				print ("\n");
-			} else {
-				print ("Could not find a subnet in database\n\n");
-			}
+		my $lastsection = '';
+
+		foreach my $attr (sort attributesort @attrs) {
+		    my $key = $attr->key ();
+		    my $section = $attr->section ();
+		    my $value = $attr->get ();
+
+		    if ($section ne $lastsection) {
+			print ("\n	  [$section]\n");
+			$lastsection = $section;
+		    }
+
+		    printf ("	    %-25s = %s\n", $key, $value);
 		}
-			
-		print ("---\n\n");
-	} else {
-		warn ("$0: No match on '$search_for'\n");
+
+		print ("\n");
+	    }
+
+	    my $subnet = $hostdb->findsubnetbyip ($host->ip ());
+
+	    if ($subnet) {
+		printf ("	%-23s %-20s %s\n", "subnet", "netmask", "description");
+
+		printf "	%-23s %-20s %s\n", $subnet->subnet(),
+		$subnet->netmask (), $subnet->description ();
+
+		print ("\n");
+	    } else {
+		print ("Could not find a subnet in database\n\n");
+	    }
 	}
+
+	print ("---\n\n");
+    } else {
+	warn ("$0: No match on '$search_for'\n");
+    }
 }
 
 sub attributesort
 {
-	my $a_section = $a->section ();
-	my $b_section = $b->section ();
-	
-	if ($a_section eq $b_section) {
-		my $a_key = $a->key ();
-		my $b_key = $b->key ();
-		
-		if ($a_key =~ /^(.*?)(\d+)$/) {
-			my $a_prefix = $1;
-			my $a_num = int ($2);
-			
-			if ($b_key =~ /^(.*?)(\d+)$/) {
-				my $b_prefix = $1;
-				my $b_num = int ($2);
+    my $a_section = $a->section ();
+    my $b_section = $b->section ();
 
-				if ($a_prefix eq $b_prefix) {
-					# both keys begin with the same text and ends in digits,
-					# do numeric comparision
-					
-					return $a_num <=> $b_num;
-				}
-			}
+    if ($a_section eq $b_section) {
+	my $a_key = $a->key ();
+	my $b_key = $b->key ();
+
+	if ($a_key =~ /^(.*?)(\d+)$/) {
+	    my $a_prefix = $1;
+	    my $a_num = int ($2);
+
+	    if ($b_key =~ /^(.*?)(\d+)$/) {
+		my $b_prefix = $1;
+		my $b_num = int ($2);
+
+		if ($a_prefix eq $b_prefix) {
+		    # both keys begin with the same text and ends in digits,
+		    # do numeric comparision
+
+		    return $a_num <=> $b_num;
 		}
-		
-		return $a_key cmp $b_key;
+	    }
 	}
 
-	return $a_section cmp $b_section;	
+	return $a_key cmp $b_key;
+    }
+
+    return $a_section cmp $b_section;
 }
 
 sub is_wildcard
 {
-	my $in = shift;
+    my $in = shift;
 
-	return 1 if ($in =~ /%/);
-	return 1 if ($in =~ /\*/);
-	
-	return 0;
+    return 1 if ($in =~ /%/);
+    return 1 if ($in =~ /\*/);
+
+    return 0;
 }
