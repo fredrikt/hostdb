@@ -314,13 +314,16 @@ sub error_line
 {
 	my $q = shift;
 	my $error = shift;
+	chomp ($error);
 	$q->print (<<EOH);
 	   <tr>
-		<td COLSPAN='2'>
+		<td COLSPAN='4'>
 		   <font COLOR='red'>
 			<strong>$error</strong>
 		   </font>
 		</td>
 	   </tr>
 EOH
+	my $i = localtime () . " deletehost.cgi[$$]";
+	warn ("$i: $error\n");
 }

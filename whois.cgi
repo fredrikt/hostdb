@@ -692,6 +692,7 @@ sub error_line
 {
 	my $q = shift;
 	my $error = shift;
+	chomp ($error);
 	$q->print (<<EOH);
 	   <tr>
 		<td COLSPAN='4'>
@@ -701,5 +702,6 @@ sub error_line
 		</td>
 	   </tr>
 EOH
+	my $i = localtime () . " whois.cgi[$$]";
+	warn ("$i: $error\n");
 }
-
