@@ -122,30 +122,53 @@ sub perform_search
 		my @host_refs;
 			
 		if ($whoisdatatype eq "IP") {
-			my $host = $hostdb->findhostbyip ($search_for);
-			my @gaah;
-			push (@gaah, $host);
-			push (@host_refs, \@gaah);
+			if ($hostdb->check_valid_ip ($search_for)) {
+				my $host = $hostdb->findhostbyip ($search_for);
+				my @gaah;
+				push (@gaah, $host);
+				push (@host_refs, \@gaah);
+			} else {
+				error_line ($q, "Search failed: '$search_for' is not a valid IP address");
+				return undef;
+			}
 		} elsif ($whoisdatatype eq "FQDN") {
-			@host_refs = $hostdb->findhostbyname ($search_for);
+			if ($hostdb->valid_fqdn ($search_for)) {
+				@host_refs = $hostdb->findhostbyname ($search_for);
+			} else {
+				error_line ($q, "Search failed: '$search_for' is not a valid FQDN");
+				return undef;
+			}
 		} elsif ($whoisdatatype eq "MAC") {
-			my $host = $hostdb->findhostbymac ($search_for);
-			my @gaah;
-			push (@gaah, $host);
-			push (@host_refs, \@gaah);
+			my $t = $search_for;
+			if ($hostdb->clean_mac_address ($t)) {
+				$search_for = $t;
+				my $host = $hostdb->findhostbymac ($search_for);
+				my @gaah;
+				push (@gaah, $host);
+				push (@host_refs, \@gaah);
+			} else {
+				error_line ($q, "Search failed: '$search_for' is not a valid MAC address");
+				return undef;
+			}
 		} elsif ($whoisdatatype eq "ID") {
-			my $host = $hostdb->findhostbyid ($search_for);
-			my @gaah;
-			push (@gaah, $host);
-			push (@host_refs, \@gaah);
-
+			if ($search_for =~ /^\d+$/) { 
+				my $host = $hostdb->findhostbyid ($search_for);
+				my @gaah;
+				push (@gaah, $host);
+				push (@host_refs, \@gaah);
+			} else {
+				error_line ($q, "Search failed: '$search_for' is not a valid ID");
+				return undef;
+			}
 		} else {
 			error_line ($q, "Search failed: don't recognize whois datatype '$whoisdatatype'");
 			return undef;
 		}
 
 		if (@host_refs) {
-			foreach my $host_ref (@host_refs) {
+			if ($#host_refs == 0) {
+				# only one host (may still be multiple host records), show detailed information
+				my $host_ref = @host_refs[0];
 				foreach my $host (@$host_ref) {
 					$q->print ("<tr><th COLSPAN='2' ALIGN='left'>Host :</th></tr>");
 					$q->print ("<tr><td COLSPAN='2'>&nbsp;</td></tr>\n");
@@ -163,6 +186,30 @@ sub perform_search
 						return undef;
 					}
 					$q->print ($table_blank_line);	
+				}
+
+				$q->print ($table_hr_line);
+			} else {
+				# more than one host record, show brief information
+				foreach my $host_ref (@host_refs) {
+					foreach my $host (@$host_ref) {
+						# HTML
+						my $ip = $host->ip ();
+						my $id = $host->id ();
+						my $me = $q->state_url ();
+
+						$ip = "<a href='$me&whoisdatatype=ID&whoisdata=$id'>$ip</a>";
+						my $hostname = $host->hostname ();
+						my $mac = $host->mac_address ();
+						
+						$q->print (<<EOH);
+							<tr>
+							   <td>$ip</td>
+							   <td>$hostname</td>
+							   <td>$mac</td>
+							</tr>
+EOH
+					}
 				}
 
 				$q->print ($table_hr_line);
