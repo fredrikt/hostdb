@@ -1,0 +1,111 @@
+#!/usr/local/bin/perl
+#
+# $Id$
+#
+# script to add zones to the database
+#
+
+use strict;
+use Config::IniFiles;
+#use lib 'blib/lib';
+use HOSTDB;
+use Getopt::Long;
+use vars qw ($opt_delegated $opt_default_ttl $opt_ttl $opt_serial $opt_mname $opt_rname $opt_refresh $opt_retry $opt_expiry $opt_minimum $opt_owner $opt_force $opt_debug);
+
+my %o = ();
+my $res = GetOptions (
+	    "delegated=s",
+	    "default_ttl=s",
+	    "ttl=s",
+	    "serial=s",
+	    "mname=s",
+	    "rname=s",
+	    "refresh=s",
+	    "retry=s",
+	    "expiry=s",
+	    "minimum=s",
+	    "force"
+	   );
+
+#die ("$0: Parsing options failed\n") if ($res);
+
+my $debug = defined ($opt_debug);
+my $zonename = shift;
+my $owner = shift;
+
+sub usage
+{
+	my $msg = shift;
+	# interpolation
+	
+	die(<<EOT);
+${msg}Syntax: $0 [options] zonename owner
+	options:
+		--debug		debug
+		--force		don't perform certain sanity checks (DUP checking)
+	object modifiers :
+		--delegated	Y or N
+		--default_ttl	what to use for \$TTL - BIND parseable please
+		--ttl		SOA TTL - BIND parseable please
+		--serial	SOA serial - BIND parseable please
+		--mname		SOA mname - BIND parseable please
+		--rname		SOA rname - BIND parseable please
+		--refresh	SOA refresh - BIND parseable please
+		--retry		SOA retry - BIND parseable please
+		--expiry	SOA expiry - BIND parseable please
+		--minimum	SOA minimum - BIND parseable please
+
+EOT
+}
+
+my $hostdbini = Config::IniFiles->new (-file => HOSTDB::get_inifile ());
+die ("$0: Config file access problem.\n") unless ($hostdbini);
+
+my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
+			  db => $hostdbini->val ('db', 'database'),
+			  user => $hostdbini->val ('db', 'user'),
+			  password => $hostdbini->val ('db', 'password'),
+			  debug => $debug
+			 );
+
+usage ("") if (! $zonename or ! $owner);
+usage ("Invalid zonename '$zonename'\n\n") unless ($hostdb->is_valid_domainname ($zonename));
+
+if (! $opt_force) {
+	# do some extra sanity checks if not forced
+	my $z = $hostdb->findzonebyname ($zonename);
+	die ("$0: A zone with name '$zonename' already exists, use --force to add anyways.\n") if (defined ($z));
+}
+
+my $zone = $hostdb->create_zone ();
+$zone->zonename ($zonename) or die ("$0: Invalid value - $zone->{error}\n");
+$zone->owner ($owner) or die ("$0: Invalid value - $zone->{error}\n");
+
+# defaults, set before checking if they are supplied
+$zone->delegated ('N')		or die ("$0: Could not set default 'delegated': $zone->{error}\n");
+
+	    "delegated=s",
+	    "default_ttl=s",
+	    "ttl=s",
+	    "serial=s",
+	    "mname=s",
+	    "rname=s",
+	    "refresh=s",
+	    "retry=s",
+	    "expiry=s",
+	    "minimum=s",
+# optional ones
+$zone->delegated ($opt_delegated)	or die ("$0: Invalid value - $zone->{error}\n") if (defined ($opt_delegated));
+$zone->default_ttl ($opt_default_ttl)	or die ("$0: Invalid value - $zone->{error}\n") if (defined ($opt_default_ttl));
+$zone->ttl ($opt_ttl)			or die ("$0: Invalid value - $zone->{error}\n") if (defined ($opt_ttl));
+$zone->serial ($opt_serial)		or die ("$0: Invalid value - $zone->{error}\n") if (defined ($opt_serial));
+$zone->mname ($opt_mname)		or die ("$0: Invalid value - $zone->{error}\n") if (defined ($opt_mname));
+$zone->rname ($opt_rname)		or die ("$0: Invalid value - $zone->{error}\n") if (defined ($opt_rname));
+$zone->refresh ($opt_refresh)		or die ("$0: Invalid value - $zone->{error}\n") if (defined ($opt_refresh));
+$zone->retry ($opt_retry)		or die ("$0: Invalid value - $zone->{error}\n") if (defined ($opt_retry));
+$zone->expiry ($opt_expiry)		or die ("$0: Invalid value - $zone->{error}\n") if (defined ($opt_expiry));
+$zone->minimum ($opt_minimum)		or die ("$0: Invalid value - $zone->{error}\n") if (defined ($opt_minimum));
+
+$zone->commit () or die ("$0: Could not commit zone object - $zone->{error}\n");
+
+exit (0);
