@@ -12,7 +12,7 @@ use SUCGI;
 my $table_blank_line = "<tr><td COLSPAN='2'>&nbsp;</td></tr>\n";
 my $table_hr_line = "<tr><td COLSPAN='2'><hr></td></tr>\n";
 
-my $debug = 1;
+my $debug = 0;
 if (defined($ARGV[0]) and $ARGV[0] eq "-d") {
 	shift (@ARGV);
 	$debug = 1;
@@ -101,7 +101,13 @@ SWITCH:
 		}
 
 		if ($authorized) {
+			my $identify_str = "id:'" . ($host->id () || 'no id') . "' hostname:'" . ($host->hostname () || 'no hostname') . "' ip:'" . ($host->ip () || 'no ip') . "'";
+
 			if (delete_host ($hostdb, $host, $q)) {
+				my $i = localtime () . " deletehost.cgi[$$]";
+				warn ("$i User '$remote_user' (from $ENV{REMOTE_ADDR}) deleted the following host -- $identify_str\n");
+
+
 				$q->print (<<EOH);
 					<tr>
 						<td COLSPAN='2'><strong><font COLOR='red'>Host deleted</font></strong></td>

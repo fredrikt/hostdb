@@ -83,6 +83,7 @@ SWITCH:
 			$host = $hostdb->create_host ();
 			error_line ($q, "$0: Could not create host entry: $hostdb->{error}\n"), last SWITCH unless (defined ($host));
 			$host->profile ('default');
+			$host->manual_dnszone ('N');
 		}
 
 		if (modify_host ($hostdb, $host, $q, $remote_user)) {
@@ -92,6 +93,7 @@ SWITCH:
 			};
 			if ($@) {
 				error_line ($q, "Could not commit changes: $@");
+				warn ("Changes to host with id '" . $host->id () . "' could not be committed");
 				last SWITCH;
 			}
 		}
@@ -159,6 +161,7 @@ sub modify_host
 			}
 		}
 
+		my $identify_str = "id:'" . ($host->id () || 'no id') . "' hostname:'" . ($host->hostname () || 'no hostname') . "' ip:'" . ($host->ip () || 'no ip') . "'";
 
 		# this is a hash and not an array to provide a better framework
 		my %changer = ('dhcpmode' =>	'dhcpmode',
@@ -256,6 +259,12 @@ sub modify_host
 					$host->$func ($new_val) or die ("Failed to set host attribute: '$name' - error was '$host->{error}'");
 				}
 			}
+		}
+
+		if (@changelog) {
+			my $i = localtime () . " modifyhost.cgi[$$]";
+			warn ("$i User '$remote_user' (from $ENV{REMOTE_ADDR}) made the following changes to host -- $identify_str :\n$i ",
+			      join ("\n$i ", @changelog), "\n");
 		}	      
 	};
 	
