@@ -1201,7 +1201,7 @@ sub commit
 
 	# if not explicitly told anything else, set reverse to Yes if
 	# this is a primary host object (not partof another)
-	$self->set_reverse ("Y") if (! defined ($self->{partof}) and ! defined ($self->{reverse}));
+	$self->reverse ("Y") if (! defined ($self->{partof}) and ! defined ($self->{reverse}));
 
 	# if TTL is 0, set it to NULL (undef) to use default TTL
 	$self->{ttl} = undef if (defined ($self->{ttl}) and $self->{ttl} <= 0);
@@ -1209,10 +1209,10 @@ sub commit
 	$self->{partof} = undef if (defined ($self->{partof}) and $self->{partof} <= 0);
 
 	# fields in database order
-	my @db_values = ($self->mac_address (),
-			 $self->dhcpmode (),
-			 $self->hostname (),
+	my @db_values = ($self->dhcpmode (),
+			 $self->mac_address (),
 			 $self->dnsmode (),
+			 $self->hostname (),
 			 $self->ip (),
 			 $self->n_ip (),
 			 $self->owner (),
@@ -1263,7 +1263,7 @@ sub commit
 	print ("This is a dynamic entry\n") if ($host->dhcpmode () eq "DYNAMIC");
 
 
-= cut
+=cut
 sub dhcpmode
 {
 	my $self = shift;
@@ -1324,7 +1324,7 @@ sub mac_address
 	print ("This entry does not generate DNS config\n") if ($host->dnsmode () eq "DISABLED");
 
 
-= cut
+=cut
 sub dnsmode
 {
 	my $self = shift;
@@ -1591,7 +1591,7 @@ sub partof
 	print ("Will generate reverse\n") if ($host->reverse () eq "Y");
 
 
-= cut
+=cut
 sub reverse
 {
 	my $self = shift;
