@@ -127,7 +127,7 @@ sub init
 		$self->{_hostaliasbyname}	= $self->{_dbh}->prepare ("$SELECT_hostalias WHERE aliasname = ? ORDER BY id") or die "$DBI::errstr";
 		$self->{_hostaliasesbyhostid}	= $self->{_dbh}->prepare ("$SELECT_hostalias WHERE hostid = ? ORDER BY aliasname") or die "$DBI::errstr";
 		$self->{_hostaliasesbydnszone}	= $self->{_dbh}->prepare ("$SELECT_hostalias WHERE dnszone = ? ORDER BY aliasname") or die "$DBI::errstr";
-		$self->{_allaliases}		= $self->{_dbh}->prepare ("SELECT * ") or die "$DBI::errstr";
+		$self->{_allhostaliases}	= $self->{_dbh}->prepare ("$SELECT_hostalias ORDER by aliasname, id") or die "$DBI::errstr";
 
 		##
 		## ZONE
@@ -1053,7 +1053,7 @@ sub findallhostaliases
 
 	$self->_debug_print ("Find all aliases");
 	
-	$self->_find(_allhosts => 'HOSTDB::Object::HostAlias');
+	$self->_find(_allhostaliases => 'HOSTDB::Object::HostAlias');
 }
 
 
