@@ -24,11 +24,9 @@ my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
 			     );
 
 my $first = 1;
-while ($ARGV[0]) {
+while (@searchfor) {
 	my @host_refs;
-	my $search_for = shift;
-
-	my $t = $search_for;
+	my $search_for = shift @searchfor;
 
 	@host_refs = $hostdb->findhost ('guess', $search_for);
 	if ($hostdb->{error}) {
