@@ -40,7 +40,7 @@ foreach my $file (@files) {
 		
 		$default_ttl = $1 if ($rad =~ /^\$TTL\s+(\d+)/);
 
-		if ($rad =~ /^(.+?)\s+(\d+)\s+A\s+([\d\.]+)$/) {
+		if ($rad =~ /^(\S+?)\s+(\d+)\s+A\s+([\d\.]+)$/) {
 			my ($name, $ttl, $ip) = ($1, $2, $3);
 
 			my $delay = 0;
@@ -98,6 +98,7 @@ sub add_host
 		$host->ttl ("$ttl") or warn ($host->{error}), $valid = 0;
 	}
 	$host->user ("dns-import") or warn ($host->{error}), $valid = 0;
+	$host->owner ("dns-import") or warn ($host->{error}), $valid = 0;
 	$host->dnsmode ("A_AND_PTR") or warn ($host->{error}), $valid = 0;
 	$host->dnsstatus ("ENABLED") or warn ($host->{error}), $valid = 0;
 	if ($name =~ /^dhcp/ and $name !~ /^dhcp\d\.su\.se$/) {
