@@ -51,15 +51,16 @@ sub init
 	$self->_debug_print ("creating object");
 
 	if (! defined ($self->{hostid}) or int ($self->{hostid}) < 1) {
-		die ("Cannot create host alias object with hostid '$self->{hostid}'\n");
+	    my $h = $self->{hostid} || 'undef';
+		die ("Cannot create host alias object with hostid '$h'\n");
 	}
 
 	if ($hostdb->{_dbh}) {
 		$self->{_new_hostalias} = $hostdb->{_dbh}->prepare ("INSERT INTO $hostdb->{db}.hostalias (hostid, aliasname, ttl, dnszone, dnsstatus, comment) VALUES (?, ?, ?, ?, ?, ?)")
 			or die ("$DBI::errstr");
-		$self->{_update_hostattribute} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.hostalias SET hostid = ?, aliasname = ?, ttl = ?, dnszone = ?, dnsstatus = ?, comment = ? WHERE id = ?")
+		$self->{_update_hostalias} = $hostdb->{_dbh}->prepare ("UPDATE $hostdb->{db}.hostalias SET hostid = ?, aliasname = ?, ttl = ?, dnszone = ?, dnsstatus = ?, comment = ? WHERE id = ?")
 			or die ("$DBI::errstr");
-		$self->{_delete_hostattribute} = $hostdb->{_dbh}->prepare ("DELETE FROM $hostdb->{db}.hostalias WHERE id = ?")
+		$self->{_delete_hostalias} = $hostdb->{_dbh}->prepare ("DELETE FROM $hostdb->{db}.hostalias WHERE id = ?")
 			or die ("$DBI::errstr");
 
 		$self->{_get_last_id} = $hostdb->{_dbh}->prepare ("SELECT LAST_INSERT_ID()")

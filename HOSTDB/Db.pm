@@ -979,7 +979,7 @@ sub findhostaliasbyid
 
 	$self->_debug_print ("Find host alias with id '$_[0]'");
 	
-	$self->_find(_hostaliasbyid => 'HOSTDB::Object::HostAttribute', $_[0]);
+	$self->_find(_hostaliasbyid => 'HOSTDB::Object::HostAlias', $_[0]);
 }
 
 
@@ -996,7 +996,7 @@ sub findhostaliasbyname
 
 	$self->_debug_print ("Find host alias with name '$_[0]'");
 	
-	$self->_find(_hostaliasbyname => 'HOSTDB::Object::HostAttribute', $_[0]);
+	$self->_find(_hostaliasbyname => 'HOSTDB::Object::HostAlias', $_[0]);
 }
 
 
