@@ -380,6 +380,11 @@ sub hostname
 
 	if (@_) {
 		my $newvalue = shift;
+
+		if ($newvalue eq "NULL") {
+			$self->{hostname} = undef;
+			return 1;
+		}
 	
 		return 0 if (! $self->clean_hostname ($newvalue));
 		$self->{hostname} = $newvalue;
