@@ -37,19 +37,12 @@ if ($output_dir) {
 	die("$0: Specified output dir '$output_dir' is not a valid directory\n") if (! -d $output_dir);
 }
 
-my $http_base = $hostdbini->val ('subnet', 'http_base');
-my $showsubnet_path = $hostdbini->val ('subnet', 'showsubnet_path');
-if ($showsubnet_path !~ '^https*://') {
-	# path appears to be relative to http_base
-	$showsubnet_path = "$http_base/$showsubnet_path";
-}
-
-$showsubnet_path =~ s!([^:])//!$1/!go;	# replace double slashes, but not the ones in http://
+my $showsubnet_path = create_url (undef, $hostdbini->val ('subnet', 'http_base'),
+				  $hostdbini->val ('subnet', 'showsubnet_path'));
 
 die ("$0: Could not create path to showsubnet cgi-script.\n" .
      "You should probably specify 'http_base' and 'showsubnet_path'\n" .
-     "in the 'subnet' section of '" . HOSTDB::get_inifile () . "'\n" .
-     "(my efforts resulted in '$showsubnet_path')\n") if ($showsubnet_path !~ '^https*://');
+     "in the 'subnet' section of '" . HOSTDB::get_inifile () . "'\n") if (! $showsubnet_path);
 
 my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
 			  db => $hostdbini->val ('db', 'database'),
@@ -79,12 +72,12 @@ my $html_file = ($output_dir?"$output_dir/":"") . "index.html";
 open (HTML, "> $html_file") or die ("Could not open file '$html_file' for writing: $!\n");
 
 print (HTML "<!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.01 Transitional//EN'>
-	<HTML>
-	<HEAD>
-		<TITLE>Netplan</TITLE>
-	</HEAD>
+	<html>
+	<head>
+		<title>Netplan</title>
+	</head>
 	
-	<BODY>
+	<body>
 ");
 
 my $supernet;
@@ -103,8 +96,8 @@ foreach $supernet (@drawsubnets) {
 	}
 }
 
-print (HTML "</BODY>
-</HTML>\n");
+print (HTML "</body>
+</html>\n");
 
 close (HTML);
 
@@ -125,8 +118,8 @@ sub do_supernet
 	print ("Found " . ($#subnets + 1) . " subnets matching supernet '$supernet'\n") if ($debug);
 
 	if ($#subnets != -1) {
-		print (HTML "<TABLE BORDER='0' CELLSPACING='0' CELLPADDING='0'>\n<TR><TH ALIGN='left' COLSPAN='2'>Net $supernet :</TH></TR>\n");
-		#print (HTML "<H3>Net $supernet :</H3><P>\n<BR>\n");
+		print (HTML "<table BORDER='0' CELLSPACING='0' CELLPADDING='0'>\n<tr><th ALIGN='left' COLSPAN='2'>Net $supernet :</th></tr>\n");
+		#print (HTML "<h3>Net $supernet :</h3><p>\n<br>\n");
 
 		print_row ("&nbsp;", "net_top.png", undef);
 
@@ -148,7 +141,7 @@ sub do_supernet
 				$fn =~ s#[\./]#-#go;
 				$fn .= ".png";
 				
-				print_row ($subnet_name . "&nbsp;", $fn, "$showsubnet_path?subnet=$subnet_name");
+				print_row ($subnet_name, $fn, "$showsubnet_path&subnet=$subnet_name");
 
 				$fn = "$output_dir/$fn" if ($output_dir);
 	
@@ -163,7 +156,7 @@ sub do_supernet
 			}
 		}
 		
-		print (HTML "</TABLE><P>\n<BR><HR>\n<P>\n");
+		print (HTML "</table><p>\n<br><hr>\n<p>\n");
 	}
 }
 
@@ -174,13 +167,17 @@ sub print_row
 	my $link = shift;
 	
 	if ($link) {
-		print (HTML "	<TR><TD ALIGN='left'>$left_side_text</TD>" .
-			    "<TD ALIGN='left'><A HREF='$link'>" .
-			    "<IMG SRC='$img_name' ALT='$left_side_text' BORDER=0></A></TD></TR>\n");
+		print (HTML <<EOH);
+			<tr><td ALIGN='left'>$left_side_text&nbsp;</td>
+			    <td ALIGN='left'><a href='$link'>
+			    <img SRC='$img_name' ALT='$left_side_text' BORDER=0></a></td></tr>
+EOH
 	} else {
-		print (HTML "	<TR><TD ALIGN='left'>$left_side_text</TD>" .
-			    "<TD ALIGN='left'>" .
-			    "<IMG SRC='$img_name' ALT='$left_side_text' BORDER=0></TD></TR>\n");
+		print (HTML <<EOH);
+			<tr><td ALIGN='left'>$left_side_text&nbsp;</td>
+			    <td ALIGN='left'>
+			    <img SRC='$img_name' ALT='$left_side_text' BORDER=0></td></tr>
+EOH
 	}
 }
 
@@ -196,8 +193,10 @@ sub do_no_subnets
 		}
 	} else {
 		# more than three, print nice
+		
+		my $skipped_24s = $counter - 2;
 		print_row ("...", "blank.png", undef);
-		print(HTML "<TR><TD ALIGN='left' COLSPAN='2'>Skipped " . ($counter - 2) . " /24's</TD></TR>\n");
+		print(HTML "<tr><td ALIGN='left' COLSPAN='2'>Skipped $skipped_24s /24's</td></tr>\n");
 		print_row ("...", "blank.png", undef);	
 	}
 }
@@ -414,4 +413,34 @@ sub draw_net_top
 	binmode (FILE);
 	print (FILE $im->png ());
 	close (FILE);
+}
+
+sub create_url
+{
+	my $q = shift;
+	my $base = shift;
+	my $in_url = shift;
+
+	return undef if (! $in_url);
+	
+	my $url;
+	if ($in_url !~ '^https*://') {
+		# in_url appears to be relative
+		$url = "$base/$in_url";
+	} else {
+		$url = $in_url;
+	}
+
+	$url =~ s#([^:])//#$1#;	# replace double slashes, but not the ones in http://
+
+	if ($q) {
+		$url .= '?_sucgi_sid=' . $q->getSID ();
+	} else {
+		# put this here since our users expects to be able to add
+		# all their parameters with & as separator
+		$url .= '?_sucgi_foo=bar';
+	}
+
+	return undef if ($url !~ '^https*://');
+	return $url;
 }

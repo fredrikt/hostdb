@@ -22,15 +22,6 @@ if ($ARGV[0] eq "-d") {
 
 my $hostdbini = Config::IniFiles->new (-file => HOSTDB::get_inifile ());
 
-my $http_base = $hostdbini->val ('subnet', 'http_base');
-my $showsubnet_path = $hostdbini->val ('subnet', 'showsubnet_path');
-if ($showsubnet_path !~ '^https*://') {
-	# path appears to be relative to http_base
-	$showsubnet_path = "$http_base/$showsubnet_path";
-}
-
-$showsubnet_path =~ s!([^:])//!$1/!go;	# replace double slashes, but not the ones in http://
-
 my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
 			  db => $hostdbini->val ('db', 'database'),
 			  user => $hostdbini->val ('db', 'user'),
@@ -46,6 +37,9 @@ if (-f $hostdbini->val ('sucgi', 'cfgfile')) {
 }
 
 my $q = SUCGI->new ($sucgi_ini);
+
+my $showsubnet_path = create_url ($q, $hostdbini->val ('subnet', 'http_base'),
+				  $hostdbini->val ('subnet', 'showsubnet_path'));
 
 $q->begin (title => "Whois");
 
@@ -71,13 +65,14 @@ sub whois_form
 	my $q = shift;
 
 	# HTML 
-        my $state_field = $q->state_field;
+        my $state_field = $q->state_field ();
         my $popup = $q->popup_menu (-name => "whoisdatatype", -values => ['Guess', 'IP', 'FQDN', 'MAC', 'ID']);
 	my $datafield = $q->textfield ("whoisdata");
 	my $submit = $q->submit ("Search");
 
 	$q->print (<<EOH);
 	   <form>
+		$state_field
 		<tr>
 		   <td COLSPAN='2'>
 			<table BORDER='0' CELLSPACING='0' CELLPADDING='0' WIDTH='600'>
@@ -253,6 +248,7 @@ sub print_subnet_info
 	my $desc = $subnet->description ();
 	
 	if ($showsubnet_path) {
+		my $sid_url = "_sucgi_sid=" . $q->getSID ();
 		$s = "<a href='" . $showsubnet_path . "?subnet=$s" . "'>$s</a>";
 	}
 	
@@ -286,4 +282,34 @@ sub error_line
 		</td>
 	   </tr>
 EOH
+}
+
+sub create_url
+{
+	my $q = shift;
+	my $base = shift;
+	my $in_url = shift;
+
+	return undef if (! $in_url);
+	
+	my $url;
+	if ($in_url !~ '^https*://') {
+		# in_url appears to be relative
+		$url = "$base/$in_url";
+	} else {
+		$url = $in_url;
+	}
+
+	$url =~ s#([^:])//#$1#;	# replace double slashes, but not the ones in http://
+
+	if ($q) {
+		$url .= '?_sucgi_sid=' . $q->getSID ();
+	} else {
+		# put this here since our users expects to be able to add
+		# all their parameters with & as separator
+		$url .= '?_sucgi_foo=bar';
+	}
+
+	return undef if ($url !~ '^https*://');
+	return $url;
 }

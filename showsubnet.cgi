@@ -39,6 +39,9 @@ if (-f $hostdbini->val ('sucgi', 'cfgfile')) {
 my $q = SUCGI->new ($sucgi_ini);
 my $subnet = $q->param ('subnet');
 
+my $whois_path = create_url ($q, $hostdbini->val ('subnet', 'http_base'),
+			     $hostdbini->val ('subnet', 'whois_path'));
+
 $q->begin (title => "Subnet(s) matching $subnet");
 
 $q->print (<<EOH);
@@ -72,6 +75,9 @@ sub list_subnet
 			foreach $subnet (@subnets) {
 				# HTML
 				my $h_subnet = $subnet->subnet ();
+				my $me = $q->state_url ();
+
+				$h_subnet = "<a href='$me&subnet=$h_subnet'>$h_subnet</a>";
 				my $h_desc = $subnet->description ()?$subnet->description ():'no description';
 				$q->print (<<EOH);
 					<tr>
@@ -122,11 +128,15 @@ EOH
 					my $ip = $hostdb->ntoa ($subnet->n_netaddr () + $i);
 					my $host = get_host_with_ip ($ip, @subnet_hosts);
 					if (! defined ($host)) {
-						# there is a gap here, output a ... line
+						# there is a gap here, output IP in green
 						$q->print ("<tr><td><FONT COLOR='green'>$ip</FONT></td><td COLSPAN='2'>&nbsp;</td></tr>\n");
 					} else {
 						# HTML
 						my $ip = $host->ip ();
+
+						if ($whois_path) {
+							$ip = "<a href='$whois_path&whoisdatatype=IP&whoisdata=$ip'>$ip</a>";
+						}
 						my $hostname = $host->hostname ();
 						my $mac = $host->mac_address ();
 						
@@ -144,10 +154,10 @@ EOH
 			
 			$q->print ("\n\n");
 		} else {
-			error_line ("No matching subnet '$subnet'");
+			error_line ($q, "No matching subnet '$subnet'");
 		}
 	} else {
-		error_line ("Illegal subnet address '$subnet'");
+		error_line ($q, "Illegal subnet address '$subnet'");
 	}
 }
 
@@ -205,4 +215,34 @@ sub error_line
 		</td>
 	   </tr>
 EOH
+}
+
+sub create_url
+{
+	my $q = shift;
+	my $base = shift;
+	my $in_url = shift;
+
+	return undef if (! $in_url);
+	
+	my $url;
+	if ($in_url !~ '^https*://') {
+		# in_url appears to be relative
+		$url = "$base/$in_url";
+	} else {
+		$url = $in_url;
+	}
+
+	$url =~ s#([^:])//#$1#;	# replace double slashes, but not the ones in http://
+
+	if ($q) {
+		$url .= '?_sucgi_sid=' . $q->getSID ();
+	} else {
+		# put this here since our users expects to be able to add
+		# all their parameters with & as separator
+		$url .= '?_sucgi_foo=bar';
+	}
+
+	return undef if ($url !~ '^https*://');
+	return $url;
 }
