@@ -815,6 +815,11 @@ sub partof
 	if (@_) {
 		my $newvalue = shift;
 	
+		if (! defined ($newvalue) or $newvalue eq 'NULL') {
+			$self->{partof} = undef;
+			return 1;
+		}
+
 		if ((int($newvalue) == 0) and ($newvalue !~ /^0+$/)) {
 			$self->_set_error ("Invalid partof");
 			return 0;
