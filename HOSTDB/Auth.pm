@@ -357,7 +357,7 @@ sub _ldap_explode
 		my ($res, @t, $e, %uid);
 
                 if ($self->{_token_cache}->{$token}) {
-		   push(@out,@{$self->{_token_cache}->{$token}});
+		   push (@out, @{$self->{_token_cache}->{$token}});
                    next;
                 }
 		
