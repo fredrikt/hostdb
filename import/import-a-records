@@ -12,6 +12,12 @@ use Config::IniFiles;
 use HOSTDB;
 
 my $debug = 0;
+my @files = @ARGV;
+my $default_ttl;
+
+if ($#files == -1) {
+	die ("Syntax: $0 zonefiles\n");
+}
 
 my $hostdbini = Config::IniFiles->new (-file => '/usr/local/etc/hostdb.ini');
 
@@ -21,13 +27,6 @@ my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
 			  password => $hostdbini->val ('db', 'password'),
 			  debug => $debug
 			 );
-
-my @files = @ARGV;
-my $default_ttl;
-
-if ($#files == -1) {
-	die ("Syntax: $0 zonefiles\n");
-}
 
 foreach my $file (@files) {
 	open (FIL, "< $file") or die ("Could not open $file for reading: $!\n");
