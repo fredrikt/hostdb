@@ -1,0 +1,183 @@
+#!/usr/local/bin/perl -w
+#
+# $Id$
+#
+# script to search for hosts with certain attributes
+#
+
+use strict;
+use HOSTDB;
+use Getopt::Std;
+use vars qw ($opt_h $opt_d $opt_r $opt_v);
+
+getopts ('hdrv');
+
+my $debug = defined ($opt_d);
+my $raw = defined ($opt_r);
+my $verbose = defined ($opt_v);
+
+if ($#ARGV != 4 || $opt_h) {
+	die (<<EOH);
+Syntax: $0 [-d] attribute section type condition match
+
+	attribute is the name
+	section is the section
+	type is string, integer or blob
+	condition is 'eq', 'ne', 'gt' or 'lt'
+	match is the expected value
+
+EOH
+}
+
+my $attribute = shift;
+my $section = shift;
+my $type = shift;
+my $condition = shift;
+my $match = shift;
+
+my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
+			      debug => $debug
+			     );
+
+my @host_refs = find_hostwithattr($hostdb, $attribute, $section, $type, $condition, $match);
+
+if (@host_refs) {
+	foreach my $host (@host_refs) {
+		print ("Host :\n\n") unless ($raw);
+		
+		# interpolation
+		my $id = $host->id ();
+		my $ip = $host->ip ();
+		my $mac = $host->mac_address () || "n/a";
+		my $hostname = $host->hostname () || 'NULL';
+
+		if (! $raw) {
+
+			print (<<EOH);
+	ID	$id
+	---
+	
+	  IP address	$ip
+	  Hostname	$hostname
+	  MAC address	$mac
+EOH
+		}
+
+	my @attrs = $host->init_attributes();
+	my $numattrs = scalar @attrs;
+
+		if (! $raw) {
+			if ($numattrs > 0) {
+				print (<<EOH);
+
+	Host has $numattrs attributes :
+EOH
+
+				my $lastsection = '';
+				
+				foreach my $attr (@attrs) {
+					my $key = $attr->key ();
+					my $section = $attr->section ();
+					my $value = $attr->get ();
+					
+					if ($section ne $lastsection) {
+						print ("\n	  [$section]\n");
+					}
+					
+					printf ("	    %-17s = %s\n", $key, $value);
+
+					if ($verbose) {
+						printf ("	    %-17s	Last modified : %s\n", "", $attr->lastmodified ());
+						printf ("	    %-17s	Last updated  : %s\n", "", $attr->lastupdated ());
+					}
+				}
+				
+				print ("\n");
+			}
+		} else {
+			# get attribute and print it
+			
+			foreach my $attr (@attrs) {
+				printf ("$id $ip $hostname $mac %s %s %s\n", $attr->key (), $attr->section (), $attr->get ());
+			}
+		}
+			
+		print ("---\n\n") unless ($raw);
+	}
+}
+
+sub find_hostwithattr
+{
+	my $hostdb = shift;
+	my $attribute = shift;
+	my $section = shift;
+	my $type = shift;
+	my $condition = shift;
+	my $match = shift;
+
+	my $datatype = substr(lc ($type), 0, 1);
+
+	if ($datatype eq 's') {
+		# string
+
+		if ($condition eq 'eq') {
+			if (is_wildcard ($match)) {
+				$hostdb->findhostswithattr_strlike($attribute, $section, $match);
+			} else {
+				$hostdb->findhostswithattr_streq($attribute, $section, $match);
+			}
+		} elsif ($condition eq 'ne') {
+			if (is_wildcard ($match)) {
+				$hostdb->findhostswithattr_strnotlike($attribute, $section, $match);
+			} else {
+				$hostdb->findhostswithattr_strne($attribute, $section, $match);
+			}
+		} else {
+			die ("$0: string searches must be 'eq' or 'ne' - not '$condition'\n");
+		}
+	} elsif ($datatype eq 'i') {
+		# integer
+
+		die ("$0: integer search of non-integer value '$match'\n") if ($match !~ /^\d+$/);
+
+		if ($condition eq 'eq') {
+			$hostdb->findhostswithattr_inteq($attribute, $section, $match);
+		} elsif ($condition eq 'ne') {
+			$hostdb->findhostswithattr_intne($attribute, $section, $match);
+		} elsif ($condition eq 'lt') {
+			$hostdb->findhostswithattr_intlt($attribute, $section, $match);
+		} elsif ($condition eq 'gt') {
+			$hostdb->findhostswithattr_intgt($attribute, $section, $match);
+		} else {
+			die ("$0: integer searches must be 'eq', 'ne', 'gt' or 'lt' - not '$condition'\n");
+		}
+	} elsif ($datatype eq 'b') {
+		# blob
+
+		if ($condition eq 'eq') {
+			if (is_wildcard ($match)) {
+				$hostdb->findhostswithattr_bloblike($attribute, $section, $match);
+			} else {
+				$hostdb->findhostswithattr_blobeq($attribute, $section, $match);
+			}
+		} elsif ($condition eq 'ne') {
+			if (is_wildcard ($match)) {
+				$hostdb->findhostswithattr_blobnotlike($attribute, $section, $match);
+			} else {
+				$hostdb->findhostswithattr_blobne($attribute, $section, $match);
+			}
+		} else {
+			die ("$0: blob searches must be 'eq' or 'ne' - not '$condition'\n");
+		}
+
+	} else {
+		die ("$0: data type '$type' invalid");
+	}
+}
+
+sub is_wildcard
+{
+	my $in = shift;
+
+	return $in =~ /%/;
+}
