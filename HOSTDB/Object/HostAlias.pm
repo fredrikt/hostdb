@@ -172,12 +172,7 @@ sub id
 {
 	my $self = shift;
 
-	if (@_) {
-		$self->_set_error ('id is read only');
-		return 0;
-	}
-
-	return ($self->{id});
+	$self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_read_only, @_);
 }
 
 
@@ -192,12 +187,7 @@ sub hostid
 {
 	my $self = shift;
 
-	if (@_) {
-		$self->_set_error ('hostid is read only');
-		return 0;
-	}
-
-	return ($self->{hostid});
+	$self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_read_only, @_);
 }
 
 
@@ -207,7 +197,7 @@ sub hostid
 	Uses clean_hostname () on supplied value.
 
 	print ("Old alias name : " . $alias->aliasname ());
-	$host->aliasname ($new_aliasname) or warn ("Failed setting value\n");
+	$alias->aliasname ($new_aliasname) or warn ("Failed setting value\n");
 
 
 =cut
@@ -215,24 +205,7 @@ sub aliasname
 {
 	my $self = shift;
 
-	if (@_) {
-		my $newvalue = shift;
-
-		if ($newvalue eq 'NULL') {
-			$self->{aliasname} = undef;
-			return 1;
-		}
-	
-		if (! $self->clean_hostname ($newvalue)) {
-			$self->_set_error ("Invalid hostname '$newvalue'");
-			return 0;
-		}
-		$self->{aliasname} = $newvalue;
-
-		return 1;
-	}
-
-	return ($self->{aliasname});
+	$self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_clean_hostname, @_);
 }
 
 
@@ -254,23 +227,7 @@ sub ttl
 {
 	my $self = shift;
 
-	if (@_) {
-		my $newvalue = lc (shift);
-
-		if ($newvalue eq 'null') {
-			$self->{ttl} = undef;
-		} else {
-			if (! $self->is_valid_nameserver_time ($newvalue)) {
-				$self->_set_error ("Invalid TTL time value '$newvalue'");
-				return 0;
-			}
-			$self->{ttl} = $self->_nameserver_time_to_seconds ($newvalue);
-		}
-
-		return 1;
-	}
-
-	return ($self->{ttl});
+	$self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_ttl, @_);
 }
 
 
@@ -288,24 +245,7 @@ sub dnszone
 {
 	my $self = shift;
 
-	if (@_) {
-		my $newvalue = shift;
-
-		if ($newvalue eq 'NULL') {
-			$self->{dnszone} = undef;
-			return 1;
-		}
-	
-		if (! $self->clean_domainname ($newvalue)) {
-			$self->_set_error ("Invalid dnszone '$newvalue'");
-			return 0;
-		}
-		$self->{dnszone} = $newvalue;
-
-		return 1;
-	}
-
-	return ($self->{dnszone});
+	$self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_domainname_or_null, @_);
 }
 
 
@@ -328,20 +268,7 @@ sub dnsstatus
 {
 	my $self = shift;
 
-	if (@_) {
-		my $newvalue = shift;
-	
-		if ($newvalue eq 'ENABLED' or $newvalue eq 'DISABLED') {
-			$self->{dnsstatus} = $newvalue;
-		} else {
-			$self->_set_error ("Invalid dnsstatus '$newvalue'");
-			return 0;
-		}
-
-		return 1;
-	}
-
-	return ($self->{dnsstatus});
+	$self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_enabled_or_disabled, @_);
 }
 
 
@@ -358,20 +285,7 @@ sub comment
 {
 	my $self = shift;
 
-	if (@_) {
-		my $newvalue = shift;
-
-		if (length ($newvalue) > 255) {
-			$self->_set_error ('Comment too long (max 255 chars)');
-			return 0;
-		}
-
-		$self->{comment} = $newvalue;
-	
-		return 1;
-	}
-
-	return ($self->{comment});
+	$self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_string_comment, @_);
 }
 
 
@@ -392,27 +306,7 @@ sub lastmodified
 {
 	my $self = shift;
 
-	if (@_) {
-		my $newvalue = shift;
-
-		my $fmtvalue = $self->_format_datetime ($newvalue);
-		if (defined ($fmtvalue)) {
-			if ($fmtvalue eq 'NULL') {
-				$self->{lastmodified} = undef;
-			} else {
-				$self->{lastmodified} = $fmtvalue;
-			}
-
-			return 1;
-		} else {
-			$self->_set_error ("Invalid lastmodified timestamp format");
-			return 0;
-		}
-
-		return 1;
-	}
-
-	return ($self->{lastmodified});
+	$self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_datetime, @_);
 }
 
 
@@ -433,12 +327,7 @@ sub unix_lastmodified
 {
 	my $self = shift;
 
-	if (@_) {
-		$self->_set_error ("unix_lastmodified is read only");
-		return 0;
-	}
-
-	return ($self->{unix_lastmodified});
+	$self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_read_only, @_);
 }
 
 
@@ -452,27 +341,7 @@ sub lastupdated
 {
 	my $self = shift;
 
-	if (@_) {
-		my $newvalue = shift;
-
-		my $fmtvalue = $self->_format_datetime ($newvalue);
-		if (defined ($fmtvalue)) {
-			if ($fmtvalue eq 'NULL') {
-				$self->{lastupdated} = undef;
-			} else {
-				$self->{lastupdated} = $fmtvalue;
-			}
-
-			return 1;
-		} else {
-			$self->_set_error ("Invalid lastupdated timestamp format");
-			return 0;
-		}
-
-		return 1;
-	}
-
-	return ($self->{lastupdated});
+	$self->_set_or_get_attribute (undef, \&HOSTDB::Object::_validate_datetime, @_);
 }
 
 
@@ -493,15 +362,8 @@ sub unix_lastupdated
 {
 	my $self = shift;
 
-	if (@_) {
-		$self->_set_error ("unix_lastupdated is read only");
-		return 0;
-	}
-
-	return ($self->{unix_lastupdated});
+	$self->_set_or_get_attribute ('unix_lastupdated', \&HOSTDB::Object::_validate_read_only, @_);
 }
-
-
 
 
 1;
