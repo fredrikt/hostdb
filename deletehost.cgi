@@ -80,7 +80,7 @@ SWITCH:
 		my $ip = $host->ip ();
 		
 		# get subnet
-		my $subnet = $hostdb->findsubnetclosestmatch ($host->ip ());
+		my $subnet = $hostdb->findsubnetbyip ($host->ip ());
 
 		# get zone
 		my $zone = $hostdb->findzonebyhostname ($host->hostname ());

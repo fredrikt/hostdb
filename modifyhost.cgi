@@ -149,7 +149,7 @@ sub modify_host
 		$host->_set_error ('');		
 
 		# get subnet
-		my $subnet = $hostdb->findsubnetclosestmatch ($host->ip () || $q->param ('ip'));
+		my $subnet = $hostdb->findsubnetbyip ($host->ip () || $q->param ('ip'));
 
 		# get zone
 		my $zone = $hostdb->findzonebyhostname ($host->hostname ());
@@ -204,7 +204,7 @@ sub modify_host
 							die "Another host object (ID $t_id) currently have the IP '$ip'\n";
 						}
 				
-						my $new_subnet = $hostdb->findsubnetclosestmatch ($ip);
+						my $new_subnet = $hostdb->findsubnetbyip ($ip);
 				
 						die ("Invalid new IP address '$ip': no subnet for that IP found in database") if (! defined ($new_subnet));
 				
@@ -322,7 +322,7 @@ sub host_form
 	    $dnsmode, $dnsstatus, $dhcpmode, $dhcpstatus, $subnet,
 	    $profile);
 	
-	my $h_subnet = $hostdb->findsubnetclosestmatch ($host->ip ());
+	my $h_subnet = $hostdb->findsubnetbyip ($host->ip ());
 
 	if (defined ($h_subnet)) {
 		$subnet = $h_subnet->subnet ();

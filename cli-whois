@@ -83,7 +83,7 @@ while ($ARGV[0]) {
 
 EOH
 			
-			my $subnet = $hostdb->findsubnetclosestmatch ($host->ip ());
+			my $subnet = $hostdb->findsubnetbyip ($host->ip ());
 		
 			if ($subnet) {
 				printf ("	%-23s %-20s %s\n", "subnet", "netmask", "description");

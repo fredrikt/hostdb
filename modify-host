@@ -79,7 +79,7 @@ if (! $opt_force) {
 
 	my $h;
 	my $ip = $opt_ip || $host->ip ();
-	my $subnet = $hostdb->findsubnetclosestmatch ($ip);
+	my $subnet = $hostdb->findsubnetbyip ($ip);
 		
 	if (! defined ($subnet)) {
 		die ("$0: No subnet matches IP '$ip'");

@@ -249,7 +249,7 @@ sub print_host_info
 
 
 	# get subnet
-	my $subnet = $hostdb->findsubnetclosestmatch ($host->ip () || $q->param ('ip'));
+	my $subnet = $hostdb->findsubnetbyip ($host->ip () || $q->param ('ip'));
 
 	# get zone
 	my $zone = $hostdb->findzonebyhostname ($host->hostname ());

@@ -91,7 +91,7 @@ sub init
 		my $SELECT_subnet = "SELECT * FROM $self->{db}.subnet";
 		$self->{_subnet} =			$self->{_dbh}->prepare ("$SELECT_subnet WHERE netaddr = ? AND slashnotation = ? ORDER BY n_netaddr")	or die "$DBI::errstr";
 		$self->{_subnet_longer_prefix} =	$self->{_dbh}->prepare ("$SELECT_subnet WHERE n_netaddr >= ? AND n_netaddr <= ? ORDER BY n_netaddr")	or die "$DBI::errstr";
-		$self->{_subnet_closest_match} =	$self->{_dbh}->prepare ("$SELECT_subnet WHERE n_netaddr <= ? AND n_broadcast >= ? ORDER BY n_netaddr DESC LIMIT 1")		or die "$DBI::errstr";
+		$self->{_subnetbyip} =	$self->{_dbh}->prepare ("$SELECT_subnet WHERE n_netaddr <= ? AND n_broadcast >= ? ORDER BY n_netaddr DESC LIMIT 1")		or die "$DBI::errstr";
 		$self->{_allsubnets} =			$self->{_dbh}->prepare ("$SELECT_subnet ORDER BY n_netaddr")			or die "$DBI::errstr";
 	} else {
 		$self->_debug_print ("DSN not provided, not connecting to database.");
@@ -716,21 +716,21 @@ sub findsubnet
 }
 
 
-=head2 findsubnetclosestmatch
+=head2 findsubnetbyip
 
-	$subnet = $hostdb->findsubnetclosestmatch("192.168.1.1");
+	$subnet = $hostdb->findsubnetbyip("192.168.1.1");
 
 	Finds the most specific subnet for the IP you supplied
 
 
 =cut
-sub findsubnetclosestmatch
+sub findsubnetbyip
 {
 	my $self = shift;
 
 	$self->_debug_print ("Find subnet for IP '$_[0]'");
 
-	$self->_find(_subnet_closest_match => 'HOSTDB::Object::Subnet',
+	$self->_find(_subnetbyip => 'HOSTDB::Object::Subnet',
 		     $self->aton ($_[0]), $self->aton ($_[0]));
 }
 
