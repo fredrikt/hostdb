@@ -100,8 +100,8 @@ sub perform_search
 		my $whoisdatatype = $q->param ('whoisdatatype');
 
 		my @host_refs = $hostdb->findhost ($whoisdatatype, $search_for);
-		if (defined ($hostdb->{error})) {
-			error_line ($hostdb->{error});
+		if ($hostdb->{error}) {
+			error_line ($q, $hostdb->{error});
 			return undef;
 		}
 		
@@ -153,6 +153,8 @@ EOH
 			#$q->print ($table_hr_line);
 
 			return 1;
+		} else {
+			error_line ($q, "No match, searched for '$search_for' of type '$whoisdatatype'");
 		}
 
 		return 0;
