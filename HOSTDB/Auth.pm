@@ -185,6 +185,11 @@ sub is_allowed_write
 		return 1;
 	}
 
+	if (! defined ($o)) {
+		$self->_debug_print ("Object is undefined, denying write access for '$candidate'");
+		return 0;
+	}
+
 	my $owner = $o->owner ();
 
 	$self->_debug_print ("Owner of object is '$owner'");
