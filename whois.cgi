@@ -123,6 +123,8 @@ sub perform_search
 		my $search_for = lc ($q->param ('whoisdata'));
 		my $whoisdatatype = lc ($q->param ('whoisdatatype'));
 
+		$search_for =~ s/^\s*(\S+)\s*$/$1/o;	# trim spaces
+
 		if ($whoisdatatype eq 'guess') {
 			# check if it is a subnet - findhost () is uncapable of that
 			$whoisdatatype = 'subnet' if ($hostdb->is_valid_subnet ($search_for));
