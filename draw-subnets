@@ -23,15 +23,30 @@ if ($ARGV[0] eq "-d") {
 	$debug = 1;
 }
 
+my $hostdbini = Config::IniFiles->new (-file => HOSTDB::get_inifile ());
+
 my $output_dir;
 if ($ARGV[0] eq "-o") {
 	shift (@ARGV);
 	$output_dir = shift;
-	
+} else {
+	$output_dir = $hostdbini->val ('subnet', 'output_dir');
+}
+
+if ($output_dir) {
 	die("$0: Specified output dir '$output_dir' is not a valid directory\n") if (! -d $output_dir);
 }
 
-my $hostdbini = Config::IniFiles->new (-file => HOSTDB::get_inifile ());
+my $http_base = $hostdbini->val ('subnet', 'http_base');
+my $showsubnet_path = $hostdbini->val ('subnet', 'showsubnet_path');
+if ($showsubnet_path !~ '^http://') {
+	# path appears to be relative to http_base
+	$showsubnet_path = "$http_base/$showsubnet_path";
+}
+
+       die ("$0: Could not create path to showsubnet cgi-script.\n" .
+	"You should probably specify 'http_base' and 'showsubnet_path'\n" .
+	"in the 'subnet' section of '" . HOSTDB::get_inifile () . "'\n") if ($showsubnet_path !~ '^http://');
 
 my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
 			  db => $hostdbini->val ('db', 'database'),
@@ -41,6 +56,15 @@ my $hostdb = HOSTDB::DB->new (dsn => $hostdbini->val ('db', 'dsn'),
 			 );
 
 my @drawsubnets = @ARGV;
+
+if ($#drawsubnets == -1) {
+	my $in = $hostdbini->val ('subnet', 'draw_subnet_list');
+
+	$in =~ s/,/ /go;	# get rid of comas
+	$in =~ s/\s+/ /go;	# single spaces
+
+	@drawsubnets = split (' ', $in);
+}
 
 if ($#drawsubnets == -1) {
 	die ("Syntax: $0 [-d] netaddr/slash ...\n");
@@ -60,9 +84,8 @@ print (HTML "<!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.01 Transitional//EN'>
 	<BODY>
 ");
 
-while ($ARGV[0]) {
-	my $supernet = shift;
-
+my $supernet;
+foreach $supernet (@drawsubnets) {
 	my ($netaddr, $slash) = split ('/', $supernet);
 
 	if (int ($slash) > 24) {
@@ -122,7 +145,7 @@ sub do_supernet
 				$fn =~ s#[\./]#-#go;
 				$fn .= ".png";
 				
-				print_row ($subnet_name . "&nbsp;", $fn, "/cgi-bin/showsubnetlinks?subnet=$subnet_name");
+				print_row ($subnet_name . "&nbsp;", $fn, "$showsubnet_path?subnet=$subnet_name");
 
 				$fn = "$output_dir/$fn" if ($output_dir);
 	
