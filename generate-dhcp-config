@@ -107,6 +107,9 @@ sub print_dhcp_config
 
     foreach my $host ($hostdb->findhostbyiprange ($subnet->netaddr (), $subnet->broadcast ())) {
 	if ($host->dhcpmode () eq 'DYNAMIC') {
+	    next if ($host->dhcpstatus () eq 'DISABLED');
+
+	    # XXX $host->profile () is not considered when dhcpmode is dynamic - should it?
 	    $range_start = $host->ip () if (! $range_start);
 	    $range_end = $host->ip ();
 	    next;
@@ -116,11 +119,12 @@ sub print_dhcp_config
 	    my $hostname = $host->hostname () || 'NULL';
 
 	    if ($range_start) {
-		# ok, so it was a range
+		# before this host, we were processing a range of dynamic hosts. finish that range.
 		push (@ranges, "${range_start}	${range_end}");
 		$range_start = '';
 	    }
 
+	    # continue processing this host
 	    my $profile = $host->profile ();
 	    if (! grep (/^$profile$/, @subnet_profiles)) {
 		warn ("$0: Host $id ($ip, $hostname) profile $profile not listed for subnet $subnet_name, skipping subnet.");
@@ -134,10 +138,10 @@ sub print_dhcp_config
 		push (@{$hosts{$profile}}, $host);
 	    }
 	}
-
     }
+
+    # check if we were constructing a range statement when the loop above ended
     if ($range_start) {
-	# ok, so it was a range
 	push (@ranges, "${range_start}	${range_end}");
 	$range_start = '';
     }
