@@ -437,6 +437,10 @@ sub request_reload
 	# ones for IPv4 reverse of the subnets from above
 	my ($t, %zonenames);
 	foreach $t (@$zones_ref) {
+	        # don't request reload of delegated zones - that will just generate an error
+		# about the zonefile not existing
+    		next if ($zone->delegated () eq 'Y');
+
 		$zonenames{$t} = 1;	
 	}
 	foreach $t (@$subnets_ref) {

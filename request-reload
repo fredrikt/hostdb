@@ -49,6 +49,10 @@ foreach my $a (@ARGV) {
 		my $z = $hostdb->findzonebyname ($a);
 		if (defined ($z)) {
 			my $n = $z->zonename ();	# make sure we get correctly formatted name
+			if ($z->delegated () eq 'Y') {
+			    warn ("$0: Skipping delegated zone '$n'\n");
+			    next;
+			}
 			push (@zones, $n);
 		} else {
 			die ("$0: Zone '$a' not found\n");
