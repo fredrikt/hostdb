@@ -385,7 +385,8 @@ sub enum_naptr_rr
 
     my (%enumdata, $e164base, $e164root);
 
-    my %staticmap = (#'+468161234' => 'sip:user@example.org',
+    my %staticmap = (#'+468161234'	=> 'sip:user@example.org',
+		     '+468161999'	=> 'sip:1999@pstnproxy.sip.su.se'
 		     );
 
     my $numbers_count = 0;
@@ -408,12 +409,19 @@ sub enum_naptr_rr
 	# XXX SU specific - not very nice to other people
 	my $uri = "sip:${e164}\@pstnproxy.sip.su.se";
 
-	if ($enumdata{$e164}{siproutingaddress}) {
-	    $uri = $enumdata{$e164}{siproutingaddress};
-	} elsif ($enumdata{$e164}{sipaddress}) {
-	    $uri = $enumdata{$e164}{sipaddress};
-	} elsif (defined ($staticmap{$e164})) {
-	    $uri = $staticmap{$e164};
+	if (defined ($enumdata{$e164}{usercount}) and
+	    $enumdata{$e164}{usercount} <= 1) {
+	    if ($enumdata{$e164}{siproutingaddress}) {
+		$uri = $enumdata{$e164}{siproutingaddress};
+	    } elsif ($enumdata{$e164}{sipaddress}) {
+		$uri = $enumdata{$e164}{sipaddress};
+	    } elsif (defined ($staticmap{$e164})) {
+		$uri = $staticmap{$e164};
+	    }
+	} else {
+	    if (defined ($staticmap{$e164})) {
+                $uri = $staticmap{$e164};
+            }
 	}
 
 	print ($FH $rrf->create (e164 => $e164, uri => "$uri", e164root => $e164root)->string . "\n") or
@@ -474,16 +482,58 @@ sub load_enumdata
 	foreach my $e164 (grep (/$r/, @e164list)) {
 	    #print ("Found ENUM data for E.164 number $e164\n") if ($debug);
 
+	    my $siplocaladdress = get_sipaddr ($e, 'sipLocalAddress');
+	    my $siproutingaddress = get_sipaddr ($e, 'sipRoutingAddress');
+
+	    my $old_siplocaladdress = $$enumdata_ref{$e164}{sipaddress} || '';
+	    my $old_siproutingaddress = $$enumdata_ref{$e164}{siproutingaddress} || '';
+
+	    if (($old_siplocaladdress and ($old_siplocaladdress ne $siplocaladdress)) or
+		(! $old_siplocaladdress and $siplocaladdress) or
+		($old_siproutingaddress and ($old_siproutingaddress ne $siproutingaddress)) or
+		(! $old_siproutingaddress and $siproutingaddress)) {
+		# keep track of number of different users we see for a number, to
+		# later check if we have more than one
+		$$enumdata_ref{$e164}{usercount}++;
+	    }
 	    $$enumdata_ref{$e164}{mail} = $e->get_value ('mail') || '';
 	    $$enumdata_ref{$e164}{uid} = $e->get_value ('uid') || '';
-	    $$enumdata_ref{$e164}{sipaddress} = $e->get_value ('sipLocalAddress') || '';
-	    $$enumdata_ref{$e164}{siproutingaddress} = $e->get_value ('sipRoutingAddress') || '';
+	    $$enumdata_ref{$e164}{sipaddress} = $siplocaladdress;
+	    $$enumdata_ref{$e164}{siproutingaddress} = $siproutingaddress;
 
 	    $numbers_count++;
 	}
     }
 
     print ("Loaded $numbers_count ENUM entrys from $ldap_enumuri for E.164 base $e164base\n") if ($debug);
+
+    return 1;
+}
+
+sub get_sipaddr
+{
+    my $e = shift;
+    my $attr = shift;
+
+    my @l = $e->get_value ($attr);
+    
+    my $res = '';
+    foreach my $t (@l) {
+	next if ($t !~ /^sips*:/);	# ignore everything but SIP and SIPS (like tel:)
+
+	if ($res) {
+	    if (length ($t) < length($res)) {
+		$res = $t;	# keep shortest address
+	    } elsif (length ($res) == length ($t)) {
+		$res = $t if ($t cmp $res);	# make deterministic
+	    }
+	} else {
+	    # $res not set, set to this value
+	    $res = $t;
+	}
+    }
+
+    return $res;
 }
 
 sub tab_format
