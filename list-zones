@@ -68,7 +68,10 @@ foreach my $searchzone (sort @searchfor) {
 	    }
 	}
     } else {
-	foreach my $zone ($hostdb->findzonebyname ($searchzone)) {
+	# get list of zone objects. findzonebyname() returns undef if
+	# $searchzone is not a valid domain name
+	my @zones = $hostdb->findzonebyname ($searchzone) || ();
+	foreach my $zone (@zones) {
 	    next if ($skip_delegated and $zone->delegated () eq 'Y');
 	    next if ($skip_non_delegated and $zone->delegated () eq 'N');
 
