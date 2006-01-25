@@ -8,6 +8,10 @@ use HOSTDB;
 use SUCGI2;
 use SAM2;
 
+use Config::IniFiles;
+use JEvent;
+use XML::Simple;
+
 my $table_blank_line = "<tr><td COLSPAN='3'>&nbsp;</td></tr>\n";
 my $table_hr_line = "<tr><td COLSPAN='3'><hr></td></tr>\n";
 my $empty_td = "<td>&nbsp;</td>\n";
@@ -75,8 +79,12 @@ EOH
 
 my ($subnets_ref, $zones_ref) = home_form ($q, $hostdb, $remote_user, $is_admin, $is_helpdesk);
 
+my $jevent_ini = Config::IniFiles->new(-file=> HOSTDB::get_inifile('JEvent'));
+my $je = JEvent->new (Config => $jevent_ini);
+$je->Connect ();
+
 if (defined ($q->param ('action') and $q->param ('action') eq 'Activate changes')) {
-	activate_changes ($hostdb, $q, $dhcp_signal_directory, $dns_signal_directory,
+	activate_changes ($hostdb, $q, $dhcp_signal_directory, $je,
 			  $subnets_ref, $zones_ref, $is_admin, $is_helpdesk, $remote_user);
 }
 
@@ -312,7 +320,7 @@ sub activate_changes
 	my $hostdb = shift;
 	my $q = shift;
 	my $dhcp_signal_directory = shift;
-	my $dns_signal_directory = shift;
+	my $je = shift;
 	my $subnets_ref = shift;
 	my $zones_ref = shift;
 	my $is_admin = shift;
@@ -365,7 +373,7 @@ sub activate_changes
 		}
 	}
 
-	my $res = request_reload ($dhcp_signal_directory, $dns_signal_directory,
+	my $res = request_reload ($dhcp_signal_directory, $je,
 			$subnets_ref, $zones_ref, $q, $remote_user);
 			
 	if ($res) {
@@ -390,7 +398,7 @@ EOH
 sub request_reload
 {
 	my $dhcp_signal_directory = shift;
-	my $dns_signal_directory = shift;
+	my $je = shift;
 	my $subnets_ref = shift;
 	my $zones_ref = shift;
 	my $q = shift;
@@ -403,17 +411,9 @@ sub request_reload
 		error_line ($q, "Can't request reconfiguration, DHCP message spool directory not set");
 		return undef;
 	}
-	if (! $dns_signal_directory) {
-		error_line ($q, "Can't request reconfiguration, DNS message spool directory not set");
-		return undef;
-	}
 		
 	if (! -d $dhcp_signal_directory) {
 		error_line ($q, "Can't request reconfiguration, DHCP message spool directory '$dhcp_signal_directory' does not exist");
-		return undef;
-	}
-	if (! -d $dns_signal_directory) {
-		error_line ($q, "Can't request reconfiguration, DNS message spool directory '$dns_signal_directory' does not exist");
 		return undef;
 	}
 		
@@ -433,6 +433,9 @@ sub request_reload
 		$sam = undef;
 	}	
 
+
+
+
 	# build list of all requested zonenames plus the
 	# ones for IPv4 reverse of the subnets from above
 	my ($t, %zonenames);
@@ -444,30 +447,26 @@ sub request_reload
 
 		$zonenames{$t} = 1;	
 	}
-	foreach $t (@$subnets_ref) {
-		if ($t =~ /^(\d+?)\.(\d+?)\.(\d+?)\.(\d+?)\/\d+$/) {
-			my $zn = "$3.$2.$1.in-addr.arpa";
-			my $z = $hostdb->findzonebyname ($zn);
-			
-			$zonenames{$zn} = 1 if (defined ($z));
-		}
-	}
 	
 	my @zonelist = sort keys %zonenames;
 	my $num_zones = scalar @zonelist;
 
 	if ($num_zones) {
-		$sam = SAM2->new (directory => $dns_signal_directory, name => 'home.cgi');
-		if (! defined ($sam)) {
-			error_line ($q, "Could not create SAM object (directory $dns_signal_directory)");
-			return 0;
-		}
-
-		warn ("$i: user '$remote_user' requests reload of the following $num_zones zones : " . join (', ', @zonelist) . "\n");
-	
-		$sam->send ({msg => join (',', @zonelist)}, 'configure');
-		# or error_line ($q, "WARNING: Message might not have been sent (directory $dns_signal_directory)");
-		$sam = undef;
+	    my %data = ('type' => 'activate-request',
+			'items' => {
+			    'zone' => [sort @zonelist],
+			    'subnet' => [@$subnets_ref]
+			    }
+			);
+	    my %XMLoptions = (RootName =>		'hostdb',
+			      AttrIndent =>		1
+			      );
+	    
+	    my $xml = XMLout(\%data, %XMLoptions);
+	    
+	    warn ("JEvent XML :\n$xml\n\n") if ($debug);
+	    
+	    $je->Publish(Content => $xml) or die ("$0: Failed publishing event\n");
 	}
 	
 	return 1;
