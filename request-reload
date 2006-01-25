@@ -103,16 +103,9 @@ sub request_reload
 	or warn ("WARNING: Message might not have been sent (directory $dhcp_signal_directory)\n");
     $sam = undef;
 
-    # build list of all requested zonenames plus the
-    # ones for IPv4 reverse of the subnets from above
-    my ($t, %zonenames);
-    foreach $t (@$zones_ref) {
-	$zonenames{$t} = 1;
-    }
-
     my %data = ('type' => 'activate-request',
 		'items' => {
-				'zone' => [sort keys %zonenames],
+				'zone' => [sort @$zones_ref],
 				'subnet' => [@$subnets_ref]
 			   }
 		);
@@ -127,7 +120,7 @@ sub request_reload
     $je->Publish(Content => $xml) or die ("$0: Failed publishing event\n");
 
     print ("Requested reload of the following subnet(s) :\n	", join ("\n	", sort @$subnets_ref), "\n\n");
-    print ("Requested reload of the following zone(s) :\n	", join ("\n	", sort keys %zonenames), "\n\n");
+    print ("Requested reload of the following zone(s) :\n	", join ("\n	", sort @$zones_ref), "\n\n");
 
     return 1;
 }
