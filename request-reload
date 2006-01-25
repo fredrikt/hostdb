@@ -1,9 +1,8 @@
-#!/pkg/perl/5.8.6/bin/perl -w
+#!/usr/local/bin/perl -w
 #
 # $Id$
 #
 
-use lib '.';
 use strict;
 use HOSTDB;
 use SAM2;
