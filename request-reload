@@ -1,11 +1,16 @@
-#!/usr/local/bin/perl -w
+#!/pkg/perl/5.8.6/bin/perl -w
 #
 # $Id$
 #
 
+use lib '.';
 use strict;
 use HOSTDB;
 use SAM2;
+
+use Config::IniFiles;
+use JEvent;
+use XML::Simple;
 
 my $debug = 0;
 if (defined ($ARGV[0]) and ($ARGV[0] eq "-d")) {
@@ -13,17 +18,15 @@ if (defined ($ARGV[0]) and ($ARGV[0] eq "-d")) {
     $debug = 1;
 }
 
-my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
-			      debug => $debug
-			     );
-
-my $hostdbini = $hostdb->inifile ();
-
 my @searchfor = @ARGV;
 
 if ($#searchfor == -1) {
     die ("Syntax: $0 [-d] zone or subnet ...\n");
 }
+
+my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
+			      debug => $debug
+			     );
 
 my (@subnets, @zones);
 
@@ -62,16 +65,19 @@ foreach my $a (@ARGV) {
     }
 }
 
+my $hostdbini = $hostdb->inifile ();
 my $dhcp_signal_directory = $hostdbini->val('signals','dhcp_directory') if ($hostdbini->val('signals','dhcp_directory'));
-my $dns_signal_directory = $hostdbini->val('signals','dns_directory') if ($hostdbini->val('signals','dns_directory'));
+my $jevent_ini = Config::IniFiles->new(-file=> HOSTDB::get_inifile('JEvent'));
+my $je = JEvent->new (Config => $jevent_ini);
+$je->Connect ();
 
-request_reload ($dhcp_signal_directory, $dns_signal_directory, \@subnets, \@zones);
+request_reload ($je, $dhcp_signal_directory, \@subnets, \@zones);
 
 
 sub request_reload
 {
+    my $je = shift;
     my $dhcp_signal_directory = shift;
-    my $dns_signal_directory = shift;
     my $subnets_ref = shift;
     my $zones_ref = shift;
 
@@ -82,35 +88,21 @@ sub request_reload
 	warn ("$0: Can't request reconfiguration, DHCP message spool directory not set");
 	return undef;
     }
-    if (! $dns_signal_directory) {
-	warn ("$0: Can't request reconfiguration, DNS message spool directory not set");
-	return undef;
-    }
 
     if (! -d $dhcp_signal_directory) {
 	warn ("$0: Can't request reconfiguration, DHCP message spool directory '$dhcp_signal_directory' does not exist");
 	return undef;
     }
-    if (! -d $dns_signal_directory) {
-	warn ("$0: Can't request reconfiguration, DNS message spool directory '$dns_signal_directory' does not exist");
-	return undef;
-    }
-
+    
     $sam = SAM2->new (directory => $dhcp_signal_directory, name => 'home.cgi');
     if (! defined ($sam)) {
 	warn ("$0: Could not create SAM object (directory $dhcp_signal_directory)");
 	return 0;
     }
 
-    $sam->send ({msg => join (',', @$subnets_ref)}, 'configure');
-    # or error_line ($q, "WARNING: Message might not have been sent (directory $dhcp_signal_directory)");
+    $sam->send ({msg => join (',', @$subnets_ref)}, 'configure')
+	or warn ("WARNING: Message might not have been sent (directory $dhcp_signal_directory)\n");
     $sam = undef;
-
-    $sam = SAM2->new (directory => $dns_signal_directory, name => 'home.cgi');
-    if (! defined ($sam)) {
-	warn ("$0: Could not create SAM object (directory $dns_signal_directory)");
-	return 0;
-    }
 
     # build list of all requested zonenames plus the
     # ones for IPv4 reverse of the subnets from above
@@ -118,18 +110,22 @@ sub request_reload
     foreach $t (@$zones_ref) {
 	$zonenames{$t} = 1;
     }
-    foreach $t (@$subnets_ref) {
-	if ($t =~ /^(\d+?)\.(\d+?)\.(\d+?)\.(\d+?)\/\d+$/) {
-	    my $zn = "$3.$2.$1.in-addr.arpa";
-	    my $z = $hostdb->findzonebyname ($zn);
 
-	    $zonenames{$zn} = 1 if (defined ($z));
-	}
-    }
+    my %data = ('type' => 'activate-request',
+		'items' => {
+				'zone' => [sort keys %zonenames],
+				'subnet' => [@$subnets_ref]
+			   }
+		);
+    my %XMLoptions = (RootName =>		'hostdb',
+		      AttrIndent =>		1
+		      );
+    
+    my $xml = XMLout(\%data, %XMLoptions);
 
-    $sam->send ({msg => join (',', sort keys %zonenames)}, 'configure');
-    # or error_line ($q, "WARNING: Message might not have been sent (directory $dns_signal_directory)");
-    $sam = undef;
+    warn ("JEvent XML :\n$xml\n\n") if ($debug);
+
+    $je->Publish(Content => $xml) or die ("$0: Failed publishing event\n");
 
     print ("Requested reload of the following subnet(s) :\n	", join ("\n	", sort @$subnets_ref), "\n\n");
     print ("Requested reload of the following zone(s) :\n	", join ("\n	", sort keys %zonenames), "\n\n");
