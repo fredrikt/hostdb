@@ -93,13 +93,25 @@ sub init
 =cut
 sub get_inifile
 {
-	my $fn = "/etc/hostdb.ini";
+    my $which = shift;
+    my $fn;
 
-	if (! -f $fn) {
-		die ("$0: Config-file $fn does not exist");
+    if (defined ($which)) {
+	$which = lc ($which);
+	if ($which eq 'jevent') {
+	    $fn = '/etc/hostdb-jevent.ini';
+	} else {
+	    die ("$0: Unknown INI-file requested ('$which')");
 	}
+    } else {
+	$fn = '/etc/hostdb.ini';
+    }
 
-	return ($fn);
+    if (! -f $fn) {
+	die ("$0: Config-file $fn does not exist");
+    }
+    
+    return ($fn);
 }
 
 
