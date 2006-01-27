@@ -103,7 +103,13 @@ sub request_reload
 	or warn ("WARNING: Message might not have been sent (directory $dhcp_signal_directory)\n");
     $sam = undef;
 
-    my %data = ('type' => 'activate-request',
+    my $user = getpwuid($<);
+    $user = "uid $<" unless ($user);
+    my $thishost = Sys::Hostname::hostname();
+    my %data = ('type'		=> 'activate-request',
+		'source'	=> 'request-reload',
+		'requestor'	=> $user,
+		'requestor-host' => $thishost,
 		'items' => {
 				'zone' => [sort @$zones_ref],
 				'subnet' => [@$subnets_ref]

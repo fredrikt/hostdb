@@ -451,8 +451,12 @@ sub request_reload
 	my @zonelist = sort keys %zonenames;
 	my $num_zones = scalar @zonelist;
 
+	my $thishost = Sys::Hostname::hostname();
 	if ($num_zones) {
-	    my %data = ('type' => 'activate-request',
+	    my %data = ('type'		=> 'activate-request',
+			'source'	=> 'home.cgi',
+			'requestor'	=> $remote_user,
+			'requestor-host' => $thishost,
 			'items' => {
 			    'zone' => [sort @zonelist],
 			    'subnet' => [@$subnets_ref]
