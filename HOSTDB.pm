@@ -99,16 +99,24 @@ sub get_inifile
     if (defined ($which)) {
 	$which = lc ($which);
 	if ($which eq 'jevent') {
-	    $fn = '/etc/hostdb-jevent.ini';
+	    if ($ENV{'HOSTDB_JEVENT_INIFILE'}) {
+		$fn = $ENV{'HOSTDB_JEVENT_INIFILE'};
+	    } else {
+		$fn = '/etc/hostdb-jevent.ini';
+	    }
 	} else {
 	    die ("$0: Unknown INI-file requested ('$which')");
 	}
     } else {
-	$fn = '/etc/hostdb.ini';
+	if ($ENV{'HOSTDB_INIFILE'}) {
+	    $fn = $ENV{'HOSTDB_INIFILE'};
+	} else {
+	    $fn = '/etc/hostdb.ini';
+	}
     }
 
     if (! -f $fn) {
-	die ("$0: Config-file $fn does not exist");
+	die ("$0: Config-file '$fn' does not exist");
     }
     
     return ($fn);
