@@ -6,8 +6,6 @@
 use strict;
 use HOSTDB;
 use SUCGI2;
-use SAM2;
-
 use Config::IniFiles;
 use JEvent;
 use XML::Simple;
@@ -333,6 +331,8 @@ sub activate_changes
 	if ($is_admin or $is_helpdesk) {
 		my $activateother = $q->param ('activateother') || '';
 
+		$activateother =~ s/^\s*(\S+)\s*$/$1/o;	# trim spaces
+
 		if ($activateother) {
 			if ($hostdb->is_valid_ip ($activateother)) {
 				if ($activateother =~ /\.0+$/) {
@@ -373,8 +373,7 @@ sub activate_changes
 		}
 	}
 
-	my $res = request_reload ($dhcp_signal_directory, $je,
-			$subnets_ref, $zones_ref, $q, $remote_user);
+	my $res = request_reload ($je, $subnets_ref, $zones_ref, $q, $remote_user);
 			
 	if ($res) {
 		my $time = localtime ();
@@ -397,44 +396,19 @@ EOH
 
 sub request_reload
 {
-	my $dhcp_signal_directory = shift;
 	my $je = shift;
 	my $subnets_ref = shift;
 	my $zones_ref = shift;
 	my $q = shift;
 	my $remote_user = shift;
 	
-	my $sam;
 	my $i = localtime () . " home.cgi[$$]";
 
-	if (! $dhcp_signal_directory) {
-		error_line ($q, "Can't request reconfiguration, DHCP message spool directory not set");
-		return undef;
-	}
-		
-	if (! -d $dhcp_signal_directory) {
-		error_line ($q, "Can't request reconfiguration, DHCP message spool directory '$dhcp_signal_directory' does not exist");
-		return undef;
-	}
-		
 	my $num_subnets = scalar @$subnets_ref;
 
 	if ($num_subnets) {
-		$sam = SAM2->new (directory => $dhcp_signal_directory, name => 'home.cgi');
-		if (! defined ($sam)) {
-			error_line ($q, "Could not create SAM object (directory $dhcp_signal_directory)");
-			return 0;
-		}
-
 		warn ("$i: user '$remote_user' requests reload of the following $num_subnets subnets : " . join (', ', @$subnets_ref) . "\n");
-	
-		$sam->send ({msg => join (',', @$subnets_ref)}, 'configure');
-		# or error_line ($q, "WARNING: Message might not have been sent (directory $dhcp_signal_directory)");
-		$sam = undef;
 	}	
-
-
-
 
 	# build list of all requested zonenames plus the
 	# ones for IPv4 reverse of the subnets from above

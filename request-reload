@@ -1,12 +1,10 @@
-#!/usr/local/bin/perl -w
+#!/usr/local/bin/perl
 #
 # $Id$
 #
 
 use strict;
 use HOSTDB;
-use SAM2;
-
 use Config::IniFiles;
 use JEvent;
 use XML::Simple;
@@ -65,43 +63,20 @@ foreach my $a (@ARGV) {
 }
 
 my $hostdbini = $hostdb->inifile ();
-my $dhcp_signal_directory = $hostdbini->val('signals','dhcp_directory') if ($hostdbini->val('signals','dhcp_directory'));
 my $jevent_ini = Config::IniFiles->new(-file=> HOSTDB::get_inifile('JEvent'));
 my $je = JEvent->new (Config => $jevent_ini);
 $je->Connect ();
 
-request_reload ($je, $dhcp_signal_directory, \@subnets, \@zones);
+request_reload ($je, \@subnets, \@zones);
 
 
 sub request_reload
 {
     my $je = shift;
-    my $dhcp_signal_directory = shift;
     my $subnets_ref = shift;
     my $zones_ref = shift;
 
-    my $sam;
-    my $i = localtime () . " home.cgi[$$]";
-
-    if (! $dhcp_signal_directory) {
-	warn ("$0: Can't request reconfiguration, DHCP message spool directory not set");
-	return undef;
-    }
-
-    if (! -d $dhcp_signal_directory) {
-	warn ("$0: Can't request reconfiguration, DHCP message spool directory '$dhcp_signal_directory' does not exist");
-	return undef;
-    }
-    
-    $sam = SAM2->new (directory => $dhcp_signal_directory, name => 'home.cgi');
-    if (! defined ($sam)) {
-	warn ("$0: Could not create SAM object (directory $dhcp_signal_directory)");
-	return 0;
-    }
-
-    $sam->send ({msg => join (',', @$subnets_ref)}, 'configure')
-	or warn ("WARNING: Message might not have been sent (directory $dhcp_signal_directory)\n");
-    $sam = undef;
+    my $i = localtime () . " request-reload[$$]";
 
     my $user = getpwuid($<);
     $user = "uid $<" unless ($user);
