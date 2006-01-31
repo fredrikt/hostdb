@@ -396,18 +396,18 @@ sub create_datafield
     my $curr = $host->$attribute () || '';
 
     if (check_allowed_readwrite ($attribute, $readwrite_attributes, $remote_user, $is_admin, $is_helpdesk)) {
-	if (defined (%paramhash)) {
+	if (%paramhash) {
 	    return ($q->$func (-name => $attribute, -default => $curr, %paramhash));
 	} else {
 	    return ($q->$func (-name => $attribute, -default => $curr));
 	}
     } else {
 	my $val = $curr;
-	if (defined (%paramhash)) {
+	if (%paramhash) {
 	    # look for label matching the value we are to print
 	    # (for example, "Both 'A' and 'PTR'" instead of A_AND_PTR)
 	    my %l = %{$paramhash{'-labels'}};
-	    if (defined (%l)) {
+	    if (%l) {
 		$val = $l{$curr} || $curr;
 	    }
 	}
