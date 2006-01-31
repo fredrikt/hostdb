@@ -140,7 +140,8 @@ sub modify_host
 
 	my $identify_str = "id:'" . ($host->id () || 'no id') . "' hostname:'" . ($host->hostname () || 'no hostname') . "' ip:'" . ($host->ip () || 'no ip') . "'";
 
-	# this is a hash and not an array to provide a better framework
+	# this is a hash and not an array to provide a better framework if we need to
+	# change the attribute name but not the HTML variable name or vice versa
 	my %changer = ('dhcpmode' =>	'dhcpmode',
 		       'dhcpstatus' =>	'dhcpstatus',
 		       'mac_address' =>	'mac_address',
@@ -155,11 +156,6 @@ sub modify_host
 		       'profile' =>	'profile'
 		       );
 
-	# check which fields we should allow changes to
-	foreach my $t (keys %changer) {
-	    delete($changer{$t}) if (! check_allowed_readwrite ($t, $readwrite_attributes, $remote_user, $is_admin, $is_helpdesk));
-	}
-
 	foreach my $name (keys %changer) {
 	    my $new_val = $q->param ($name);
 	    if (defined ($new_val)) {
@@ -168,6 +164,11 @@ sub modify_host
 		my $old_val = $host->$func () || '';
 
 		if ($new_val ne $old_val) {
+
+		    # check if the user is allowed to change this value
+		    if (! is_allowed_write ($t, $old_val, $new_val, $readwrite_attributes, $remote_user, $is_admin, $is_helpdesk)) {
+			die "You are not allowed to set attribute '$t' (to '$new_val' at least)";
+		    }
 
 		    # do special stuff for some attributes
 
@@ -395,7 +396,7 @@ sub create_datafield
 
     my $curr = $host->$attribute () || '';
 
-    if (check_allowed_readwrite ($attribute, $readwrite_attributes, $remote_user, $is_admin, $is_helpdesk)) {
+    if (is_allowed_write ($attribute, $curr, undef, $readwrite_attributes, $remote_user, $is_admin, $is_helpdesk)) {
 	if (%paramhash) {
 	    return ($q->$func (-name => $attribute, -default => $curr, %paramhash));
 	} else {
@@ -642,9 +643,11 @@ EOH
     return 1;
 }
 
-sub check_allowed_readwrite
+sub is_allowed_write
 {
     my $attribute = shift;
+    my $oldvalue = shift;
+    my $newvalue = shift;
     my $list_ref = shift;
     my $remote_user = shift;
     my $is_admin = shift;
@@ -653,6 +656,9 @@ sub check_allowed_readwrite
     my @l = @$list_ref;
 
     if ($attribute eq 'dnsstatus') {
+	# anyone can enable DNS, only admin and helpdesk kan disable
+	return 1 if (defined ($newvalue) and $newvalue eq 'ENABLED');
+	return 1 if (defined ($oldvalue) and $oldvalue eq 'DISABLED');
 	return 0 if (! $is_admin and ! $is_helpdesk);
     }
 
