@@ -295,13 +295,23 @@ sub is_valid_domainname
 
 	# XXX 4711.com is a valid domainname, this is really to not treat invalid
 	# hostnames (4711.example.org) as valid domain names. should be fixed, but
-	# I can't think of a really good sollution right now. patches welcome.
+	# I can't think of a really good solution right now. patches welcome.
 	if ($domainname !~ /\.arpa$/ and
 	    $domainname !~ /\.e164\.sunet\.se$/ and
 	    $domainname_parts[0] =~ /^[0-9]+$/o) {
 		$self->_debug_print ("First part of domainname '$domainname_parts[0]' may not be digits-only (in HOSTDB)");
 		return 0;
 	}
+
+	# XXX is_valid.example.com is a valid domainname, but not a valid hostname.
+	# this is really to avoid that clean_hostname treats that as a valid hostname,
+	# since it might be a domain name. should be fixed, but I can't think of a
+	# really good solution right now. patches welcome.
+	if ($domainname_parts[0] =~ /_/o) {
+		$self->_debug_print ("First part of domainname '$domainname_parts[0]' may not contain underscore (in HOSTDB)");
+		return 0;
+	}
+
 
 	# check TLD, only letters and between 2 and 6 chars long
 	# 2 is for 'se', 6 is 'museum'
