@@ -657,9 +657,10 @@ sub is_allowed_write
 
     if ($attribute eq 'dnsstatus') {
 	# anyone can enable DNS, only admin and helpdesk kan disable
-	return 1 if (defined ($newvalue) and $newvalue eq 'ENABLED');
-	return 1 if (defined ($oldvalue) and $oldvalue eq 'DISABLED');
-	return 0 if (! $is_admin and ! $is_helpdesk);
+	if ((defined ($newvalue) and $newvalue ne 'ENABLED') or
+	    (defined ($oldvalue) and $oldvalue ne 'DISABLED')) {
+	    return 0 if (! $is_admin and ! $is_helpdesk);
+	}
     }
 
     if ($attribute eq 'dnsmode') {
