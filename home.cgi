@@ -1,4 +1,7 @@
 #!/usr/local/bin/perl -w
+
+eval 'exec /pkg/perl/5.8.6/bin/perl -w -S $0 ${1+"$@"}'
+    if 0; # not running under some shell
 #
 # $Id$
 #
@@ -404,12 +407,6 @@ sub request_reload
 	
 	my $i = localtime () . " home.cgi[$$]";
 
-	my $num_subnets = scalar @$subnets_ref;
-
-	if ($num_subnets) {
-		warn ("$i: user '$remote_user' requests reload of the following $num_subnets subnets : " . join (', ', @$subnets_ref) . "\n");
-	}	
-
 	# build list of all requested zonenames plus the
 	# ones for IPv4 reverse of the subnets from above
 	my ($t, %zonenames);
@@ -423,10 +420,18 @@ sub request_reload
 	}
 	
 	my @zonelist = sort keys %zonenames;
+
 	my $num_zones = scalar @zonelist;
+	my $num_subnets = scalar @$subnets_ref;
 
 	my $thishost = Sys::Hostname::hostname();
-	if ($num_zones) {
+	if ($num_subnets or $num_zones) {
+	    if ($num_subnets) {
+		warn ("$i: user '$remote_user' requests reload of the following $num_subnets subnets : " . join (', ', @$subnets_ref) . "\n");
+	    }	
+	    if ($num_zones) {
+		warn ("$i: user '$remote_user' requests reload of the following $num_zones zones : " . join (', ', @zonelist) . "\n");
+	    }	
 	    my %data = ('type'		=> 'activate-request',
 			'source'	=> 'home.cgi',
 			'requestor'	=> $remote_user,
