@@ -293,6 +293,11 @@ sub is_valid_domainname
 		return 0;
 	}
 
+	if ($domainname =~ /^\./) {
+		$self->_debug_print ("domainname '$domainname' has empty first label");
+		return 0;
+	}
+
 	# XXX 4711.com is a valid domainname, this is really to not treat invalid
 	# hostnames (4711.example.org) as valid domain names. should be fixed, but
 	# I can't think of a really good solution right now. patches welcome.
