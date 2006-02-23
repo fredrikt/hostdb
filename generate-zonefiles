@@ -386,6 +386,7 @@ sub enum_naptr_rr
     my (%enumdata, $e164base, $e164root);
 
     my %staticmap = (#'+468161234'	=> 'sip:user@example.org',
+		     '+468161225'	=> 'sip:ft@it.su.se',
 		     '+468161999'	=> 'sip:1999@pstnproxy.sip.su.se'
 		     );
 
@@ -502,6 +503,17 @@ sub load_enumdata
 	    $$enumdata_ref{$e164}{siproutingaddress} = $siproutingaddress;
 
 	    $numbers_count++;
+	}
+    }
+
+    if ($debug) {
+	# dump what we've gathered
+	foreach my $dump_number ("+468164858", "+4686747676", "+468161225", "+468164684") {
+	    foreach my $k (keys %{$$enumdata_ref{"$dump_number"}}) {
+		my $v = $$enumdata_ref{"$dump_number"}{$k};
+		print ("  $dump_number $k -> $v\n");
+	    }
+	    print ("\n");
 	}
     }
 
