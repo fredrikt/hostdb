@@ -65,7 +65,12 @@ usage ("") if (! defined ($ip) or ! defined ($hostname) or ! defined ($owner));
 usage ("Invalid IP address '$ip'\n\n") unless ($hostdb->is_valid_ip ($ip));
 if (! ($opt_dnsstatus?$opt_dnsstatus:'' eq 'DISABLED' and $hostname eq 'NULL')) {
     # if dnsstatus is DISABLED, an empty hostname is valid
-    usage ("Invalid hostname '$hostname'\n\n") unless ($hostdb->is_valid_fqdn ($hostname));
+    if (! $opt_force) {
+	$hostdb->clean_hostname ($hostname);
+	usage ("Invalid FQDN '$hostname'\n\n") unless ($hostdb->is_valid_fqdn ($hostname));
+    } else {
+	usage ("Invalid hostname '$hostname'\n\n") unless ($hostdb->clean_hostname ($hostname));
+    }
 }
 
 if (! $opt_force) {
