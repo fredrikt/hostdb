@@ -207,7 +207,10 @@ sub modify_alias
 			# changing aliasname, check that user has enough permissions for the _new_ zone too
 			my $aliasname = $q->param ('aliasname');
 
-			die "Invalid hostname '$aliasname'\n" if (! $hostdb->clean_hostname ($aliasname));
+			die "Invalid hostname/alias '$aliasname'\n" if (! $hostdb->clean_hostname ($aliasname));
+
+			# CNAMEs can't co-exist with any other record in DNS
+			die "Can't have an alias with the same name as a zone ($aliasname)\n" if ($hostdb->findzonebyname ($aliasname));
 
 			my @t_hosts = $hostdb->findhost ('guess', $aliasname);
 			if (@t_hosts) {

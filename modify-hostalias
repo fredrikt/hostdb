@@ -79,6 +79,9 @@ if (defined ($opt{aliasname})) {
     my $zonename = $z->zonename ();
     $alias->aliasname ($opt{aliasname})	or die ("$0: Invalid aliasname - $alias->{error}\n");
     $alias->dnszone ($zonename)		or die ("$0: Invalid zonename - $alias->{error}\n");
+    
+    # CNAMEs can't co-exist with any other record in DNS
+    die ("Can't have an alias with the same name as a zone ($aliasname)\n") if ($hostdb->findzonebyname ($aliasname));
 }
 
 $alias->commit () or die ("$0: Could not commit host alias object - $alias->{error}\n");

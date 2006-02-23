@@ -73,6 +73,9 @@ if (! $opt_force) {
 my $alias = $host->create_hostalias () or die ("$0: Could not create alias - $host->{error}\n");
 $alias->aliasname ($aliasname) or die ("$0: Invalid value - $alias->{error}\n");
 
+# CNAMEs can't co-exist with any other record in DNS
+die ("Can't have an alias with the same name as a zone ($aliasname)\n") if ($hostdb->findzonebyname ($aliasname));
+
 # defaults, set before checking if they are supplied
 my $host_ttl = $host->ttl () || 'NULL';
 $alias->dnsstatus ('ENABLED')	or die ("$0: Could not set default 'dnsstatus': $alias->{error}\n");
