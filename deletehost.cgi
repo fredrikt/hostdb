@@ -97,7 +97,7 @@ SWITCH:
 	# check that user is allowed to edit both zone and subnet
 	my $authorized = 1;
 
-	if (! $is_admin) {
+	if (! $is_admin and ! $is_helpdesk) {
 	    if (! defined ($subnet) or ! $hostdb->auth->is_allowed_write ($subnet, $remote_user)) {
 		error_line ($q, "You do not have sufficient access to subnet '" . $subnet->subnet () . "'");
 	    }
