@@ -48,6 +48,7 @@ unless ($remote_user) {
     die ("$0: Invalid REMOTE_USER environment variable '$ENV{REMOTE_USER}'");
 }
 my $is_admin = $hostdb->auth->is_admin ($remote_user);
+my $is_helpdesk = $hostdb->auth->is_helpdesk ($remote_user);
 
 my (@links, @admin_links);
 push (@admin_links, "[<a HREF='$links{netplan}'>netplan</a>]") if ($is_admin and $links{netplan});
