@@ -245,7 +245,7 @@ sub modify_host
 			    my @host_refs = $hostdb->findhost ('guess', $parentid);
 
 			    my $host_count = $#host_refs + 1;
-			    die ("Parent host not found") if ($host_count < 1);
+			    die ("Parent host not found") if ($host_count < 1 or ! $host_refs[0]);
 			    die ("Lookup of parent returned more than one ($host_count) hosts") if ($host_count > 1);
 
 			    $new_val = $host_refs[0]->id ();
