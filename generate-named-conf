@@ -8,23 +8,38 @@
 use strict;
 use HOSTDB;
 use Getopt::Std;
-use vars qw ($opt_h $opt_d $opt_m $opt_s);
+use vars qw ($opt_h $opt_d $opt_m $opt_s $opt_T $opt_I);
 
-getopts ('hdms:');
+getopts ('hdms:T:I:');
 
 my $debug = defined ($opt_d);
 my $gen_master = defined ($opt_m);
+my $gen_type = $opt_T || 'undef';
+my $iplist = $opt_I;
 
-if ($opt_h or (! $opt_s and ! $opt_m)) {
+sub usage() {
 	die (<<EOT);
 Syntax: $0 -s or -m [options]
 	options :
 		-d	debug output
 		-s IP	generate slave config, fetch zones from IP
 		-m	generate master config
-
+		-T type	generate [master|slave|forward] config
+		-I IP-list  list of IP adresses for slave and forward
 EOT
 }
+
+usage() if ($opt_h);
+usage() if (! $opt_s and ! $opt_m and $gen_type eq 'undef');
+usage() if (($opt_s || $opt_m) && $gen_type ne 'undef');
+
+$gen_type = 'master' if ($gen_master);
+$gen_type = 'slave' if ($opt_s);
+
+usage() if (defined $iplist and $opt_s);
+$iplist = $opt_s if (!defined $iplist);
+
+usage() if ($gen_type ne 'master' && !defined $iplist);
 
 my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
 			      debug => $debug
@@ -34,7 +49,7 @@ foreach my $zone ($hostdb->findallzones ()) {
 	next if ($zone->delegated () eq "Y");
 
 	my $zonename = $zone->zonename ();
-	
+
 	my $z = tab_format (4, "zone \"$zonename\"");
 
 	my $options = '';
@@ -52,16 +67,20 @@ foreach my $zone ($hostdb->findallzones ()) {
 		$options = 'allow-query { rfc1918-query-acl; }; ';
 	}
 
-	if ($gen_master) {
+	if ($gen_type eq 'master') {
 	    if ($zonename =~ /^.*\.sub\.su\.se$/ or $zonename eq 'sub.su.se') {
 		$options = 'allow-transfer { axfr-acl; 130.237.165.3; }; ';
 	    }
 	}
 
-	if ($gen_master) {
+	if ($gen_type eq 'master') {
 		print ("$z	{ type master; file \"/approved/$zonename..ZONE\"; $options};\n");
+	} elsif ($gen_type eq 'slave') {
+		print ("$z	{ type slave; masters { $iplist; }; file \"/slave/$zonename..DUMP\"; $options};\n");
+	} elsif ($gen_type eq 'forward') {
+		print ("$z	{ type forward; forward first; forwarders { $iplist }; };\n");
 	} else {
-		print ("$z	{ type slave; masters { $opt_s; }; file \"/slave/$zonename..DUMP\"; $options};\n");
+        	die "unsupport type $gen_type";
 	}
 }
 
