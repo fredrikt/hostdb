@@ -218,7 +218,7 @@ EOH
 	    }
 	    
 	    #$q->print ($table_hr_line);
-	    
+	    $q->print ("\n\t\t</table>\n"); 
 	    return 1;
 	} else {
 	    if ($whoisdatatype eq 'aliasid') {
