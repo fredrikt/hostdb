@@ -8,40 +8,56 @@
 use strict;
 use HOSTDB;
 use Getopt::Std;
-use vars qw ($opt_h $opt_d $opt_m $opt_s $opt_T $opt_I $opt_X);
+use vars qw ($opt_h $opt_d $opt_m $opt_s $opt_T $opt_I $opt_X $opt_O);
 
-getopts ('hdms:T:I:X:');
+getopts ('hdms:T:I:X:O:');
 
 my $debug = defined ($opt_d);
-my $gen_master = defined ($opt_m);
 my $gen_type = $opt_T || 'undef';
 my $iplist = $opt_I;
-my %exclude_zones;
 
 sub usage() {
 	die (<<EOT);
-Syntax: $0 -s or -m [options]
+Syntax: $0 -T type [options]
 	options :
-		-d	debug output
-		-s IP	generate slave config, fetch zones from IP
-		-m	generate master config
-		-T type	generate [master|slave|forward] config
-		-I IP-list  list of IP adresses for slave and forward
-		-X file file containing zones to be excluded
+		-d		debug output
+		-s IP		generate slave config, fetch zones from IP (deprecated, use -T slave -I IP)
+		-m		generate master config (deprecated, use -T master)
+		-T type		generate [master|slave|forward] config
+		-I IP-list	list of IP adresses for slave and forward
+		-X file		file containing zones to be excluded
+		-O file		file containing zone specific options
+
+	-O options file format :
+
+		\# this is a comment
+		foo.se		allow-query { xyz; }
+		\# to match all subdomains of foo.se, but not foo.se itself :
+		.foo.se		allow-query { xyz; }
 EOT
 }
 
 usage() if ($opt_h);
-usage() if (! $opt_s and ! $opt_m and $gen_type eq 'undef');
-usage() if (($opt_s || $opt_m) && $gen_type ne 'undef');
 
-$gen_type = 'master' if ($gen_master);
+if ($opt_T and ($opt_m or $opt_s)) {
+    die ("$0: Can't have both -T and -s or -m (use -T)\n");
+}
+
+$gen_type = 'master' if ($opt_m);
 $gen_type = 'slave' if ($opt_s);
+
+if ($gen_type ne 'master' and
+    $gen_type ne 'slave' and
+    $gen_type ne 'forward') {
+    die ("$0: Unsupported type (-T) : '$gen_type'\n");
+}
 
 usage() if (defined $iplist and $opt_s);
 $iplist = $opt_s if (!defined $iplist);
 
-usage() if ($gen_type ne 'master' && !defined $iplist);
+if ($gen_type ne 'master' && !defined $iplist) {
+    die ("$0: Type '$gen_type' requires an IP list (option -I)\n");
+}
 
 #
 # We are done processing options, start the real work
@@ -51,10 +67,13 @@ my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
 			      debug => $debug
 			     );
 
+my (%exclude_zones, %zone_options);
+
 load_exclude_zones ($hostdb, $opt_X, \%exclude_zones) if ($opt_X);
+load_zone_options ($hostdb, $opt_O, \%zone_options) if ($opt_O);
 
 foreach my $zone ($hostdb->findallzones ()) {
-	next if ($zone->delegated () eq "Y");
+	next if ($zone->delegated () eq 'Y');
 
 	my $zonename = $zone->zonename ();
 
@@ -62,26 +81,7 @@ foreach my $zone ($hostdb->findallzones ()) {
 
 	my $z = tab_format (4, "zone \"$zonename\"");
 
-	my $options = '';
-
-	# XXX make this a configuration file thingy instead
-	if ($zonename =~ /\.e164\.sunet\.se$/ or
-	    $zonename =~ /\.e164\.arpa$/) {
-		$options = 'allow-transfer { any; }; ';
-	}
-
-	if ($zonename =~ /\.168\.192\.in-addr\.arpa$/ or
-	    $zonename =~ /\.10\.in-addr\.arpa$/ or
-	    $zonename =~ /\.(16|17|18|19|2\d|31|32)\.172\.in-addr\.arpa$/ or
-	    $zonename =~ /\.local\.su\.se$/ or $zonename eq 'local.su.se') {
-		$options = 'allow-query { rfc1918-query-acl; }; ';
-	}
-
-	if ($gen_type eq 'master') {
-	    if ($zonename =~ /^.*\.sub\.su\.se$/ or $zonename eq 'sub.su.se') {
-		$options = 'allow-transfer { axfr-acl; 130.237.165.3; }; ';
-	    }
-	}
+	my $options = get_zone_options ($zonename, \%zone_options);
 
 	if ($gen_type eq 'master') {
 		print ("$z	{ type master; file \"/approved/$zonename..ZONE\"; $options};\n");
@@ -89,14 +89,12 @@ foreach my $zone ($hostdb->findallzones ()) {
 		print ("$z	{ type slave; masters { $iplist; }; file \"/slave/$zonename..DUMP\"; $options};\n");
 	} elsif ($gen_type eq 'forward') {
 		print ("$z	{ type forward; forward first; forwarders { $iplist }; };\n");
-	} else {
-        	die "unsupport type $gen_type";
 	}
 }
 
 exit (0);
 
-
+# indent a string using tabs
 sub tab_format
 {
 	my $tab_count = shift;
@@ -107,6 +105,7 @@ sub tab_format
 	return $string . "\t" x ($tab_count - $minus_tabs);
 }
 
+# load file containing zonenames to exclude from the generated named.conf
 sub load_exclude_zones
 {
     my $hostdb = shift;
@@ -129,4 +128,82 @@ sub load_exclude_zones
 
     close (F);
     return 1;
+}
+
+# load file containing extra named.conf options to use for zones
+#
+# file format :
+#
+#     # this is a comment
+#     foo.se          allow-query { xyz; }
+#     # to match all subdomains of foo.se, but not foo.se itself :
+#     .foo.se         allow-query { xyz; }
+sub load_zone_options
+{
+    my $hostdb = shift;
+    my $fn = shift;
+    my $zone_options_ref = shift;
+
+    open (F, "< $fn") or die ("$0: Could not open options-file '$fn' for reading : $!\n");
+    while (my $rad = <F>) {
+	chomp ($rad);
+
+	next if ($rad =~ /^\s*\#/);	# ignore comments
+	next if ($rad =~ /^\s*$/);	# ignore empty lines
+
+	if ($rad =~ /^(\S+)\s+(.+?)\s*$/) {
+	    my $zone = $1;
+	    my $options = "$2 ";
+
+	    if ($zone =~ /^\.(.+)$/) {
+		# check if whatever follows the first dot is a valid domainname
+		my $t = $1;
+		if (! $hostdb->clean_domainname ($t)) {
+		    die ("$0: Invalid (dot-)zonename '$t' on line $. of options-file '$fn'\n");
+		}
+		$zone = ".$t";	# clean_domainname normalizes data
+	    } else {
+		if (! $hostdb->clean_domainname ($zone)) {
+		    die ("$0: Invalid zonename '$zone' on line $. of options-file '$fn'\n");
+		}
+	    }
+
+	    $$zone_options_ref{$zone} = $options;
+	} else {
+	    die ("$0: Invalid data on line $. of options-file '$fn' : $rad\n");
+	}
+    }
+
+    close (F);
+    return 1;
+}
+
+# return named.conf options to use for a zone, or ''.
+sub get_zone_options
+{
+    my $zonename = shift;
+    my $zone_options_ref = shift;
+
+    if ($$zone_options_ref{$zonename}) {
+	# exact match
+	return $$zone_options_ref{$zonename};
+    }
+
+    # look if this is a subdomain we should match
+    foreach my $t (keys %{$zone_options_ref}) {
+	next unless ($t =~ /^\./);
+
+	# there is probably a very obvious way to do this that I just fail to think of -
+	# I wanted to avoid having escaped dots in the configuration file, and also
+	# avoid any ambiguity to keep it simple...
+	my $rindex = rindex ($zonename, $t);
+	next unless $rindex;
+	next if ($rindex < 1);
+
+	if (length ($t) + $rindex == length ($zonename)) {
+	    return $$zone_options_ref{$t};
+	}
+    }
+
+    return '';
 }
