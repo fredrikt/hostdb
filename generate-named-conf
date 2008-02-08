@@ -8,14 +8,15 @@
 use strict;
 use HOSTDB;
 use Getopt::Std;
-use vars qw ($opt_h $opt_d $opt_m $opt_s $opt_T $opt_I);
+use vars qw ($opt_h $opt_d $opt_m $opt_s $opt_T $opt_I $opt_X);
 
-getopts ('hdms:T:I:');
+getopts ('hdms:T:I:X:');
 
 my $debug = defined ($opt_d);
 my $gen_master = defined ($opt_m);
 my $gen_type = $opt_T || 'undef';
 my $iplist = $opt_I;
+my %exclude_zones;
 
 sub usage() {
 	die (<<EOT);
@@ -26,6 +27,7 @@ Syntax: $0 -s or -m [options]
 		-m	generate master config
 		-T type	generate [master|slave|forward] config
 		-I IP-list  list of IP adresses for slave and forward
+		-X file file containing zones to be excluded
 EOT
 }
 
@@ -41,14 +43,22 @@ $iplist = $opt_s if (!defined $iplist);
 
 usage() if ($gen_type ne 'master' && !defined $iplist);
 
+#
+# We are done processing options, start the real work
+#
+
 my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
 			      debug => $debug
 			     );
+
+load_exclude_zones ($hostdb, $opt_X, \%exclude_zones) if ($opt_X);
 
 foreach my $zone ($hostdb->findallzones ()) {
 	next if ($zone->delegated () eq "Y");
 
 	my $zonename = $zone->zonename ();
+
+	next if ($exclude_zones{$zonename});
 
 	my $z = tab_format (4, "zone \"$zonename\"");
 
@@ -95,4 +105,28 @@ sub tab_format
 	my $minus_tabs = int (length ($string) / 8);
 
 	return $string . "\t" x ($tab_count - $minus_tabs);
+}
+
+sub load_exclude_zones
+{
+    my $hostdb = shift;
+    my $fn = shift;
+    my $exclude_zones_ref = shift;
+
+    open (F, "< $fn") or die ("$0: Could not open exclude-file '$fn' for reading : $!\n");
+    while (my $rad = <F>) {
+	chomp ($rad);
+
+	next if ($rad =~ /^\s*\#/);	# ignore comments
+	next if ($rad =~ /^\s*$/);	# ignore empty lines
+
+	if (! $hostdb->clean_domainname ($rad)) {
+	    die ("$0: Invalid domainname '$rad' on line $. of file '$fn'\n");
+	}
+
+	$$exclude_zones_ref{$rad} = 1;
+    }
+
+    close (F);
+    return 1;
 }
