@@ -131,10 +131,14 @@ $host->partof ($opt_partof)		or die ("$0: Invalid partof - $host->{error}\n") if
 $host->manual_dnszone ($opt_manual_dnszone) or die ("$0: Invalid manual_dnszone - $host->{error}\n") if (defined ($opt_manual_dnszone));
 $host->profile ($set_profile)		or die ("$0: Invalid profile - $host->{error}\n") if (defined ($opt_profile));
 
+$hostdb->clean_hostname($opt_hostname) if (defined ($opt_hostname));
+
 if (defined ($opt_dnszone)) {
     $host->dnszone ($opt_dnszone) or die ("$0: Invalid dnszone - $host->{error}\n");
 } else {
     if (defined ($opt_hostname) and $opt_hostname ne $host->hostname()) {
+	die ("$0: Invalid FQDN '$opt_hostname'\n") unless ($opt_force or $hostdb->is_valid_fqdn ($opt_hostname));
+
 	# setting hostname, but not setting DNS zone. auto-detect.
 	my $z = $hostdb->findzonebyhostname ($opt_hostname);
 
