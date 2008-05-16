@@ -151,11 +151,6 @@ sub gen_zonefile
     close ($ZONEFILE), return 0 if (! soa_rr ($hostdb, $zonename, $zone_param_ref, $ZONEFILE, $fn));
 
     if ($zonename =~ /\.in-addr\.arpa$/) {
-	if ($zonename =~ /.+\.\d+\.\d+\.\d+\.in-addr\.arpa$/) {
-	    warn ("$0: Classless in-addr.arpa not implemented ($zonename)\n") unless ($quiet);
-	    return undef;
-	}
-
 	if (! ipv4_ptr_rr ($hostdb, $zonename, $zone_parameters{default_ttl}, $ZONEFILE, $fn)) {
 	    close ($ZONEFILE);
 	    return 0;
@@ -235,6 +230,11 @@ sub ipv4_ptr_rr
     } elsif ($zonename =~ /^\d+\.in-addr\.arpa/) {
 	$first_ip = "$i[0].0.0.0";
 	$last_ip  = "$i[0].255.255.255";
+    } elsif ($zonename =~ /^[a-z^.]+\.\d+\.\d+\.\d+\.in-addr\.arpa/o) {
+	# RFC2317 classless in-addr.arpa zonename (e.g. "su.31.11.193.in-addr.arpa")
+	$first_ip = "$i[3].$i[2].$i[1].0";
+	$last_ip  = "$i[3].$i[2].$i[1].255";
+	print ("RFC2317 Classless in-addr.arpa zone '$zonename' (IP $first_ip .. $last_ip)\n") unless ($quiet);
     } else {
 	warn ("$0: Invalid IPv4 zonename '$zonename'");
 	return undef;
@@ -265,7 +265,8 @@ sub ipv4_ptr_rr
 	$hostname .= ".";
 
 	my @t = split ('\.', $hostip);
-	my $str = tab_format (2, "${prefix}$t[3].$t[2].$t[1].$t[0].in-addr.arpa.	$rr_ttl	PTR	$hostname\n");
+	my $last_octet = $t[3];
+	my $str = tab_format (2, "${prefix}${last_octet}.${zonename}.	$rr_ttl	PTR	$hostname\n");
 
 	print ($FH $str) or warn ("$0: Couldn't write data to '$fn': $!\n"), return 0;
 
