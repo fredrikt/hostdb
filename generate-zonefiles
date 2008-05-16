@@ -73,7 +73,12 @@ foreach my $buildzone (sort @generate) {
 	    next;
 	}
 	print ("build: '$buildzone'\n") if ($debug);
-	push (@zones, $hostdb->findzonebyname ($buildzone));
+	my $this = $hostdb->findzonebyname ($buildzone);
+	if (! $this) {
+	    warn ("$0: No such zone '$buildzone'\n");
+	    next;
+	}
+	push (@zones, $this);
 
 	$load_enum = 1 if ($buildzone =~ /\.e164\.(arpa|sunet\.se)/);
     }
