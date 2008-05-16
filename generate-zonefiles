@@ -56,7 +56,7 @@ my $ldap_enumuri = $hostdbini->val ('zone', 'ldap_enumuri');
 my $hostdb = HOSTDB::DB->new (ini => $hostdbini, debug => $debug);
 my @generate = @ARGV;
 
-push (@generate, "*") if ($#generate == -1);	# default is to generate ALL
+push (@generate, '*') if ($#generate == -1);	# default is to generate ALL
 
 foreach my $buildzone (sort @generate) {
     my $zone;
@@ -64,7 +64,7 @@ foreach my $buildzone (sort @generate) {
 
     my $load_enum = 0;
 
-    if ($buildzone eq "*") {
+    if ($buildzone eq '*') {
 	print ("build: ALL ZONES\n") if ($debug);
 	push (@zones, $hostdb->findallzones ());
     } else {
@@ -88,7 +88,10 @@ foreach my $buildzone (sort @generate) {
 
 	my $zonename = $zone->zonename ();
 
-	next if ($zone->delegated () eq 'Y');
+	if ($zone->delegated () eq 'Y') {
+	    print ("build: Skipping delegated zone '$zonename'\n") if ($debug);
+	    next;
+	}
 
 	my %zone_parameters = %zone_defaults;
 
@@ -103,9 +106,9 @@ foreach my $buildzone (sort @generate) {
 	$zone_parameters{soa_minimum}	= $zone->minimum ()	if ($zone->minimum ());
 
 	$zone_parameters{soa_mname} =~ s/\.+$//o;	# strip trailing dots
-	$zone_parameters{soa_mname} .= ".";
+	$zone_parameters{soa_mname} .= '.';
 	$zone_parameters{soa_rname} =~ s/\.+$//o;	# strip trailing dots
-	$zone_parameters{soa_rname} .= ".";
+	$zone_parameters{soa_rname} .= '.';
 
 	gen_zonefile ($hostdb, $zonename, \%zone_parameters, $ldap_enumuri, $debug) or die ("$0: Failed to generate zonefile for zone '$zonename'\n");
     }
@@ -198,7 +201,7 @@ sub soa_rr
     my $fn = shift;
 
     my $rr_ttl = $zp{soa_ttl};
-    $rr_ttl = "" if ($rr_ttl eq $zp{default_ttl});
+    $rr_ttl = '' if ($rr_ttl eq $zp{default_ttl});
 
     print ($FH <<EOS);
 \$TTL $zp{default_ttl}
@@ -243,12 +246,12 @@ sub ipv4_ptr_rr
     foreach my $host ($hostdb->findhostbyiprange ($first_ip, $last_ip)) {
 	warn ("$0: Invalid search results: $hostdb->{error}\n"), next unless ($host);
 
-	my $prefix = "";
+	my $prefix = '';
 
-	if ($host->dnsstatus () eq "DISABLED" or
-	    $host->dnsmode () eq "A") {
-	    $prefix = "; ";
-	    $host->hostname ("host-" . $host->id () . ".no-host-name.su.se");
+	if ($host->dnsstatus () eq 'DISABLED' or
+	    $host->dnsmode () eq 'A') {
+	    $prefix = '; ';
+	    $host->hostname ("host-" . $host->id () . '.no-host-name-in-hostdb.local');
 	}
 
 	my $hostname = $host->hostname () || '';
@@ -256,13 +259,13 @@ sub ipv4_ptr_rr
 	my $hostid = $host->id ();
 	my $rr_ttl = $host->ttl () || '';
 
-	$rr_ttl = "" if ($rr_ttl eq $default_ttl);
+	$rr_ttl = '' if ($rr_ttl eq $default_ttl);
 
 	$hostname =~ s/\.+$//o;	# strip trailing dots
 
 	warn ("$0: Host with IP '$hostip' and ID '$hostid' has NULL hostname - can't generate IPv4 PTR RR\n"), return 0 if (! $hostname);
 
-	$hostname .= ".";
+	$hostname .= '.';
 
 	my @t = split ('\.', $hostip);
 	my $last_octet = $t[3];
@@ -292,9 +295,9 @@ sub a_rr
     foreach my $host (@hostlist) {
 	warn ("$0: Invalid search results: $hostdb->{error}\n"), next unless ($host);
 
-	my $prefix = "";
+	my $prefix = '';
 
-	$prefix = "; " if ($host->dnsstatus () eq 'DISABLED');
+	$prefix = '; ' if ($host->dnsstatus () eq 'DISABLED');
 
 	my $hostname = $host->hostname ();
 	my $ip = $host->ip ();
@@ -308,11 +311,11 @@ sub a_rr
 	    return 0;
 	}
 
-	$hostname .= ".";
+	$hostname .= '.';
 
 	my $rr_ttl = $host->ttl () || '';
 
-	$rr_ttl = "" if ($rr_ttl eq $default_ttl);
+	$rr_ttl = '' if ($rr_ttl eq $default_ttl);
 
 	my $str = tab_format (3, "${prefix}$hostname") . "	$rr_ttl	A	$ip\n";
 	print ($FH $str) or
@@ -402,7 +405,7 @@ sub enum_naptr_rr
     if ($zonename =~ /^([\d\.]+)(\.e164\.arpa|\.e164\.sunet\.se)$/) {
 	$e164root = $2;
 	my @d = split (/\./, "$1");
-	$e164base = "+" . join ('', reverse (@d));
+	$e164base = '+' . join ('', reverse (@d));
     } else {
 	warn ("Can't figure out E.164 base from zonename '$zonename'\n");
 	return undef;
@@ -534,7 +537,7 @@ sub get_sipaddr
     my $attr = shift;
 
     my @l = $e->get_value ($attr);
-    
+
     my $res = '';
     foreach my $t (@l) {
 	next if ($t !~ /^sips*:/);	# ignore everything but SIP and SIPS (like tel:)
