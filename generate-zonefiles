@@ -222,6 +222,8 @@ sub ipv4_ptr_rr
 
     my $included_hosts_count = 0;
 
+    my $classless_label = '';
+
     my @i = split ('\.', $zonename);
     my ($first_ip, $last_ip);
     if ($zonename =~ /^\d+\.\d+\.\d+\.in-addr\.arpa/) {
@@ -233,8 +235,9 @@ sub ipv4_ptr_rr
     } elsif ($zonename =~ /^\d+\.in-addr\.arpa/) {
 	$first_ip = "$i[0].0.0.0";
 	$last_ip  = "$i[0].255.255.255";
-    } elsif ($zonename =~ /^[a-z^.]+\.\d+\.\d+\.\d+\.in-addr\.arpa/o) {
+    } elsif ($zonename =~ /^([a-z^.]+\.)\d+\.\d+\.\d+\.in-addr\.arpa/o) {
 	# RFC2317 classless in-addr.arpa zonename (e.g. "su.31.11.193.in-addr.arpa")
+	$classless_label = $1;
 	$first_ip = "$i[3].$i[2].$i[1].0";
 	$last_ip  = "$i[3].$i[2].$i[1].255";
 	print ("RFC2317 Classless in-addr.arpa zone '$zonename' (IP $first_ip .. $last_ip)\n") unless ($quiet);
@@ -268,8 +271,8 @@ sub ipv4_ptr_rr
 	$hostname .= '.';
 
 	my @t = split ('\.', $hostip);
-	my $last_octet = $t[3];
-	my $str = tab_format (2, "${prefix}${last_octet}.${zonename}.	$rr_ttl	PTR	$hostname\n");
+	my $lhs = "$t[3].${classless_label}$t[2].$t[1].$t[0].in-addr.arpa.";
+	my $str = tab_format (2, "${prefix}${lhs}	$rr_ttl	PTR	$hostname\n");
 
 	print ($FH $str) or warn ("$0: Couldn't write data to '$fn': $!\n"), return 0;
 
