@@ -82,22 +82,22 @@ if (! $opt_force) {
     my $subnet = $hostdb->findsubnetbyip ($ip);
 
     if (! defined ($subnet)) {
-	die ("$0: No subnet matches IP '$ip'");
+	die ("$0: No subnet matches IP '$ip', use --force to ignore.");
     }
 
     if ($opt_ip) {
 	$h = $hostdb->findhostbyip ($opt_ip);
-	die ("$0: A host with IP $opt_ip already exists, use --force to set anyways.\n") if (defined ($h));
+	die ("$0: A host with IP $opt_ip already exists, use --force to set IP anyways.\n") if (defined ($h));
     }
 
     if ($opt_hostname) {
 	$h = $hostdb->findhostbyname ($opt_hostname);
-	die ("$0: A host with hostname $opt_hostname already exists, use --force to set anyways.\n") if (defined ($h));
+	die ("$0: A host with hostname $opt_hostname already exists, use --force to set hostname anyways.\n") if (defined ($h));
     }
 
     if ($opt_mac_address) {
 	$h = $hostdb->findhostbymac ($opt_mac_address);
-	die ("$0: A host with MAC address $opt_mac_address already exists, use --force to set anyways.\n") if (defined ($h));
+	die ("$0: A host with MAC address $opt_mac_address already exists, use --force to set MAC address anyways.\n") if (defined ($h));
     }
 
     if ($opt_partof) {
@@ -108,7 +108,7 @@ if (! $opt_force) {
     if (defined ($opt_profile) and (uc ($opt_profile) ne 'NULL' and $opt_profile)) {
 	my @profiles = split (',', $subnet->profilelist ());
 	if (! grep (/^$opt_profile$/, @profiles)) {
-	    die ("$0: No profile called '$opt_profile' for subnet " . $subnet->subnet () . "\n");
+	    die ("$0: No profile called '$opt_profile' for subnet " . $subnet->subnet () . ", use --force to set profile anyways.\n");
 	}
     }
 }
