@@ -8,7 +8,7 @@
 use strict;
 use HOSTDB;
 use Getopt::Long;
-use vars qw ($opt_dhcpmode $opt_dhcpstatus $opt_dnsmode $opt_dnsstatus $opt_mac_address $opt_ttl $opt_comment $opt_partof $opt_dnszone $opt_manual_dnszone $opt_debug $opt_force);
+use vars qw ($opt_dhcpmode $opt_dhcpstatus $opt_dnsmode $opt_dnsstatus $opt_mac_address $opt_ttl $opt_comment $opt_partof $opt_dnszone $opt_manual_dnszone $opt_debug $opt_force $opt_help);
 
 my %o = ();
 my $res = GetOptions (
@@ -23,7 +23,8 @@ my $res = GetOptions (
 		      "dnszone=s",
 		      "manual_dnszone=s",
 		      "debug",
-		      "force"
+		      "force",
+		      "help"
 		      );
 
 #die ("$0: Parsing options failed\n") if ($res);
@@ -41,21 +42,24 @@ sub usage
     die(<<EOT);
 ${msg}Syntax: $0 [options] ip hostname owner
 	options:
-		--debug		debug
-		--force		don\'t perform certain sanity checks (DUP checking)
+		--debug			debug
+		--force			don\'t perform certain sanity checks (DUP checking)
 	object modifiers :
-		--dhcpmode	STATIC or DYNAMIC
-		--dhcpstatus	ENABLED or DISABLED
-		--dnsmode	A_AND_PTR or A
-		--dnsstatus	ENABLED or DISABLED
-		--mac_address	MAC address
-		--ttl		DNS TTL
-		--comment	Comment about host
-		--partof	parent Host ID
-		--dnszone	Which zone to include this host record in (defaults to the most logical one)
+		--dhcpmode		STATIC or DYNAMIC
+		--dhcpstatus		ENABLED or DISABLED
+		--dnsmode		A_AND_PTR or A
+		--dnsstatus		ENABLED or DISABLED
+		--mac_address		MAC address
+		--ttl			DNS TTL
+		--comment		Comment about host
+		--partof		parent Host ID
+		--dnszone		Which zone to include this host record in (defaults to the most logical one)
+		--manual_dnszone	Set to 'N' to disable automatic dnszone maintenance
 
 EOT
 }
+
+usage ('') if ($opt_help);
 
 my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
 			      debug => $debug
@@ -90,6 +94,13 @@ if (! $opt_force) {
     if ($opt_partof) {
 	$h = $hostdb->findhostbyid ($opt_partof);
 	die ("$0: A parent host with ID $opt_mac_address could not be found, use --force to set partof anyways.\n") if (defined ($h));
+    }
+
+    if ($opt_dnszone) {
+	my $is_manual = 0;
+	$is_manual = 1 if (defined ($opt_manual_dnszone) and $opt_manual_dnszone eq 'Y');
+	$is_manual = 1 if ($host->manual_dnszone () eq 'Y');
+	die ("$0: When setting dnszone, you probaby want to set manual_dnszone to 'Y' too (if you are creating glue records). Use --force to override.\n") unless ($is_manual);
     }
 }
 
