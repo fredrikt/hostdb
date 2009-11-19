@@ -9,7 +9,7 @@ use strict;
 use Config::IniFiles;
 use HOSTDB;
 
-my $table_cols = 4;
+my $table_cols = 5;
 
 ## Generic Stockholm university HOSTDB CGI initialization
 my ($table_blank_line, $table_hr_line, $empty_td) = HOSTDB::StdCGI::get_table_variables ($table_cols);
@@ -110,17 +110,18 @@ sub list_subnet
 		<table BORDER='0' CELLPADDING='0' CELLSPACING='3' WIDTH='100%'>
 	        <!-- table width disposition tds -->
 		<tr>
-			<td WIDTH='25%'>&nbsp;</td>
-			<td WIDTH='25%'>&nbsp;</td>
-			<td WIDTH='25%'>&nbsp;</td>
-			<td WIDTH='25%'>&nbsp;</td>
+			<td WIDTH='20%'>&nbsp;</td>
+			<td WIDTH='20%'>&nbsp;</td>
+			<td WIDTH='20%'>&nbsp;</td>
+			<td WIDTH='20%'>&nbsp;</td>
+			<td WIDTH='20%'>&nbsp;</td>
 		</tr>
 
 		<tr>
 		   <td NOWRAP>
 			<strong>$subnet_name</strong>
 		   </td>
-		   <td COLSPAN='3' ALIGN='left'>
+		   <td COLSPAN='4' ALIGN='left'>
 			&nbsp;&nbsp;<strong>$h_desc</strong>
 		   </td>
 		</tr>
@@ -129,7 +130,7 @@ EOH
     if ($edit_link) {
 	$q->print (<<EOH);
 		<tr>
-		  <td COLSPAN='4'>
+		  <td COLSPAN='5'>
 		    $edit_link
 		  </td>
 		</tr>
@@ -140,7 +141,7 @@ EOH
     $q->print (<<EOH);
 		<tr>
 		  <td>Owner</td>
-		  <td COLSPAN='3'>&nbsp;&nbsp;$owner</td>
+		  <td COLSPAN='4'>&nbsp;&nbsp;$owner</td>
 		</tr>
 
 EOH
@@ -165,7 +166,8 @@ EOH
 			<td>&nbsp;&nbsp;<b>IP</b></td>
 			<td>&nbsp;<b>Hostname</b></th>
 			<td>&nbsp;<b>MAC address</b></td>
-			<td>&nbsp;<b>Last used&nbsp;</b></td>
+			<td>&nbsp;<b>Last used</b></td>
+			<td>&nbsp;<b>Comment&nbsp;</b></td>
 		</tr>
 EOH
     for $i (1 .. $subnet->addresses () - 2) {
@@ -180,7 +182,7 @@ EOH
 					<td>
 						<font COLOR='green'>$ip</font>
 					</td>
-					<td COLSPAN='3'>
+					<td COLSPAN='4'>
 						&nbsp;
 					</td>
 				</tr>
@@ -219,11 +221,11 @@ EOH
     $q->print (<<EOH);
 		<tr>
 		   <td COLSPAN='2'>Netmask</td>
-		   <td COLSPAN='2'>$netmask</td>
+		   <td COLSPAN='3'>$netmask</td>
 		</tr>
 		<tr>
 		   <td COLSPAN='2'>Hosts registered</td>
-		   <td COLSPAN='2'>$num_hosts/$num_addrs ($host_object_usage_percent%)</td>
+		   <td COLSPAN='3' NOWRAP>$num_hosts/$num_addrs ($host_object_usage_percent%)</td>
 		</tr>
 
 		$table_blank_line
@@ -233,19 +235,21 @@ EOH
 		   <td>$static_hosts/$num_addrs ($static_percent%)</td>
 		   <td>in use</td>
 		   <td>$static_in_use/$static_hosts ($static_usage_percent%)</td>
+		   <td>&nbsp;</td>
 		</tr>
 		<tr>
 		   <td>Dynamic hosts</td>
 		   <td>$dynamic_hosts/$num_addrs ($dynamic_percent%)</td>
 		   <td>in use</td>
 		   <td>$dynamic_in_use/$dynamic_hosts ($dynamic_usage_percent%)</td>
+		   <td>&nbsp;</td>
 		</tr>
 
 		$table_blank_line
 
 		<tr>
 		   <td COLSPAN='2'>Addresses needed</td>
-		   <td COLSPAN='2'>$static_in_use + $dynamic_hosts = $addresses_needed/$num_addrs ($needed_percent%)</td>
+		   <td COLSPAN='3' NOWRAP>$static_in_use + $dynamic_hosts = $addresses_needed/$num_addrs ($needed_percent%)</td>
 		</tr>
 		$table_blank_line
 EOH
@@ -274,9 +278,19 @@ sub print_host
     my $hostname = $host->hostname () || 'NULL';
     my $mac = $host->mac_address () || '';
     my $mac_ts = $host->mac_address_ts () || '';
+    my $comment = $host->comment () || '';
 
     # split at space to only get date and not time
     $mac_ts = (split (/\s/, $mac_ts))[0] || '';
+
+    $comment = '' if ($comment eq 'dns-import');
+    if (length ($comment) > 17) {
+	if (length ($comment) <= 20) {
+	    $comment = substr ($comment, 0, 20);
+	} else {
+	    $comment = substr ($comment, 0, 17) . '...';
+	}
+    }
 
     my $ip_align = 'left';
 
@@ -338,10 +352,11 @@ sub print_host
 
     push (@$o, <<EOH);
 		<tr>
-		   <td ALIGN='$ip_align'>$ip</td>
-		   <td>$hostname</td>
-		   <td>$mac</td>
+		   <td ALIGN='$ip_align' NOWRAP>$ip</td>
+		   <td NOWRAP>$hostname</td>
+		   <td NOWRAP>$mac</td>
 		   <td NOWRAP>$mac_ts</td>
+		   <td NOWRAP>$comment</td>
 		</tr>
 EOH
 
@@ -399,7 +414,7 @@ sub print_hostaliases
 	push (@$o, <<EOH);
                 <tr>
                    <td ALIGN='center'>alias</td>
-                   <td COLSPAN='3'>$alias_link $a_dnsstatus</td>
+                   <td COLSPAN='4'>$alias_link $a_dnsstatus</td>
                 </tr>
 
 EOH
@@ -425,7 +440,7 @@ sub error_line
     chomp ($error);
     $q->print (<<EOH);
 	   <tr>
-		<td COLSPAN='4'>
+		<td COLSPAN='5'>
 		   <font COLOR='red'>
 			<strong>$error</strong>
 		   </font>
