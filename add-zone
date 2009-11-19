@@ -8,7 +8,7 @@
 use strict;
 use HOSTDB;
 use Getopt::Long;
-use vars qw ($opt_delegated $opt_default_ttl $opt_ttl $opt_serial $opt_mname $opt_rname $opt_refresh $opt_retry $opt_expiry $opt_minimum $opt_owner $opt_force $opt_debug);
+use vars qw ($opt_delegated $opt_default_ttl $opt_ttl $opt_serial $opt_mname $opt_rname $opt_refresh $opt_retry $opt_expiry $opt_minimum $opt_owner $opt_force $opt_debug $opt_help);
 
 my %o = ();
 my $res = GetOptions (
@@ -22,7 +22,8 @@ my $res = GetOptions (
 	    "retry=s",
 	    "expiry=s",
 	    "minimum=s",
-	    "force"
+	    "force",
+	    "help"
 	   );
 
 #die ("$0: Parsing options failed\n") if ($res);
@@ -40,7 +41,7 @@ sub usage
 ${msg}Syntax: $0 [options] zonename owner
 	options:
 		--debug		debug
-		--force		don't perform certain sanity checks (DUP checking)
+		--force		don\'t perform certain sanity checks (DUP checking)
 	object modifiers :
 		--delegated	Y or N
 		--default_ttl	what to use for \$TTL - BIND parseable please
@@ -55,6 +56,8 @@ ${msg}Syntax: $0 [options] zonename owner
 
 EOT
 }
+
+usage('') if ($opt_help);
 
 my $hostdb = HOSTDB::DB->new (inifile => HOSTDB::get_inifile (),
 			      debug => $debug
@@ -110,7 +113,7 @@ if (@hosts_in_new_zone) {
 			$host->ip (), $host->hostname ();
 	}
 
-	print ("\n\nThe easiest way to do that is to simply run 'housekeep-dnszone' once.\n\n");
+	print ("\n\nThe easiest way to do that is to simply run 'housekeep-dnszone -n' (dry run) and then 'housekeep-dnszone' once.\n\n");
 }
 
 exit (0);
