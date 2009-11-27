@@ -60,6 +60,7 @@ sub init
 		$self->{db} = $self->{ini}->val ('db', 'database') unless (defined ($self->{db}));
 		$self->{user} = $self->{ini}->val ('db', 'user') unless (defined ($self->{user}));
 		$self->{password} = $self->{ini}->val ('db', 'password') unless (defined ($self->{password}));
+		$self->{auto_reconnect} = $self->{ini}->val ('db', 'auto_reconnect') || '' unless (defined ($self->{auto_reconnect}));
 
 		# other misc settings
 		$self->{auth_ldap_server} = $self->{ini}->val ('auth', 'ldap_server') unless (defined ($self->{auth_ldap_server}));
@@ -73,6 +74,16 @@ sub init
 
 	if (defined ($self->{dsn})) {
 		$self->{_dbh} = DBI->connect ($self->{dsn}, $self->{user}, $self->{password}) or die "$DBI::errstr";
+
+		if (lc ($self->{auto_reconnect}) eq 'true' or lc ($self->{auto_reconnect}) eq 'yes') {
+		    if ($self->{dsn} =~ /^dbi:mysql:/o) {
+			$self->_debug_print ("Requesting DB auto-reconnect\n");
+			$self->{_dbh}{'mysql_auto_reconnect'} = 1;
+		    } else {
+			# do not output DSN in case it contains passwords...
+			die ("HOSTDB: Database auto-reconnect requested by configuration, but DSN is not 'dbi:mysql'.\n");
+		    }
+		}
 
 		##
 		## HOST
