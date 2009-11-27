@@ -118,9 +118,23 @@ sub update_db
 
 	warn ("IP $ip MAC $mac\n") if ($debug);
 
-	my $host = $hostdb->findhostbyip ($ip);
+	my @hosts = $hostdb->findhostbyip ($ip);
 
-	if (defined ($host)) {
+	if (! @hosts) {
+	    warn ("No host with IP '$ip' in database\n") unless ($quiet);
+	    next;
+	}
+
+	my $update_partof_hosts = 1;
+	if (scalar @hosts > 0) {
+	    # More than one host with this IP found, only update those that are
+	    # not partof another host. Ideally, we would just eliminate childs
+	    # whose parent is also in @hosts, but that logic is more complex.
+	    # This is probably good enough.
+	    $update_partof_hosts = 0;
+	}
+
+	foreach my $host (@hosts) {
 	    my $id = $host->id ();
 	    my $host_mac = $host->mac_address ();
 
@@ -131,6 +145,12 @@ sub update_db
 		    $host->commit () if ($valid);
 		    warn ("Cleared MAC address on dynamic host $id (IP $ip)\n") if ($debug and $valid);
 		}
+		next;
+	    }
+
+	    my $part_of = $host->partof () || '';
+	    if ($part_of and ! $update_partof_hosts) {
+		warn ("Skipping $ip ($mac) host $id which is part of another host ($part_of)\n") if ($debug);
 		next;
 	    }
 
@@ -151,13 +171,15 @@ sub update_db
 		    $host->commit () if ($valid);
 		    warn ("Set new timestamp on $ip\n") if ($debug and $valid);
 		} else {
-		    warn ("Database timestamp on $ip ($host_mac_ts) greater than this: $ts\n") if ($debug);
+		    if ($host_mac_ts > $ts) {
+			# only warn for greater than, not equal
+			warn ("Database timestamp on $ip ($host_mac_ts) greater than this: $ts (+" .
+			      ($host_mac_ts - $ts) . " seconds)\n") unless ($quiet);
+		    }
 		}
 	    } else {
 		warn ("Unexpected mac-address on $ip: $mac (db has $host_mac) - ignoring\n") unless ($quiet);
 	    }
-	} else {
-	    warn ("No host with IP '$ip' in database\n") unless ($quiet);
 	}
     }
 }
