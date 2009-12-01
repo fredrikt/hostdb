@@ -351,6 +351,12 @@ sub print_zone_info
 	$delegated = '<font COLOR=\'red\'>Yes</font>';
     }
 
+    # for interpolation
+    my $table_cols_1 = $table_cols - 1;
+    my $table_cols_2 = $table_cols - 2;
+    my $table_cols_3 = $table_cols - 3;
+    my $table_cols_4 = $table_cols - 4;
+
     $q->print (<<EOH);
 		<tr>
 			<th ALIGN='left'>Zone</th>
