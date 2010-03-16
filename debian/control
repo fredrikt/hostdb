@@ -10,6 +10,17 @@ Maintainer: Fredrik Thulin <ft@it.su.se>
 Standards-Version: 3.8.0
 Homepage: http://search.cpan.org/dist/HOSTDB/
 
+Package: hostdb
+Architecture: all
+Depends: ${perl:Depends},
+	 ${misc:Depends},
+	 libhostdb-perl,
+	 hostdb-cli,
+	 hostdb-cgi
+Description: Stockholm university HOSTDB.
+ The host database contains DNS, subnet and DHCP type host info, and this is
+ the meta package that gives you the whole lot.
+
 Package: libhostdb-perl
 Architecture: all
 Depends: ${perl:Depends},
