@@ -1,0 +1,12 @@
+debian/tmp/list-*
+debian/tmp/modify-*
+debian/tmp/add-*
+debian/tmp/delete-*
+debian/tmp/*-hostattr
+debian/tmp/generate-*
+debian/tmp/request-reload
+debian/tmp/update-mac-timestamps
+debian/tmp/zonediff
+debian/tmp/bump-SOA-serial
+debian/tmp/cli-whois
+debian/tmp/housekeep-dnszone
