@@ -1,7 +1,7 @@
 Source: libhostdb-perl
 Section: perl
 Priority: optional
-Build-Depends: debhelper (>= 7),
+Build-Depends: debhelper (>= 6),
 	       libdbd-mysql-perl
 Build-Depends-Indep: perl (>= 5.6.0-12)
 Maintainer: Fredrik Thulin <ft@it.su.se>
