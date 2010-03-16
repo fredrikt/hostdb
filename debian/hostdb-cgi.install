@@ -1,1 +1,1 @@
-debian/tmp/*.cgi
+debian/tmp/usr/bin/*.cgi /usr/lib/cgi-bin/hostdb
