@@ -41,7 +41,8 @@ Depends: ${perl:Depends},
 	 libhostdb-perl
 Recommends: libjevent-perl,
 	    libnet-enum-perl,
-Suggests: libgd-gd2-perl
+Suggests: libgd-gd2-perl,
+	  libdb-file-lock-perl
 Description: Command line utilities to access Stockholm university HOSTDB.
  The host database contains DNS, subnet and DHCP type host info, use these
  command line interface tools to access the database.
