@@ -1,0 +1,15 @@
+Source: libhostdb-perl
+Section: perl
+Priority: optional
+Build-Depends: debhelper (>= 7)
+Build-Depends-Indep: perl (>= 5.6.0-12)
+Maintainer: Fredrik Thulin <ft@it.su.se>
+Standards-Version: 3.8.0
+Homepage: http://search.cpan.org/dist/HOSTDB/
+
+Package: libhostdb-perl
+Architecture: all
+Depends: ${perl:Depends}, ${misc:Depends}
+Description: Perl extension to access Stockholm university HOSTDB.
+ The host database contains DNS, subnet and DHCP type host info, use this perl
+ module to access the data.
