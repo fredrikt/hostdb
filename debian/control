@@ -3,7 +3,8 @@ Section: perl
 Priority: optional
 Build-Depends: debhelper (>= 7),
 	       libdbd-mysql-perl,
-	       libconfig-inifiles-perl
+	       libconfig-inifiles-perl,
+	       libsucgi2-perl
 Build-Depends-Indep: perl (>= 5.6.0-12)
 Maintainer: Fredrik Thulin <ft@it.su.se>
 Standards-Version: 3.8.0
@@ -14,7 +15,8 @@ Architecture: all
 Depends: ${perl:Depends},
 	 ${misc:Depends},
 	 libdbd-mysql-perl,
-	 libconfig-inifiles-perl
+	 libconfig-inifiles-perl,
+	 libsucgi2-perl
 Description: Perl extension to access Stockholm university HOSTDB.
  The host database contains DNS, subnet and DHCP type host info, use this perl
  module to access the data.
