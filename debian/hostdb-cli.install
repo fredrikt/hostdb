@@ -10,3 +10,4 @@ debian/tmp/usr/bin/zonediff
 debian/tmp/usr/bin/bump-SOA-serial
 debian/tmp/usr/bin/cli-whois
 debian/tmp/usr/bin/housekeep-dnszone
+debian/tmp/usr/bin/draw-subnets
