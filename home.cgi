@@ -10,8 +10,8 @@ use strict;
 use HOSTDB;
 use SUCGI2;
 use Config::IniFiles;
-use JEvent;
-use XML::Simple;
+use File::SearchPath qw/ searchpath /;
+
 
 my $table_blank_line = "<tr><td COLSPAN='3'>&nbsp;</td></tr>\n";
 my $table_hr_line = "<tr><td COLSPAN='3'><hr></td></tr>\n";
@@ -77,12 +77,8 @@ EOH
 
 my ($subnets_ref, $zones_ref) = home_form ($q, $hostdb, $remote_user, $is_admin, $is_helpdesk);
 
-my $jevent_ini = Config::IniFiles->new(-file=> HOSTDB::get_inifile('JEvent'));
-my $je = JEvent->new (Config => $jevent_ini);
-$je->Connect ();
-
 if (defined ($q->param ('action') and $q->param ('action') eq 'Activate changes')) {
-	activate_changes ($hostdb, $q, $je,
+	activate_changes ($hostdb, $q, $hostdbini,
 			  $subnets_ref, $zones_ref, $is_admin, $is_helpdesk, $remote_user);
 }
 
@@ -317,7 +313,7 @@ sub activate_changes
 {
 	my $hostdb = shift;
 	my $q = shift;
-	my $je = shift;
+	my $hostdbini = shift;
 	my $subnets_ref = shift;
 	my $zones_ref = shift;
 	my $is_admin = shift;
@@ -372,7 +368,7 @@ sub activate_changes
 		}
 	}
 
-	my $res = request_reload ($je, $subnets_ref, $zones_ref, $q, $remote_user);
+	my $res = request_reload ($hostdbini, $subnets_ref, $zones_ref, $q, $remote_user);
 			
 	if ($res) {
 		my $time = localtime ();
@@ -395,7 +391,7 @@ EOH
 
 sub request_reload
 {
-	my $je = shift;
+	my $hostdbini = shift;
 	my $subnets_ref = shift;
 	my $zones_ref = shift;
 	my $q = shift;
@@ -420,7 +416,6 @@ sub request_reload
 	my $num_zones = scalar @zonelist;
 	my $num_subnets = scalar @$subnets_ref;
 
-	my $thishost = Sys::Hostname::hostname();
 	if ($num_subnets or $num_zones) {
 	    if ($num_subnets) {
 		warn ("$i: user '$remote_user' requests reload of the following $num_subnets subnets : " . join (', ', @$subnets_ref) . "\n");
@@ -428,27 +423,48 @@ sub request_reload
 	    if ($num_zones) {
 		warn ("$i: user '$remote_user' requests reload of the following $num_zones zones : " . join (', ', @zonelist) . "\n");
 	    }	
-	    my %data = ('type'		=> 'activate-request',
-			'source'	=> 'home.cgi',
-			'requestor'	=> $remote_user,
-			'requestor-host' => $thishost,
-			'items' => {
-			    'zone' => [sort @zonelist],
-			    'subnet' => [@$subnets_ref]
-			    }
-			);
-	    my %XMLoptions = (RootName =>		'hostdb',
-			      AttrIndent =>		1
-			      );
-	    
-	    my $xml = XMLout(\%data, %XMLoptions);
-	    
-	    warn ("JEvent XML :\n$xml\n\n") if ($debug);
-	    
-	    $je->Publish(Content => $xml) or die ("$0: Failed publishing event\n");
+
+	    my $cmd = get_request_reload_command ($hostdbini);
+	    if ($cmd) {
+		my @args = ($cmd,
+			    '--source',		'home.cgi',
+			    '--requestor',	$remote_user
+		    );
+
+		system (@args) == 0
+		    or die ("Failed executing command '$cmd'");
+	    } else {
+		warn ("Failed locating a 'request-reload' command, configure one " .
+		      "in hostdb.ini [interface] -> request_reload_cmd\n");
+		return 0;
+	    }
+	} else {
+	    warn ("Found no zones or subnets to reload");
+	    return 0;
 	}
 	
 	return 1;
+}
+
+sub get_request_reload_command
+{
+    my $hostdbini = shift;
+    
+    my $cmd = $hostdbini->val ('interface', 'request_reload_cmd');
+
+    return $cmd if ($cmd);
+
+    # when not found, look in PATH for hostdb request-reload command.
+    $cmd = searchpath('request-reload',
+		      env => 'PATH',
+		      exe => 1
+	);
+
+    if ($cmd) {
+	warn ("Requesting reload through $cmd found in PATH.\n");
+    }
+    
+    return $cmd;
 }
 
 sub error_line
