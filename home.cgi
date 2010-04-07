@@ -46,9 +46,6 @@ if ($@) {
 
 my %links = $hostdb->html_links ($q);
 
-my $dhcp_signal_directory = $hostdbini->val('signals','dhcp_directory') if ($hostdbini->val('signals','dhcp_directory'));
-my $dns_signal_directory = $hostdbini->val('signals','dns_directory') if ($hostdbini->val('signals','dns_directory'));
-
 my $remote_user = $q->user(); 
 unless ($remote_user) {
 	$q->print ("&nbsp;<p><ul><font COLOR='red' SIZE='3'><strong>You are not logged in.</strong></font></ul>\n\n");
@@ -85,7 +82,7 @@ my $je = JEvent->new (Config => $jevent_ini);
 $je->Connect ();
 
 if (defined ($q->param ('action') and $q->param ('action') eq 'Activate changes')) {
-	activate_changes ($hostdb, $q, $dhcp_signal_directory, $je,
+	activate_changes ($hostdb, $q, $je,
 			  $subnets_ref, $zones_ref, $is_admin, $is_helpdesk, $remote_user);
 }
 
@@ -320,7 +317,6 @@ sub activate_changes
 {
 	my $hostdb = shift;
 	my $q = shift;
-	my $dhcp_signal_directory = shift;
 	my $je = shift;
 	my $subnets_ref = shift;
 	my $zones_ref = shift;
