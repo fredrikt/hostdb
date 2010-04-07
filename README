@@ -1,0 +1,43 @@
+HOSTDB is the host management system currently in use at Stockholm university.
+
+With HOSTDB, you can maintain information about your hosts and have ISC DHCP
+and ISC BIND zonefiles generated for you.
+There are both web interfaces and command line interfaces to the database -
+both of which use the HOSTDB perl API.
+
+HOSTDB provides delegation of rights to manage certain zones or subnets to
+other parts of your organization (web interface only). Access control can be
+accomplished with lists of usernames (REMOTE_USER) and/or LDAP groups in the
+configuration file.
+
+HOSTDB is *very* mature. We have been using it since 2002 (and it is now 2010).
+
+HOSTDB is NOT aiming at being feature rich - instead HOSTDB concentrates on
+doing what it does very well and letting you do the rest by hand (or by other
+means).
+
+For DNS, this means that HOSTDB can manage A, CNAME and PTR (AAAA is a strong
+wish list item). It cannot handle NS, MX or other DNS RRs.
+
+Set it up like this, to be able to maintain less common DNS RRs in the zone
+file directly, while still getting the bulk of your data from HOSTDB :
+
+Zone file that BIND reads (e.g. /var/named/master/it.su.se..ZONE) :
+
+  ; $Id: it.su.se..ZONE,v 1.126 2009-08-19 13:06:45 nn Exp $
+  ;
+
+  $INCLUDE /var/named/zonedata/it.su.se..DB
+
+  $ORIGIN it.su.se.
+  it.su.se.                   IN      NS      ns.su.se.
+  it.su.se.                   IN      NS      ns2.su.se.
+  it.su.se.                   IN      NS      ns3.su.se.
+  it.su.se.                   IN      MX      10 mx.su.se.
+  ...
+
+Now generate the /var/named/zonedata/it.su.se..DB file with data from the
+HOSTDB database using the command 'generate-zonefiles'. Note that HOSTDB
+will generate a SOA record for you, and automatically manage the SOA serial.
+
+DHCP can be set up in a similar fashion.
