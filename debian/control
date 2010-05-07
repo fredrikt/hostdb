@@ -51,6 +51,7 @@ Package: hostdb-cgi
 Architecture: all
 Depends: ${perl:Depends},
 	 ${misc:Depends},
+	 libfile-searchpath-perl,
 	 libhostdb-perl
 Recommends: libjevent-perl
 Description: CGI scripts to access Stockholm university HOSTDB.
